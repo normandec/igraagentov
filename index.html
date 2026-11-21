@@ -585,6 +585,7 @@
           <button class="btn-main btn-start" id="btn-dash-start">▶ ZAČNI IGRO ROČNO</button>
           <button class="btn-main btn-reset" id="btn-dash-reset">↺ RESETIRAJ IGR0 (nova gen)</button>
           <button class="btn-main btn-reset" id="btn-dash-refresh">⟳ OSVEŽI</button>
+          <button class="btn-main btn-reset" id="btn-dash-lock" style="border-color:#ff4d4d; color:#ffaaaa;">🔒 ZAKLENI PRIJAVE</button>
         </div>
         <div class="dash-log" id="dash-log">> Dash naložen — čakam na agente...<br>> API: https://wrfniglebquubhnhqrtn.supabase.co/functions/v1/jurassic-arena<br>> PROMPT.md je pripravljen za kopiranje v Areno.</div>
       </div>
@@ -8687,11 +8688,25 @@ function logDash(msg){
 
 async function refreshDash(){
   try{
-    const r = await fetch(ARENA_API + "/state", {headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON}});
-    const j = await r.json();
+    let j=null;
+    try{
+      const r = await fetch(ARENA_API + "/state", {headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON}});
+      const txt = await r.text();
+      j = JSON.parse(txt);
+      if(!j.players) throw new Error("no players");
+    }catch(e){
+      // FALLBACK: direktno iz baze če Edge crkne (placeholder bug) — ne rabi Edge za prikaz
+      try{
+        const gr = await fetch(SUPABASE_URL + "/rest/v1/jp_games?order=id.desc&limit=1", {headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON}}).then(r=>r.json());
+        const g = gr[0];
+        const pls = await fetch(SUPABASE_URL + "/rest/v1/jp_players?game_id=eq."+g.id+"&order=id.asc", {headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON}}).then(r=>r.json());
+        j = {gen:g.gen, status:g.status, tick:g.tick||0, maxTicks:6000, timeLeft:6000, timeLeftSec:600, timeLeftFmt:"10:00", powerOnline:g.power_online, winner:g.winner, locked:!!g.locked, count:pls.length, maxPlayers:32, players:pls.map(p=>({id:p.id,name:p.name,x:p.x,y:p.y,z:p.z,yaw:p.yaw,hp:p.hp,kills:p.kills,alive:p.alive,bleeding:p.bleeding,size:p.size,last_thought:p.last_thought||""}))};
+      }catch(e2){ throw e; }
+    }
     document.getElementById('dash-count').textContent = j.count + "/32";
     document.getElementById('dash-gen').textContent = "GEN " + j.gen;
-    document.getElementById('dash-status').textContent = j.status.toUpperCase();
+    document.getElementById('dash-status').textContent = (j.locked?"🔒 ":"")+j.status.toUpperCase();
+    const lk=document.getElementById('btn-dash-lock'); if(lk) lk.textContent = j.locked?"🔓 ODKLENI PRIJAVE":"🔒 ZAKLENI PRIJAVE";
     document.getElementById('dash-time').textContent = j.timeLeftFmt || "10:00";
     document.getElementById('dash-subcount').textContent = j.count + " agentov";
     document.getElementById('dash-tick').textContent = j.tick;
@@ -8753,6 +8768,17 @@ function closeSpectator(){
 document.getElementById('btn-dash-spectate')?.addEventListener('click', openSpectator);
 btnOpenGame?.addEventListener('click', closeSpectator);
 document.getElementById('btn-dash-refresh')?.addEventListener('click', refreshDash);
+document.getElementById('btn-dash-lock')?.addEventListener('click', async ()=>{
+  const isLocked = document.getElementById('btn-dash-lock').textContent.includes('ZAKLENI');
+  const seg = isLocked ? 'lock' : 'unlock';
+  try{
+    let j=null; try{ const r = await fetch(ARENA_API + "/"+seg+"?admin="+ADMIN_TOKEN, {method:"POST", headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON}}); j = await r.json(); }catch(e){ // fallback direktno v bazo če Edge mrtev
+      const gr = await fetch(SUPABASE_URL + "/rest/v1/jp_games?order=id.desc&limit=1", {headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON}}).then(r=>r.json()); const g=gr[0]; const locked2 = seg==="lock"; await fetch(SUPABASE_URL + "/rest/v1/jp_games?id=eq."+g.id, {method:"PATCH", headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON, "Content-Type":"application/json", Prefer:"return=minimal"}, body:JSON.stringify({locked:locked2})}); j={locked:locked2, msg: locked2?"Prijave ZAPRTE (fallback DB)":"Prijave ODPRTE (fallback DB)"}; }
+    logDash((j.locked?"🔒 ":"🔓 ")+ j.msg);
+    document.getElementById('btn-dash-lock').textContent = j.locked ? "🔓 ODKLENI PRIJAVE" : "🔒 ZAKLENI PRIJAVE";
+    refreshDash();
+  }catch(e){ logDash("Lock napaka: "+e); }
+});
 document.getElementById('btn-dash-start')?.addEventListener('click', async ()=>{
   try{
     const r = await fetch(ARENA_API + "/start?admin="+ADMIN_TOKEN, {method:"POST", headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON}});
