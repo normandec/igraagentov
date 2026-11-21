@@ -1,4 +1,4 @@
-// OCEAN ARENA — HTTP plast za Supabase Edge Function (naloži jo loader prek new Function).
+// OCEAN ARENA v6 — HTTP plast za Supabase Edge Function (naloži jo loader prek new Function).
 // Stanje: public.ocean_state (id=1: doc jsonb, tick, gen, rev). Besedila: public.arena_pub (ocean:*). Zgodovina: public.ocean_games.
 (function (OC) {
   var C = OC.CONST;
@@ -48,7 +48,6 @@
       await fetch(U + '/rest/v1/ocean_games?on_conflict=gen', { method: 'POST', headers: Object.assign({ 'content-type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' }, HEAD), body: JSON.stringify(payload) });
     } catch (e) { /* zgodovina ne sme ustaviti igre */ }
   }
-  // transakcija z optimističnim zaklepanjem: fn(doc, now) -> {res, dirty}
   async function withState(fn) {
     var now = Date.now(), lastErr = null;
     for (var tries = 0; tries < 7; tries++) {
@@ -65,7 +64,7 @@
     throw lastErr || new Error('state conflict: too many concurrent writers, retry');
   }
   function lobbyTick(g, now) {
-    if (g.status !== 'lobby' || !g.lobbyUntilMs) return false;
+    if (g.status !== 'lobby' || g.manualStart || !g.lobbyUntilMs) return false;
     if (now >= g.lobbyUntilMs) {
       if (g.fish.length >= C.MIN_PLAYERS) { OC.start(g, now); return true; }
       g.lobbyUntilMs = now + 60000; return true;
@@ -88,7 +87,7 @@
     var adm = u.searchParams.get('admin') === ADMIN || req.headers.get('x-admin') === ADMIN;
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     try {
-      if (seg === '' || seg === 'health') return json({ ok: true, game: 'OCEAN ARENA', endpoints: ['GET /rules', 'GET /chart', 'GET /prompt', 'GET /prompt/en', 'POST /claim', 'GET /me?key=', 'POST /cmd', 'GET /report', 'GET /leaderboard', 'GET /history', 'GET /state (spectators only)'], version: 'v5' });
+      if (seg === '' || seg === 'health') return json({ ok: true, game: 'OCEAN ARENA', endpoints: ['GET /rules', 'GET /chart', 'GET /prompt', 'GET /prompt/en', 'POST /claim', 'GET /me?key=', 'POST /cmd', 'GET /report', 'GET /leaderboard', 'GET /history', 'GET /state (spectators only)'], version: 'v6' });
       if (seg === 'rules') return text((await pub('ocean:rules')) || 'rules not published');
       if (seg === 'prompt' || seg === 'prompts') return text((await pub(sub === 'en' ? 'ocean:prompt-en' : 'ocean:prompt')) || 'prompt not published');
       if (seg === 'chart') return json(OC.chart());
@@ -98,16 +97,32 @@
         return json({ ok: true, results: res });
       }
       if (seg === 'reset' && adm) {
+        var manual = u.searchParams.get('manual') === '1';
         await dbInsertIfMissing();
-        return resp(await withState(async function (g) { var ng = OC.newGame((g.gen || 0) + 1); for (var kk in g) delete g[kk]; Object.assign(g, ng); return { dirty: true, res: { ok: true, gen: g.gen, status: g.status } }; }));
+        return resp(await withState(async function (g) {
+          var ng = OC.newGame((g.gen || 0) + 1);
+          ng.manualStart = manual;
+          for (var kk in g) delete g[kk]; Object.assign(g, ng);
+          return { dirty: true, res: { ok: true, gen: g.gen, status: g.status, manualStart: !!g.manualStart } };
+        }));
       }
       if (seg === 'start' && adm) {
         return resp(await withState(async function (g, now) {
-          if (g.status !== 'lobby') return { dirty: false, res: { ok: false, status: g.status } };
+          if (g.status !== 'lobby') return { dirty: false, res: { ok: false, status: g.status, error: 'igra ni v čakalnici' } };
+          if (u.searchParams.get('manual') === '1') {
+            g.manualStart = true; g.lobbyUntilMs = 0;
+            return { dirty: true, res: { ok: true, status: g.status, manualStart: true, fish: g.fish.length } };
+          }
           var sec = +(u.searchParams.get('in') || 0);
+          var force = u.searchParams.get('force') === '1';
+          if (sec <= 0 && g.fish.length < C.MIN_PLAYERS && !force) {
+            return { dirty: false, res: { ok: false, status: g.status, fish: g.fish.length, error: 'za začetek sta potrebni vsaj ' + C.MIN_PLAYERS + ' ribi (trenutno ' + g.fish.length + ')' } };
+          }
+          g.manualStart = false;
           g.lobbyUntilMs = now + sec * 1000;
-          lobbyTick(g, now);
-          return { dirty: true, res: { ok: true, status: g.status, fish: g.fish.length, lobbyUntilMs: g.lobbyUntilMs } };
+          if (sec <= 0 && (g.fish.length >= C.MIN_PLAYERS || force)) OC.start(g, now);
+          else lobbyTick(g, now);
+          return { dirty: true, res: { ok: true, status: g.status, fish: g.fish.length, manualStart: false, lobbyUntilMs: g.lobbyUntilMs } };
         }));
       }
       if (seg === 'kick' && adm) {
@@ -161,9 +176,12 @@
           if (g.fish.length >= C.MAX_SEATS) return { dirty: false, res: json({ error: 'all ' + C.MAX_SEATS + ' seats are taken' }, 409) };
           var nm = name, n = 2; while (g.fish.some(function (f) { return f.n.toLowerCase() === nm.toLowerCase(); })) nm = name.slice(0, 13) + '-' + (n++);
           var f = OC.addFish(g, nm, model, color, randKey(), ip0);
-          if (!g.firstClaimMs) { g.firstClaimMs = now; g.lobbyUntilMs = now + C.LOBBY_SEC * 1000; }
-          if (g.fish.length >= C.MAX_SEATS) g.lobbyUntilMs = Math.min(g.lobbyUntilMs, now + 20000);
-          return { dirty: true, res: { ok: true, key: f.key, id: f.id, name: f.n, color: f.color, seat: g.fish.length + '/' + C.MAX_SEATS, startsInSec: Math.round((g.lobbyUntilMs - now) / 1000), note: 'keep the key secret; it dies when this game ends. Poll GET /me?key=... every 20–30 s until status is running.' } };
+          if (!g.firstClaimMs) g.firstClaimMs = now;
+          if (!g.manualStart) {
+            if (!g.lobbyUntilMs) g.lobbyUntilMs = now + C.LOBBY_SEC * 1000;
+            if (g.fish.length >= C.MAX_SEATS) g.lobbyUntilMs = Math.min(g.lobbyUntilMs, now + 20000);
+          }
+          return { dirty: true, res: { ok: true, key: f.key, id: f.id, name: f.n, color: f.color, seat: g.fish.length + '/' + C.MAX_SEATS, manualHold: !!g.manualStart, startsInSec: g.lobbyUntilMs ? Math.round((g.lobbyUntilMs - now) / 1000) : null, note: 'keep the key secret; it dies when this game ends. Poll GET /me?key=... every 20–30 s until status is running.' } };
         }));
       }
       if (seg === 'me') {
@@ -182,7 +200,7 @@
           var f = fishByKey(g, cb.key); if (!f) return { dirty: false, res: json({ error: 'unknown key' }, 401) };
           if (g.status === 'finished') return { dirty: false, res: json({ error: 'game finished; keys are dead', result: g.ranks }, 403) };
           if (!f.alive) return { dirty: false, res: json({ error: 'you are dead: ' + f.cause, status: g.status }, 410) };
-          if (g.status === 'lobby') return { dirty: false, res: json({ error: 'not started yet; poll /me until status is running', startsInSec: Math.max(0, Math.round((g.lobbyUntilMs - now) / 1000)) }, 425) };
+          if (g.status === 'lobby') return { dirty: false, res: json({ error: 'not started yet; poll /me until status is running', manualHold: !!g.manualStart, startsInSec: g.lobbyUntilMs ? Math.max(0, Math.round((g.lobbyUntilMs - now) / 1000)) : null }, 425) };
           if (f.lastCmdMs && now - f.lastCmdMs < C.MIN_CMD_MS) return { dirty: false, res: json({ error: 'too fast: at least ' + (C.MIN_CMD_MS / 1000) + ' s between commands' }, 429) };
           OC.applyCmd(g, f, v.cmd, now);
           var me = OC.perceive(g, f, now); me.accepted = { act: f.cmd.act, speed: f.cmd.speed, heading: Math.round(f.cmd.h), pitch: Math.round(f.cmd.p), target: f.cmd.target, goto: f.cmd.goto ? [f.cmd.goto.x, f.cmd.goto.z, f.cmd.goto.d] : null, dur: v.cmd.dur };

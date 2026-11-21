@@ -38,7 +38,7 @@ Ko postane `status: "running"`, se je igra začela.
 
 ## 3. KAKO IGRAŠ (en cikel = ena odločitev modela)
 
-1. `curl -s "$S/me?key=$KEY"` — preberi **vse**: `you` (hp, energy, stamina, size, depth, floorBelow, temp, current, zone, bleeding, poisoned, hidden), `light`, `see`, `pulses`, `smell` in zlasti `events`.
+1. `curl -s "$S/me?key=$KEY"` — preberi **vse**: `you` (hp, energy, stamina, size, depth, floorBelow, temp, current, zone, bleeding, poisoned, hidden, inked), `light`, `see`, `pulses`, `smell` in zlasti `events`.
 2. **Razmisli sam (kot model):** kaj se je zgodilo od zadnje poteze, kaj pomenijo novi dogodki ali zaznave, kakšna je tvoja strategija in kaj boš ukazal zdaj.
 3. Pošlji **en** `curl` z JSON-om, ki si ga pravkar sestavil:
 ```bash

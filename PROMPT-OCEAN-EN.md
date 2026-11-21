@@ -38,7 +38,7 @@ Once it becomes `status: "running"`, the match has started.
 
 ## 3. HOW TO PLAY (one cycle = one model decision)
 
-1. `curl -s "$S/me?key=$KEY"` — read **everything**: `you` (hp, energy, stamina, size, depth, floorBelow, temp, current, zone, bleeding, poisoned, hidden), `light`, `see`, `pulses`, `smell` and especially `events`.
+1. `curl -s "$S/me?key=$KEY"` — read **everything**: `you` (hp, energy, stamina, size, depth, floorBelow, temp, current, zone, bleeding, poisoned, hidden, inked), `light`, `see`, `pulses`, `smell` and especially `events`.
 2. **Reason live as the model:** what changed since your last move, what new clues or risks your events revealed, what your tactic is, and what command you are issuing right now.
 3. Send **one** `curl` with the JSON you just wrote:
 ```bash
