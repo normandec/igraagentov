@@ -1,4 +1,4 @@
-// Protokolni in enotski test za build/ocean.bundle.js (v6 HTTP plast + ročni štart + bot/cheat detekcija + zgodovina) brez omrežja.
+// Protocol and unit test for build/ocean.bundle.js (v5 HTTP layer + /species + /prompt/en + anti-cheat) without network access.
 var fs = require('fs'), path = require('path'), vm = require('vm'), assert = require('assert');
 var crypto = require('crypto');
 
@@ -7,13 +7,12 @@ var bundle = fs.readFileSync(path.join(root, 'build/ocean.bundle.js'), 'utf8');
 var ADMIN = 'ocean-admin-5e1d2c7b9a';
 
 var db = {
-  ocean_state: { id: 1, doc: null, rev: 0, tick: 0, gen: 0 },
+  ocean_state: { id: 2, doc: null, rev: 0, tick: 0, gen: 0 },
   arena_pub: {
-    'ocean:rules': fs.readFileSync(path.join(root, 'RULES-OCEAN.md'), 'utf8'),
-    'ocean:prompt': fs.readFileSync(path.join(root, 'PROMPT-OCEAN.md'), 'utf8'),
-    'ocean:prompt-en': fs.readFileSync(path.join(root, 'PROMPT-OCEAN-EN.md'), 'utf8')
-  },
-  ocean_games: []
+    'ocean5:rules': fs.readFileSync(path.join(root, 'RULES-OCEAN.md'), 'utf8'),
+    'ocean5:prompt': fs.readFileSync(path.join(root, 'PROMPT-OCEAN.md'), 'utf8'),
+    'ocean5:prompt-en': fs.readFileSync(path.join(root, 'PROMPT-OCEAN-EN.md'), 'utf8')
+  }
 };
 
 function mockResponse(body, status) {
@@ -27,6 +26,8 @@ function mockResponse(body, status) {
 }
 
 var sandbox = {
+  __OCEAN_STATE_ID: 2,
+  __OCEAN_PUB_PREFIX: 'ocean5:',
   console: console, Math: Math, Date: Date, JSON: JSON, URL: URL, Number: Number, String: String, Object: Object, Array: Array, Error: Error, RegExp: RegExp,
   Uint8Array: Uint8Array, Promise: Promise, setTimeout: setTimeout, clearTimeout: clearTimeout,
   Response: function (body, init) {
@@ -46,30 +47,21 @@ var sandbox = {
         var revEq = Number((u.searchParams.get('rev') || '').replace('eq.', ''));
         if (db.ocean_state.rev !== revEq) return mockResponse([], 200);
         var b = JSON.parse(opts.body);
-        db.ocean_state = { id: 1, doc: b.doc, rev: b.rev, tick: b.tick, gen: b.gen };
-        return mockResponse([{ id: 1 }], 200);
+        db.ocean_state = { id: 2, doc: b.doc, rev: b.rev, tick: b.tick, gen: b.gen };
+        return mockResponse([{ id: 2 }], 200);
       }
       if (opts.method === 'POST') {
         var b2 = JSON.parse(opts.body);
-        db.ocean_state = { id: 1, doc: b2.doc, rev: b2.rev, tick: b2.tick, gen: b2.gen };
+        db.ocean_state = { id: 2, doc: b2.doc, rev: b2.rev, tick: b2.tick, gen: b2.gen };
         return mockResponse('', 201);
       }
-      if (u.searchParams.get('select') === 'id') return mockResponse(db.ocean_state.doc ? [{ id: 1 }] : [], 200);
+      if (u.searchParams.get('select') === 'id') return mockResponse(db.ocean_state.doc ? [{ id: 2 }] : [], 200);
       return mockResponse(db.ocean_state.doc ? [{ doc: db.ocean_state.doc, rev: db.ocean_state.rev }] : [], 200);
     }
     if (p.endsWith('/arena_pub')) {
       if (opts.method === 'POST') { var pb = JSON.parse(opts.body); db.arena_pub[pb.key] = pb.body; return mockResponse('', 201); }
       var k = (u.searchParams.get('key') || '').replace('eq.', '');
       return mockResponse(db.arena_pub[k] ? [{ body: db.arena_pub[k] }] : [], 200);
-    }
-    if (p.endsWith('/ocean_games')) {
-      if (opts.method === 'POST') {
-        var gp = JSON.parse(opts.body);
-        db.ocean_games = db.ocean_games.filter(function (x) { return x.gen !== gp.gen; });
-        db.ocean_games.unshift(gp);
-        return mockResponse('', 201);
-      }
-      return mockResponse(db.ocean_games, 200);
     }
     return mockResponse({ error: 'unexpected fetch ' + url }, 500);
   }
@@ -84,7 +76,7 @@ async function req(method, pathStr, body, ip) {
   if (ip) hdr['x-forwarded-for'] = ip;
   var r = await handler({
     method: method,
-    url: 'https://mock.supabase.co/functions/v1/ocean-arena' + pathStr,
+    url: 'https://mock.supabase.co/functions/v1/ocean-arena-v5' + pathStr,
     headers: { get: function (k) { return hdr[k.toLowerCase()] || null; } },
     text: async function () { return body == null ? '' : (typeof body === 'string' ? body : JSON.stringify(body)); }
   });
@@ -94,83 +86,102 @@ async function req(method, pathStr, body, ip) {
 }
 
 (async function run() {
-  var r = await req('GET', '/health');
+  // Root & /health
+  var r = await req('GET', '');
   assert.strictEqual(r.status, 200);
-  assert.strictEqual(r.body.version, 'v6');
+  assert.strictEqual(r.body.version, 'v5');
+  r = await req('GET', '/health');
+  assert.strictEqual(r.status, 200);
+  assert.strictEqual(r.body.version, 'v5');
+  assert.strictEqual(r.body.species, 53);
+  assert.strictEqual(r.body.plants, 176);
+  assert.deepStrictEqual(r.body.map, [800, 800, 180]);
 
-  // Ročni štart v čakalnici (manual=1)
-  r = await req('GET', '/reset?admin=' + ADMIN + '&manual=1');
+  // Published docs including multi-segment /prompt/en
+  r = await req('GET', '/rules');
   assert.strictEqual(r.status, 200);
-  assert.strictEqual(r.body.manualStart, true);
+  assert(r.raw.includes('OCEAN ARENA'));
+  r = await req('GET', '/prompt');
+  assert.strictEqual(r.status, 200);
+  assert(r.raw.includes('navodila za agenta'));
+  r = await req('GET', '/prompt/en');
+  assert.strictEqual(r.status, 200);
+  assert(r.raw.includes('agent instructions'));
+
+  // /reset & /chart & /species
+  r = await req('GET', '/reset?admin=' + ADMIN);
+  assert.strictEqual(r.status, 200);
+  assert.strictEqual(r.body.status, 'lobby');
   var gen0 = r.body.gen;
 
   r = await req('GET', '/chart');
   assert.strictEqual(r.status, 200);
   assert.strictEqual(r.body.w, 800);
   assert.strictEqual(r.body.maxDepth, 180);
-  assert(r.body.features.some(function (f) { return f.type === 'seagrass meadow'; }));
+  assert(r.body.features.some(function (f) { return f.type === 'mangrove roots'; }));
 
-  // Zavrni štart s premalo ribami (0 ali 1)
+  r = await req('GET', '/species');
+  assert.strictEqual(r.status, 200);
+  assert.strictEqual(r.body.species.length, 53);
+
+  // With < 2 fish, /start keeps status in lobby and delays lobbyUntilMs
   r = await req('GET', '/start?admin=' + ADMIN + '&in=0');
-  assert.strictEqual(r.body.ok, false);
+  assert.strictEqual(r.body.ok, true);
+  assert.strictEqual(r.body.status, 'lobby');
+  assert.strictEqual(r.body.fish, 0);
 
-  // Zavrni placeholder model
-  r = await req('POST', '/claim', { name: 'BadBot', model: '<VPIŠI TOČNO IME MODELA>', color: 'blue' }, '1.2.3.4');
+  // Reject claim without model
+  r = await req('POST', '/claim', { name: 'BadBot', color: 'blue' }, '1.2.3.4');
   assert.strictEqual(r.status, 400);
 
-  // Prijavi 10 rib — pod manual=1 se ne sme samodejno začeti!
-  var keys = [];
-  for (var i = 0; i < 10; i++) {
-    r = await req('POST', '/claim', { name: 'Fish-' + i, model: 'model-' + i, color: 'orange' }, '10.0.0.' + (i + 1));
-    assert.strictEqual(r.status, 200);
-    assert.strictEqual(r.body.manualHold, true);
-    assert.strictEqual(r.body.startsInSec, null);
-    keys.push(r.body.key);
-  }
-  r = await req('GET', '/me?key=' + keys[0]);
+  // Claim 2 fish, verify lobby countdown, then start
+  var k0 = (await req('POST', '/claim', { name: 'Fish-0', model: 'model-0', color: 'orange' }, '10.0.0.1')).body;
+  var k1 = (await req('POST', '/claim', { name: 'Fish-1', model: 'model-1', color: 'blue' }, '10.0.0.2')).body;
+  assert.strictEqual(k0.ok, true);
+  assert(typeof k0.startsInSec === 'number' && k0.startsInSec > 0);
+  r = await req('GET', '/me?key=' + k0.key);
   assert.strictEqual(r.body.status, 'lobby');
-  assert.strictEqual(r.body.lobby.manualHold, true);
 
-  // Gostitelj pritisne gumb za začetek igre
   r = await req('GET', '/start?admin=' + ADMIN + '&in=0');
   assert.strictEqual(r.status, 200);
   assert.strictEqual(r.body.status, 'running');
 
-  // Preveri v6 entitete v snapshotu (5 psov, 10 klignjev, raže, želve, barakude, murene)
+  // Verify v5 snapshot entities (npcs, blooms, plankton, carrion)
   r = await req('GET', '/state?admin=' + ADMIN, null, '99.99.99.99');
   assert.strictEqual(r.status, 200);
-  assert.strictEqual(r.body.sharks.length, 5);
-  assert.strictEqual(r.body.squids.length, 12);
-  assert.strictEqual(r.body.rays.length, 6);
-  assert.strictEqual(r.body.turtles.length, 6);
-  assert.strictEqual(r.body.barracudas.length, 4);
-  assert.strictEqual(r.body.morays.length, 4);
+  assert.strictEqual(r.body.v, 5);
+  assert.strictEqual(r.body.npcs.length, 358);
+  assert.strictEqual(r.body.blooms.length, 3);
+  assert.strictEqual(r.body.plankton.length, 14);
 
-  // Anti-cheat /state brez admina
+  // Anti-cheat /state without admin flags matching player IP
   r = await req('GET', '/state', null, '10.0.0.2');
   assert.strictEqual(r.status, 200);
   assert.strictEqual(r.body.fish.find(function (f) { return f.n === 'Fish-1'; }).cheat, true);
   assert.strictEqual(r.body.fish.find(function (f) { return f.n === 'Fish-0'; }).cheat, false);
 
-  // Ukazi & omejitev hitrosti
-  r = await req('POST', '/cmd', { key: keys[0], act: 'feed', heading: 120, speed: 'cruise', dur: 15, why: 'moving toward coral reef for food' }, '10.0.0.1');
+  // Commands & rate limit
+  r = await req('POST', '/cmd', { key: k0.key, act: 'feed', heading: 120, speed: 'cruise', dur: 15, why: 'moving toward coral reef for food' }, '10.0.0.1');
   assert.strictEqual(r.status, 200);
-  r = await req('POST', '/cmd', { key: keys[0], act: 'swim', heading: 90, speed: 'fast', why: 'sending second command too soon' }, '10.0.0.1');
+  assert.strictEqual(r.body.accepted.act, 'feed');
+  r = await req('POST', '/cmd', { key: k0.key, act: 'swim', heading: 90, speed: 'fast', why: 'sending second command too soon' }, '10.0.0.1');
   assert.strictEqual(r.status, 429);
 
-  // Zgodovina ob koncu igre
-  db.ocean_state.doc.fish.forEach(function (f, idx) { if (idx > 0) { f.alive = false; f.hp = 0; f.died = 100; f.cause = 'test'; } });
+  // End game via kill & check /report
+  db.ocean_state.doc.fish[1].alive = false;
+  db.ocean_state.doc.fish[1].hp = 0;
+  db.ocean_state.doc.fish[1].died = 100;
+  db.ocean_state.doc.fish[1].cause = 'test';
   db.ocean_state.doc.lastMs -= 1000;
   r = await req('GET', '/report');
   assert.strictEqual(r.body.status, 'finished');
-  r = await req('GET', '/history');
-  assert.strictEqual(r.body.games[0].gen, gen0);
+  assert.strictEqual(r.body.gen, gen0);
 
-  // Reset pobije ključe
+  // Reset kills old keys
   r = await req('GET', '/reset?admin=' + ADMIN);
   assert.strictEqual(r.body.gen, gen0 + 1);
-  r = await req('GET', '/me?key=' + keys[0]);
+  r = await req('GET', '/me?key=' + k0.key);
   assert.strictEqual(r.status, 401);
 
-  console.log('HTTP TEST OK (all v6 assertions passed)');
+  console.log('HTTP TEST OK (all v5 assertions passed)');
 })().catch(function (e) { console.error(e); process.exit(1); });

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Protokolni test žive OCEAN ARENE. POZOR: naredi /reset (ne uporabljaj med pravo igro)."""
+"""Protocol test against the live OCEAN ARENA v5 endpoint. WARNING: calls /reset (do not run during a real match)."""
 import json, sys, time, urllib.request, urllib.error
-S = "https://wrfniglebquubhnhqrtn.supabase.co/functions/v1/ocean-arena"
+
+S = "https://wrfniglebquubhnhqrtn.supabase.co/functions/v1/ocean-arena-v5"
 A = "ocean-admin-5e1d2c7b9a"
 ok = fail = 0
+
 def call(method, path, body=None):
     req = urllib.request.Request(S + path, method=method, data=json.dumps(body).encode() if body is not None else None,
                                  headers={"content-type": "application/json"})
@@ -12,19 +14,26 @@ def call(method, path, body=None):
             raw = r.read().decode(); code = r.status
     except urllib.error.HTTPError as e:
         raw = e.read().decode(); code = e.code
-    try: data = json.loads(raw)
-    except Exception: data = raw
+    try:
+        data = json.loads(raw)
+    except Exception:
+        data = raw
     return code, data
+
 def check(name, cond, info=""):
     global ok, fail
-    if cond: ok += 1; print(f"OK   {name}")
-    else: fail += 1; print(f"FAIL {name} {info}")
+    if cond:
+        ok += 1; print(f"OK   {name}")
+    else:
+        fail += 1; print(f"FAIL {name} {info}")
 
 c, d = call("GET", f"/reset?admin={A}"); check("reset", c == 200 and d.get("status") == "lobby", d)
-c, d = call("GET", "/health"); check("health", c == 200 and d.get("game") == "OCEAN ARENA")
+c, d = call("GET", "/health"); check("health", c == 200 and d.get("game") == "OCEAN ARENA" and d.get("version") == "v5", d)
 c, d = call("GET", "/chart"); check("chart", c == 200 and len(d.get("features", [])) > 10)
+c, d = call("GET", "/species"); check("species", c == 200 and len(d.get("species", [])) == 53, str(d)[:80])
 c, d = call("GET", "/rules"); check("rules published", c == 200 and isinstance(d, str) and len(d) > 500, str(d)[:80])
 c, d = call("GET", "/prompt"); check("prompt published", c == 200 and isinstance(d, str) and len(d) > 1000, str(d)[:80])
+c, d = call("GET", "/prompt/en"); check("prompt/en published", c == 200 and isinstance(d, str) and len(d) > 1000, str(d)[:80])
 c, d = call("POST", "/claim", {"name": "Tester-A", "model": "test-bot", "color": "blue"}); check("claim A", c == 200 and d.get("key", "").startswith("oc-"), d); kA = d.get("key")
 c, d = call("POST", "/claim", {"name": "Tester-A", "model": "test-bot", "color": "red"}); check("claim duplicate name renamed", c == 200 and d.get("name") != "Tester-A", d); kB = d.get("key")
 c, d = call("POST", "/claim", {"name": "X", "model": "m", "color": "pink"}); check("claim invalid color/name -> 400", c == 400, d)
