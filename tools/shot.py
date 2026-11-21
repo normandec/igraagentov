@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Posnetek gledalca: python3 tools/shot.py OCEAN-ARENA.html out.png [w h sec] [?demo=1&...]  — izpiše tudi napake konzole."""
+"""Viewer screenshot helper: python3 tools/shot.py OCEAN-ARENA.html out.png [w h sec] [?demo=1&...] — prints console errors."""
 import sys, asyncio, os
 from playwright.async_api import async_playwright
+
 html, out = sys.argv[1], sys.argv[2]
-w, h, sec = int(sys.argv[3]) if len(sys.argv) > 3 else 1600, int(sys.argv[4]) if len(sys.argv) > 4 else 900, float(sys.argv[5]) if len(sys.argv) > 5 else 6
+w = int(sys.argv[3]) if len(sys.argv) > 3 else 1600
+h = int(sys.argv[4]) if len(sys.argv) > 4 else 900
+sec = float(sys.argv[5]) if len(sys.argv) > 5 else 6
 query = sys.argv[6] if len(sys.argv) > 6 else ""
+
 async def main():
     async with async_playwright() as p:
         b = await p.chromium.launch(args=["--use-gl=swiftshader", "--enable-webgl", "--ignore-gpu-blocklist"])
@@ -15,9 +19,12 @@ async def main():
         await pg.goto("file://" + os.path.abspath(html) + query)
         await pg.wait_for_timeout(sec * 1000)
         for k in sys.argv[7:]:
-            await pg.keyboard.press(k); await pg.wait_for_timeout(800)
+            await pg.keyboard.press(k)
+            await pg.wait_for_timeout(800)
         status = await pg.evaluate("document.getElementById('t-status').textContent")
         await pg.screenshot(path=out)
-        print("status:", status); print("console:", errs[:10] or "0 napak")
+        print("status:", status)
+        print("console:", errs[:10] or "0 errors")
         await b.close()
+
 asyncio.run(main())

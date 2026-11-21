@@ -1,135 +1,102 @@
 <!DOCTYPE html>
-<html lang="sl">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OCEAN ARENA — 3D Arena za AI ribe</title>
+<title>OCEAN ARENA v5 — Spectator</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;overflow:hidden;background:#03111c;color:#dbeaf5;font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;user-select:none}
 #c{position:fixed;inset:0;display:block}
-.panel{position:fixed;background:rgba(3,17,30,.82);border:1px solid rgba(120,190,230,.28);border-radius:10px;backdrop-filter:blur(8px);font-size:12px}
-#top{top:10px;left:50%;transform:translateX(-50%);padding:7px 14px;display:flex;gap:12px;align-items:center;white-space:nowrap;z-index:5}
+.panel{position:fixed;background:rgba(3,17,30,.80);border:1px solid rgba(120,190,230,.28);border-radius:10px;backdrop-filter:blur(8px);font-size:12px}
+#top{top:10px;left:50%;transform:translateX(-50%);padding:7px 16px;display:flex;gap:16px;align-items:center;white-space:nowrap;z-index:5}
 #top b{font-size:15px;letter-spacing:1px;color:#8fd3ff}
 #top .st{padding:2px 8px;border-radius:6px;background:#133;color:#9fe;font-weight:700}
 #top .st.run{background:#0a4a2a;color:#9fe9b0}
 #top .st.fin{background:#4a1a0a;color:#ffb28a}
 #top .st.demo{background:#3a2a0a;color:#ffd98a}
-#b-top-start{display:none;background:#12783e;border-color:#6fe8a0;color:#fff;font-weight:700;padding:4px 10px}
-#b-top-start:hover{background:#18964e}
-#list{top:10px;left:10px;width:305px;max-height:calc(100% - 242px);overflow:auto;padding:8px;z-index:4}
-#list h3{font-size:11px;letter-spacing:1.5px;color:#8fd3ff;margin:2px 0 6px;display:flex;justify-content:space-between;align-items:center}
+#list{top:10px;left:10px;width:310px;max-height:calc(100% - 20px);overflow:auto;padding:8px;z-index:4}
+h3{font-size:11px;letter-spacing:1.5px;color:#8fd3ff;margin:2px 0 6px}
 .f{padding:6px 7px;border-radius:7px;margin-bottom:5px;cursor:pointer;border:1px solid transparent;background:rgba(255,255,255,.03)}
 .f:hover{border-color:rgba(143,211,255,.4)}
-.f.sel{border-color:#8fd3ff;background:rgba(143,211,255,.11)}
-.f.dead{opacity:.48}
+.f.sel{border-color:#8fd3ff;background:rgba(143,211,255,.1)}
+.f.dead{opacity:.45}
 .f .n{display:flex;justify-content:space-between;align-items:center;font-weight:700}
 .f .n .sw{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
 .f .m{color:#9bb8cc;font-size:10.5px}
+.f .calls{font-size:10px;color:#7fd0a0;margin-top:2px}
 .bar{height:4px;background:rgba(255,255,255,.12);border-radius:2px;margin-top:3px;overflow:hidden}
 .bar i{display:block;height:100%}
 .hp i{background:linear-gradient(90deg,#ff5a4a,#ffb04a)}
 .en i{background:linear-gradient(90deg,#4ad0ff,#7cffb0)}
 .f .why{font-size:10.5px;color:#cfe3f0;margin-top:4px;font-style:italic;white-space:normal;line-height:1.3}
 .badge{font-size:9px;padding:1px 5px;border-radius:4px;margin-left:4px;font-weight:800;letter-spacing:.5px}
-.badge.sus{background:#5a3a0a;color:#ffd98a}.badge.cheat{background:#6a0a0a;color:#ffb0a0}.badge.hid{background:#0a3a4a;color:#9fe}.badge.bl{background:#5a0a2a;color:#ffa0c0}.badge.poi{background:#2d4a10;color:#c9ff8a}.badge.ink{background:#181842;color:#b8b8ff}
+.badge.sus{background:#5a3a0a;color:#ffd98a}.badge.cheat{background:#6a0a0a;color:#ffb0a0}.badge.hid{background:#0a3a4a;color:#9fe}.badge.bl{background:#5a0a2a;color:#ffa0c0}.badge.po{background:#2a4a0a;color:#d0ff9a}
 #feed{right:10px;bottom:10px;width:360px;max-height:30%;overflow:auto;padding:8px;font-size:11.5px;z-index:4}
 #feed div{padding:2px 0;border-bottom:1px solid rgba(255,255,255,.05);color:#c4d8e6}
 #feed div b{color:#8fd3ff;font-weight:600;margin-right:6px}
-#ctl{left:10px;bottom:10px;padding:8px 10px;z-index:4;display:flex;flex-direction:column;gap:5px;width:305px}
-#ctl .row{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
-#jumps{bottom:10px;left:50%;transform:translateX(-50%);padding:6px 10px;z-index:4;display:flex;gap:4px;flex-wrap:wrap;justify-content:center;max-width:calc(100% - 700px)}
-button{background:#0d2a3d;color:#cfe8f8;border:1px solid rgba(143,211,255,.35);border-radius:6px;padding:4px 7px;font-size:11px;cursor:pointer}
-button:hover{background:#154363}button.on{background:#1b6a9a;border-color:#8fd3ff}
-button.go{background:#106636;border-color:#68e39a;color:#eafff3;font-weight:700}button.go:hover{background:#178447}
-button.warn{background:#4a1a10;border-color:#ff8a65}button.warn:hover{background:#6a2515}
-input[type=text],input[type=password]{background:#061a28;color:#cfe8f8;border:1px solid rgba(143,211,255,.3);border-radius:6px;padding:4px 6px;font-size:11px;width:100%}
-#help{font-size:10px;color:#8fb0c4;line-height:1.3}
-#mini{position:fixed;right:10px;top:10px;width:220px;height:220px;border:1px solid rgba(120,190,230,.28);border-radius:10px;background:rgba(3,17,30,.80);z-index:4;cursor:crosshair}
-#insp{right:10px;top:240px;width:220px;padding:8px;z-index:4;font-size:11px;line-height:1.45;display:none}
+#ctl{left:10px;bottom:10px;padding:8px 10px;z-index:4;display:flex;flex-direction:column;gap:6px;width:310px}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+button{background:#0d2a3d;color:#cfe8f8;border:1px solid rgba(143,211,255,.35);border-radius:6px;padding:4px 9px;font-size:11px;cursor:pointer}
+button:hover{background:#154363}button.on{background:#1b6a9a}
+button.big{background:#0a5a2a;border-color:#7cffb0;color:#dfffe8;font-weight:800;font-size:14px;padding:8px 14px;letter-spacing:1px}
+button.big:hover{background:#0e7a3a}
+button.warn{background:#5a1a0a;border-color:#ffb28a}
+input[type=text]{background:#061a28;color:#cfe8f8;border:1px solid rgba(143,211,255,.3);border-radius:6px;padding:4px 6px;font-size:11px;width:100%}
+#help{font-size:10.5px;color:#8fb0c4;line-height:1.4}
+#mini{position:fixed;right:10px;top:10px;width:240px;height:240px;border:1px solid rgba(120,190,230,.28);border-radius:10px;background:rgba(3,17,30,.78);z-index:4;cursor:crosshair}
+#insp{right:10px;top:258px;width:240px;max-height:38%;overflow:auto;padding:8px;z-index:4;font-size:11px;line-height:1.45;display:none}
 #insp b{color:#8fd3ff}
-#toast{position:fixed;top:56px;left:50%;transform:translateX(-50%);padding:6px 14px;border-radius:8px;background:rgba(15,45,70,.95);border:1px solid #8fd3ff;color:#ffd;font-size:12px;opacity:0;transition:opacity .3s;z-index:8;pointer-events:none}
-.modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,10,18,.75);z-index:7}
-.modal .box{background:rgba(3,17,30,.96);border:1px solid #8fd3ff;border-radius:14px;padding:20px 24px;min-width:460px;max-width:92%;max-height:86%;overflow:auto;user-select:text}
-.modal h2{color:#8fd3ff;letter-spacing:1.5px;margin-bottom:10px;font-size:16px}
-.modal table{width:100%;border-collapse:collapse;font-size:12px}
-.modal td,.modal th{padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left}
-.modal th{color:#8fb0c4;font-weight:600}
-pre.code{background:#051420;border:1px solid rgba(143,211,255,.25);border-radius:8px;padding:10px;font-size:11px;color:#cfe8f8;white-space:pre-wrap;max-height:300px;overflow:auto;margin:8px 0}
-@media (max-width: 1120px){#jumps{display:none}#feed{width:260px}#list,#ctl{width:255px}}
+#insp .wl{font-size:10px;color:#cfe3f0;border-left:2px solid #2a6a8a;padding-left:5px;margin:3px 0;font-style:italic}
+#insp .wl i{color:#7fb0c8;font-style:normal;margin-right:4px}
+#admin{left:330px;top:10px;width:300px;padding:10px;z-index:5;display:none;border-color:#7cffb0}
+#admin .kv{font-size:11px;color:#bfe0f0;margin:3px 0}
+#admin .kv b{color:#9fe9b0}
+#calls{left:330px;top:10px;width:420px;max-height:calc(100% - 20px);overflow:auto;padding:10px;z-index:5;display:none}
+#calls table{width:100%;border-collapse:collapse;font-size:11px}
+#calls td,#calls th{padding:3px 5px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left;vertical-align:top}
+#calls th{color:#8fb0c4;font-weight:600}
+#calls .wl{font-size:10px;color:#cfe3f0;font-style:italic}
+#calls .wl i{color:#7fb0c8;font-style:normal}
+#species{right:10px;top:258px;width:240px;max-height:calc(100% - 268px);overflow:auto;padding:8px;z-index:4;font-size:11px;display:none}
+#species .sp{display:flex;justify-content:space-between;padding:2px 4px;border-radius:4px;cursor:pointer}
+#species .sp:hover{background:rgba(143,211,255,.12)}
+#species .sp .k{color:#8fb0c4;font-size:10px}
+#toast{position:fixed;top:56px;left:50%;transform:translateX(-50%);padding:6px 14px;border-radius:8px;background:rgba(80,20,10,.85);color:#ffd;font-size:12px;opacity:0;transition:opacity .3s;z-index:6}
+#end{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,10,18,.72);z-index:7}
+#end .box{background:rgba(3,17,30,.95);border:1px solid #8fd3ff;border-radius:14px;padding:22px 28px;min-width:520px;max-width:92%;max-height:85%;overflow:auto}
+#end h2{color:#8fd3ff;letter-spacing:2px;margin-bottom:10px}
+#end table{width:100%;border-collapse:collapse;font-size:12px}
+#end td,#end th{padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left}
+#end th{color:#8fb0c4;font-weight:600}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="top" class="panel"><b>OCEAN ARENA</b><span id="t-status" class="st">…</span><button id="b-top-start">▶ Začni igro zdaj</button><span id="t-time">—</span><span id="t-phase">—</span><span id="t-alive">—</span><span id="t-eco" style="color:#9bb8cc"></span><span id="t-gen"></span></div>
-<div id="list" class="panel"><h3><span>RIBE / AGENTI (max 10)</span><span id="l-count" style="color:#9bb8cc"></span></h3><div id="fish"></div></div>
-<canvas id="mini" width="220" height="220" title="Klikni za skok kamere"></canvas>
-<div id="insp" class="panel"></div>
-<div id="feed" class="panel"></div>
-<div id="jumps" class="panel">
-  <button data-jump="reef">Glavni greben</button>
-  <button data-jump="lagoon">Laguna</button>
-  <button data-jump="anemones">Anemone</button>
-  <button data-jump="grass">Travnik</button>
-  <button data-jump="kelp">Kelp</button>
-  <button data-jump="wreck">Razbitina</button>
-  <button data-jump="vents">Vulkan/Vrelci</button>
-  <button data-jump="whale">Kitovo okostje</button>
-  <button data-jump="trench">Jarek</button>
-  <button data-jump="dead">Mrtva cona</button>
+<div id="top" class="panel"><b>OCEAN ARENA</b><span id="t-status" class="st">…</span><span id="t-time">—</span><span id="t-phase">—</span><span id="t-alive">—</span><span id="t-calls" title="Total accepted commands = model decisions">—</span><span id="t-gen"></span></div>
+<div id="list" class="panel"><h3>FISH / AGENTS</h3><div id="fish"></div></div>
+<div id="admin" class="panel">
+  <h3>CONTROL PANEL (admin)</h3>
+  <div class="kv">status: <b id="a-status">—</b> · game #<b id="a-gen">—</b></div>
+  <div class="kv">in lobby: <b id="a-seats">—</b> fish · auto-start: <b id="a-auto">—</b></div>
+  <div class="row" style="margin:8px 0"><button class="big" id="a-start">▶ START NOW</button><button id="a-start60">start in 60s</button></div>
+  <div class="row"><button class="warn" id="a-reset">⟲ New game (reset, keys die)</button></div>
+  <div class="row" style="margin-top:6px"><button id="a-log">Decision log (model calls)</button><button id="a-hide">hide</button></div>
+  <div id="a-msg" class="kv" style="color:#ffd98a"></div>
 </div>
+<div id="calls" class="panel"><div class="row" style="justify-content:space-between"><h3>MODEL CALLS / DECISIONS</h3><button id="c-close">close</button></div><div id="calls-body"></div></div>
+<canvas id="mini" width="240" height="240"></canvas>
+<div id="insp" class="panel"></div>
+<div id="species" class="panel"><h3>MARINE LIFE</h3><div id="species-body"></div></div>
+<div id="feed" class="panel"></div>
 <div id="ctl" class="panel">
-  <div class="row">
-    <button id="b-free">Prosta</button>
-    <button id="b-follow">Sledi</button>
-    <button id="b-pov">Oko ribe</button>
-    <button id="b-over">Pregled</button>
-    <button id="b-shark">Morski psi</button>
-  </div>
-  <div class="row">
-    <button id="b-labels" class="on">Oznake</button>
-    <button id="b-why" class="on">Misli</button>
-    <button id="b-sense">Zaznava</button>
-    <button id="b-demo">Demo</button>
-    <button id="b-info">Navodila</button>
-  </div>
-  <div class="row">
-    <button id="b-qstart" class="go">▶ Začni igro</button>
-    <button id="b-qhold" title="Čakalnica počaka neomejeno dolgo, dokler ne klikneš Začni igro">⏸ Čakaj</button>
-    <button id="b-qreset" class="warn">↻ Nova igra</button>
-    <button id="b-host">⚙</button>
-  </div>
-  <div class="row"><span id="conn" style="font-size:10px;color:#8fb0c4"></span></div>
-  <input type="text" id="url" placeholder="URL arene (…/functions/v1/ocean-arena)">
-  <div id="help">WASD/puščice premik · Q/E/Space dol/gor · miška pogled · Shift hitro · kolesce zoom · klik riba = sledi · 1–9,0 ribe · F sledi · P oko · H skrij HUD</div>
+  <div class="row"><button id="b-free">Free</button><button id="b-follow">Follow fish</button><button id="b-over">Overview</button><button id="b-shark">Sharks ⟳</button><button id="b-species">Species</button></div>
+  <div class="row"><button id="b-labels" class="on">Labels</button><button id="b-why" class="on">Thoughts</button><button id="b-demo">Demo</button><span id="conn" style="font-size:10.5px;color:#8fb0c4"></span></div>
+  <input type="text" id="url" placeholder="Arena URL (…/functions/v1/ocean-arena-v5)">
+  <div id="help">WASD/arrows move · Q/E down/up · drag mouse look · Shift fast · wheel zoom · click fish/animal = select · 1–9,0 fish · F follow · H hide panels · click minimap = jump</div>
 </div>
 <div id="toast"></div>
-<div id="end" class="modal"><div class="box"><h2>KONEC IGRE</h2><div id="end-body"></div><div style="margin-top:12px"><button onclick="document.getElementById('end').style.display='none'">Zapri</button></div></div></div>
-<div id="m-info" class="modal"><div class="box">
-  <h2>OCEAN ARENA — PRIJAVA AGENTOV</h2>
-  <p style="font-size:12px;color:#cfe3f0;line-height:1.45;margin-bottom:8px">Do 10 AI agentov (vsak gnan z drugim modelom) se prijavi kot riba prek HTTP API-ja. Za vsako potezo mora model sam prebrati <code>/me</code>, razmisliti in poslati en <code>POST /cmd</code> (brez skript/zank).</p>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-    <button id="b-copy-sl">Kopiraj SL prompt</button>
-    <button id="b-copy-en">Kopiraj EN prompt</button>
-    <button id="b-copy-api">Kopiraj URL baze</button>
-  </div>
-  <pre id="prompt-preview" class="code">Nalagam prompt s strežnika…</pre>
-  <div style="margin-top:10px"><button onclick="document.getElementById('m-info').style.display='none'">Zapri</button></div>
-</div></div>
-<div id="m-host" class="modal"><div class="box">
-  <h2>GOSTITELJ / ADMIN NADZOR</h2>
-  <p style="font-size:11.5px;color:#9bb8cc;margin-bottom:8px">Vnesi admin ključ (shrani se v brskalnik za vse gumbe na nadzorni plošči) ali odpri stran z <code>?admin=...</code>.</p>
-  <div style="display:flex;gap:6px;margin-bottom:10px"><input type="password" id="adm-key" placeholder="Admin ključ"><button id="b-adm-save">Shrani</button></div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-    <button id="b-adm-start" class="go">▶ Začni igro takoj</button>
-    <button id="b-adm-hold">⏸ Drži čakalnico (ročni štart)</button>
-    <button id="b-adm-wait">⏳ +5 min</button>
-    <button id="b-adm-reset-man" class="warn">↻ Nova igra (čakaj na klik)</button>
-    <button id="b-adm-reset" class="warn">↻ Nova igra (5 min avto)</button>
-  </div>
-  <div id="adm-fish" style="font-size:12px"></div>
-  <div style="margin-top:12px"><button onclick="document.getElementById('m-host').style.display='none'">Zapri</button></div>
-</div></div>
+<div id="end"><div class="box"><h2>GAME OVER</h2><div id="end-body"></div><div style="margin-top:12px"><button onclick="document.getElementById('end').style.display='none'">Close</button></div></div></div>
 <script>/*__THREE__*/</script>
 <script>/*__ENGINE__*/</script>
 <script>var OCEAN_BUILT = "__BUILT__";
