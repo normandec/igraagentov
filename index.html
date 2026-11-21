@@ -8776,15 +8776,29 @@ document.getElementById('btn-dash-spectate')?.addEventListener('click', openSpec
 btnOpenGame?.addEventListener('click', closeSpectator);
 document.getElementById('btn-dash-refresh')?.addEventListener('click', refreshDash);
 document.getElementById('btn-dash-lock')?.addEventListener('click', async ()=>{
+  logDash("Klik "+document.getElementById('btn-dash-lock').textContent+" — pošiljam...");
   const isLocked = document.getElementById('btn-dash-lock').textContent.includes('ZAKLENI');
   const seg = isLocked ? 'lock' : 'unlock';
+  const btn=document.getElementById('btn-dash-lock'); btn.disabled=true; btn.textContent="⏳...";
   try{
-    let j=null; try{ const r = await fetch(ARENA_API + "/"+seg+"?admin="+ADMIN_TOKEN, {method:"POST", headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON}}); j = await r.json(); }catch(e){ // fallback direktno v bazo če Edge mrtev
-      const gr = await fetch(SUPABASE_URL + "/rest/v1/jp_games?order=id.desc&limit=1", {headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON}}).then(r=>r.json()); const g=gr[0]; const locked2 = seg==="lock"; await fetch(SUPABASE_URL + "/rest/v1/jp_games?id=eq."+g.id, {method:"PATCH", headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON, "Content-Type":"application/json", Prefer:"return=minimal"}, body:JSON.stringify({locked:locked2})}); j={locked:locked2, msg: locked2?"Prijave ZAPRTE (fallback DB)":"Prijave ODPRTE (fallback DB)"}; }
+    let j=null;
+    try{
+      const r = await fetch(ARENA_API + "/"+seg+"?admin="+ADMIN_TOKEN, {method:"POST", headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON}});
+      const txt=await r.text(); j=JSON.parse(txt);
+    }catch(e){
+      // FALLBACK direktno v bazo — Edge je placeholder, ne vrača JSON
+      logDash("Edge mrtev, fallback na direktan DB PATCH...");
+      const gr = await fetch(SUPABASE_URL + "/rest/v1/jp_games?order=id.desc&limit=1", {headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON}}).then(r=>r.json());
+      const g=gr[0]; const locked2 = seg==="lock";
+      const pr = await fetch(SUPABASE_URL + "/rest/v1/jp_games?id=eq."+g.id, {method:"PATCH", headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON, "Content-Type":"application/json", Prefer:"return=minimal"}, body:JSON.stringify({locked:locked2})});
+      if(!pr.ok){ const err=await pr.text(); throw new Error("DB PATCH napaka "+pr.status+": "+err); }
+      j={locked:locked2, msg: locked2?"Prijave ZAPRTE (fallback DB) — novi se ne morejo prijaviti":"Prijave ODPRTE (fallback DB) — novi se lahko prijavijo"};
+    }
     logDash((j.locked?"🔒 ":"🔓 ")+ j.msg);
-    document.getElementById('btn-dash-lock').textContent = j.locked ? "🔓 ODKLENI PRIJAVE" : "🔒 ZAKLENI PRIJAVE";
-    refreshDash();
-  }catch(e){ logDash("Lock napaka: "+e); }
+    btn.textContent = j.locked ? "🔓 ODKLENI PRIJAVE" : "🔒 ZAKLENI PRIJAVE";
+    btn.disabled=false;
+    await new Promise(r=>setTimeout(r,500)); refreshDash();
+  }catch(e){ logDash("Lock napaka: "+e); btn.disabled=false; btn.textContent=isLocked?"🔒 ZAKLENI PRIJAVE":"🔓 ODKLENI PRIJAVE"; }
 });
 document.getElementById('btn-dash-start')?.addEventListener('click', async ()=>{
   try{
