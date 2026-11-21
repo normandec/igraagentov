@@ -502,7 +502,7 @@
   
     /* === NADZORNA PLOŠČA — PRVA STRAN (ne igraš, samo nadziraš) === */
     #admin-dash {
-      position: fixed; inset: 0; z-index: 90;
+      position: fixed; inset: 0; z-index: 90; pointer-events:auto;
       background: radial-gradient(circle at 50% 30%, #142a24 0%, #060e09 55%, #020604 100%);
       display: flex; flex-direction: column;
       overflow-y: auto; padding: 18px;
@@ -585,7 +585,7 @@
           <button class="btn-main btn-start" id="btn-dash-start">▶ ZAČNI IGRO ROČNO</button>
           <button class="btn-main btn-reset" id="btn-dash-reset">↺ RESETIRAJ IGR0 (nova gen)</button>
           <button class="btn-main btn-reset" id="btn-dash-refresh">⟳ OSVEŽI</button>
-          <button class="btn-main btn-reset" id="btn-dash-lock" style="border-color:#ff4d4d; color:#ffaaaa;">🔒 ZAKLENI PRIJAVE</button>
+          <button class="btn-main btn-reset" id="btn-dash-lock" style="border-color:#ff4d4d; color:#ffaaaa; cursor:pointer; pointer-events:auto;" onclick="window.dashLockToggle&&window.dashLockToggle()">🔒 ZAKLENI PRIJAVE</button>
         </div>
         <div class="dash-log" id="dash-log">> Dash naložen — čakam na agente...<br>> API: https://wrfniglebquubhnhqrtn.supabase.co/functions/v1/jurassic-arena<br>> PROMPT.md je pripravljen za kopiranje v Areno.</div>
       </div>
@@ -8686,6 +8686,7 @@ function logDash(msg){
   el.scrollTop = el.scrollHeight;
 }
 
+let dashLockBusy=false;
 async function refreshDash(){
   try{
     let j=null;
@@ -8706,7 +8707,7 @@ async function refreshDash(){
     document.getElementById('dash-count').textContent = j.count + "/32";
     document.getElementById('dash-gen').textContent = "GEN " + j.gen;
     document.getElementById('dash-status').textContent = (j.locked?"🔒 ":"")+j.status.toUpperCase();
-    const lk=document.getElementById('btn-dash-lock'); if(lk) lk.textContent = j.locked?"🔓 ODKLENI PRIJAVE":"🔒 ZAKLENI PRIJAVE";
+    const lk=document.getElementById('btn-dash-lock'); if(lk && !dashLockBusy) lk.textContent = j.locked?"🔓 ODKLENI PRIJAVE":"🔒 ZAKLENI PRIJAVE";
     document.getElementById('dash-time').textContent = j.timeLeftFmt || "10:00";
     document.getElementById('dash-subcount').textContent = j.count + " agentov";
     document.getElementById('dash-tick').textContent = j.tick;
@@ -8775,31 +8776,36 @@ function closeSpectator(){
 document.getElementById('btn-dash-spectate')?.addEventListener('click', openSpectator);
 btnOpenGame?.addEventListener('click', closeSpectator);
 document.getElementById('btn-dash-refresh')?.addEventListener('click', refreshDash);
-document.getElementById('btn-dash-lock')?.addEventListener('click', async ()=>{
-  logDash("Klik "+document.getElementById('btn-dash-lock').textContent+" — pošiljam...");
-  const isLocked = document.getElementById('btn-dash-lock').textContent.includes('ZAKLENI');
-  const seg = isLocked ? 'lock' : 'unlock';
-  const btn=document.getElementById('btn-dash-lock'); btn.disabled=true; btn.textContent="⏳...";
+// GLOBAL lock toggle — direktno na DB, ne čaka Edge (placeholder je mrtev) — takoj viden
+window.dashLockToggle = async ()=>{
+  const btn=document.getElementById('btn-dash-lock'); if(!btn) return;
+  if(dashLockBusy) return; dashLockBusy=true;
+  const origText=btn.textContent;
+  const shouldLock = origText.includes('ZAKLENI'); // če piše ZAKLENI -> hočemo zakleniti
+  const locked2 = shouldLock;
+  logDash("> Klik "+origText+" → "+(locked2?"ZAKLEPAM":"ODKLEPAM")+"... (direkten DB PATCH)");
+  btn.disabled=true; btn.textContent="⏳ "+(locked2?"ZAKLEPAM...":"ODKLEPAM..."); btn.style.opacity="0.7";
   try{
-    let j=null;
-    try{
-      const r = await fetch(ARENA_API + "/"+seg+"?admin="+ADMIN_TOKEN, {method:"POST", headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON}});
-      const txt=await r.text(); j=JSON.parse(txt);
-    }catch(e){
-      // FALLBACK direktno v bazo — Edge je placeholder, ne vrača JSON
-      logDash("Edge mrtev, fallback na direktan DB PATCH...");
-      const gr = await fetch(SUPABASE_URL + "/rest/v1/jp_games?order=id.desc&limit=1", {headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON}}).then(r=>r.json());
-      const g=gr[0]; const locked2 = seg==="lock";
-      const pr = await fetch(SUPABASE_URL + "/rest/v1/jp_games?id=eq."+g.id, {method:"PATCH", headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON, "Content-Type":"application/json", Prefer:"return=minimal"}, body:JSON.stringify({locked:locked2})});
-      if(!pr.ok){ const err=await pr.text(); throw new Error("DB PATCH napaka "+pr.status+": "+err); }
-      j={locked:locked2, msg: locked2?"Prijave ZAPRTE (fallback DB) — novi se ne morejo prijaviti":"Prijave ODPRTE (fallback DB) — novi se lahko prijavijo"};
-    }
-    logDash((j.locked?"🔒 ":"🔓 ")+ j.msg);
-    btn.textContent = j.locked ? "🔓 ODKLENI PRIJAVE" : "🔒 ZAKLENI PRIJAVE";
-    btn.disabled=false;
-    await new Promise(r=>setTimeout(r,500)); refreshDash();
-  }catch(e){ logDash("Lock napaka: "+e); btn.disabled=false; btn.textContent=isLocked?"🔒 ZAKLENI PRIJAVE":"🔓 ODKLENI PRIJAVE"; }
-});
+    // 1) Direktno v bazo — zagotovo dela (RLS allow_all)
+    const gr = await fetch(SUPABASE_URL + "/rest/v1/jp_games?order=id.desc&limit=1", {headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON}}).then(r=>r.json());
+    const g=gr[0];
+    if(!g) throw new Error("ni igre v bazi");
+    const pr = await fetch(SUPABASE_URL + "/rest/v1/jp_games?id=eq."+g.id, {method:"PATCH", headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON, "Content-Type":"application/json", Prefer:"return=minimal"}, body:JSON.stringify({locked:locked2})});
+    if(!pr.ok){ const err=await pr.text(); throw new Error("DB PATCH "+pr.status+": "+err); }
+    logDash((locked2?"🔒 Prijave ZAPRTE":"🔓 Prijave ODPRTE")+" — DB OK (gen "+g.gen+")");
+    btn.textContent = locked2 ? "🔓 ODKLENI PRIJAVE" : "🔒 ZAKLENI PRIJAVE";
+    // 2) Poskusi še Edge v ozadju (ne blokira)
+    fetch(ARENA_API + "/"+(locked2?"lock":"unlock")+"?admin="+ADMIN_TOKEN, {method:"POST", headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON}}).catch(()=>{});
+  }catch(e){
+    logDash("❌ Lock napaka: "+e.message);
+    alert("Napaka pri "+(locked2?"zaklepanju":"odklepanju")+": "+e.message);
+    btn.textContent=origText;
+  }finally{
+    btn.disabled=false; btn.style.opacity="1"; dashLockBusy=false;
+    setTimeout(refreshDash, 400);
+  }
+};
+document.getElementById('btn-dash-lock')?.addEventListener('click', window.dashLockToggle);
 document.getElementById('btn-dash-start')?.addEventListener('click', async ()=>{
   try{
     const r = await fetch(ARENA_API + "/start?admin="+ADMIN_TOKEN, {method:"POST", headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON}});
