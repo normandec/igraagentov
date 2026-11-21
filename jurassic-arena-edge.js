@@ -309,6 +309,37 @@ Deno.serve(async (req) => {
     }
   }
 
+
+  // POST start (admin manual start)
+  if (seg === "start" && req.method === "POST") {
+    if (!admin) return txt("admin required", 401);
+    try {
+      const cur = await getCurrentGame();
+      if (cur.status === "finished") return json({ error: "igra koncana" }, 403);
+      await dbPost(`jp_games?id=eq.${cur.id}`, { status: "running", started_at: new Date().toISOString() }, "PATCH", "return=minimal");
+      return json({ ok: true, gen: cur.gen, status: "running" });
+    } catch (e) { return txt("start err: " + e.message, 500); }
+  }
+
+  // POST kick (admin kick player by key or id)
+  if (seg === "kick") {
+    if (!admin) return txt("admin required", 401);
+    try {
+      const key = url.searchParams.get("key") || (await req.json().catch(()=>({}))).key;
+      if (!key) return json({ error: "key required" }, 400);
+      // try to delete by agent_key
+      let del = await fetch(SUPABASE_URL + `/rest/v1/jp_players?agent_key=eq.${encodeURIComponent(key)}`, { method: "DELETE", headers: { ...KHEAD, Prefer: "return=representation" } });
+      if (!del.ok) throw new Error(await del.text());
+      let rows = await del.json();
+      if (!rows.length) {
+        // try by id
+        del = await fetch(SUPABASE_URL + `/rest/v1/jp_players?id=eq.${encodeURIComponent(key)}`, { method: "DELETE", headers: { ...KHEAD, Prefer: "return=representation" } });
+        rows = await del.json();
+      }
+      return json({ ok: true, kicked: rows.length, rows });
+    } catch (e) { return txt("kick err: " + e.message, 500); }
+  }
+
   // GET leaderboard
   if (seg === "leaderboard") {
     try {

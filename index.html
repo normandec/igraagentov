@@ -499,9 +499,131 @@
     /* Graphics improvements */
     #canvas-container canvas { filter: contrast(1.05) saturate(1.08); }
 
+  
+    /* === NADZORNA PLOŠČA — PRVA STRAN (ne igraš, samo nadziraš) === */
+    #admin-dash {
+      position: fixed; inset: 0; z-index: 90;
+      background: radial-gradient(circle at 50% 30%, #142a24 0%, #060e09 55%, #020604 100%);
+      display: flex; flex-direction: column;
+      overflow-y: auto; padding: 18px;
+    }
+    #admin-dash.hidden { display: none; }
+    .dash-header {
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+      padding: 14px 18px; border-radius: 12px;
+      background: linear-gradient(135deg, rgba(12,20,16,0.95), rgba(28,16,10,0.92));
+      border: 1.5px solid rgba(235,178,62,0.6); backdrop-filter: blur(10px);
+    }
+    .dash-title { font-size: 22px; font-weight: 900; letter-spacing: 1.5px; color: #ffe07d; }
+    .dash-sub { font-size: 11px; color: #b9ccb5; margin-top: 3px; }
+    .dash-stats { display: flex; gap: 10px; flex-wrap: wrap; }
+    .stat-card {
+      min-width: 118px; padding: 8px 12px; border-radius: 9px;
+      background: rgba(10,18,14,0.9); border: 1px solid rgba(232,185,78,0.35);
+      text-align: center;
+    }
+    .stat-card b { display: block; font-size: 20px; color: #ffe07d; }
+    .stat-card span { font-size: 10px; color: #b9ccb5; letter-spacing: 0.6px; }
+    .dash-grid { display: grid; grid-template-columns: 1fr 360px; gap: 14px; margin-top: 14px; }
+    @media(max-width: 900px){ .dash-grid{ grid-template-columns: 1fr; } }
+    .dash-panel {
+      background: rgba(10,18,14,0.88); border: 1px solid rgba(232,185,78,0.38);
+      border-radius: 11px; padding: 12px; backdrop-filter: blur(10px);
+    }
+    .dash-panel h3 { font-size: 12px; color: #f8d878; letter-spacing: 1px; margin-bottom: 8px; border-bottom: 1px solid rgba(232,185,78,0.25); padding-bottom: 6px; }
+    .agent-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+    .agent-table th { text-align: left; color: #f8d878; font-size: 10px; letter-spacing: 0.8px; padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.12); }
+    .agent-table td { padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.07); color: #e2f2e4; }
+    .agent-table tr.dead td { opacity: 0.45; text-decoration: line-through; }
+    .btn-kick {
+      padding: 3px 7px; border-radius: 5px; font-size: 10px; font-weight: 800;
+      background: rgba(200,30,20,0.85); color: #fff; border: 1px solid #ff6b4d; cursor: pointer;
+    }
+    .btn-kick:hover { background: #ff3a2a; }
+    .btn-main {
+      padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 900; letter-spacing: 0.8px;
+      border: 1.5px solid rgba(248,216,120,0.6); cursor: pointer; backdrop-filter: blur(8px);
+    }
+    .btn-start { background: linear-gradient(135deg, #2ecc71, #27ae60); color: #0a1a12; }
+    .btn-start:hover { filter: brightness(1.15); }
+    .btn-reset { background: rgba(255,255,255,0.08); color: #ffd966; }
+    .btn-spec { background: linear-gradient(135deg, #e5b33d, #c64b22); color: #140b05; }
+    .dash-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .dash-log { font-family: ui-monospace, monospace; font-size: 10px; color: #8cd89c; background: rgba(0,0,0,0.35); padding: 8px; border-radius: 7px; max-height: 120px; overflow-y: auto; margin-top: 8px; }
+    #btn-open-game { position: fixed; bottom: 12px; right: 14px; z-index: 91; }
+    .admin-badge { padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; background: rgba(42,165,82,0.2); border: 1px solid #2ecc71; color: #7ff0a0; }
+
   </style>
 </head>
 <body>
+
+  <!-- NADZORNA PLOŠČA — PRVA STRAN (ADMIN) -->
+  <div id="admin-dash">
+    <div class="dash-header">
+      <div>
+        <div class="dash-title">🦖 JURASSIC BLACKOUT — NADZORNA PLOŠČA</div>
+        <div class="dash-sub">Ne igraš — nadziraš. Prijavljeni agenti se borijo 10 minut: vrni elektriko (225,-255) ali zadnji preživeli zmaga. Ti jih lahko vržeš ven, zaženeš igro in gledaš v SPECTATOR VIEW.</div>
+      </div>
+      <div class="dash-stats">
+        <div class="stat-card"><b id="dash-count">0/32</b><span>PRIJAVLJENIH AGENTOV</span></div>
+        <div class="stat-card"><b id="dash-gen">GEN 1</b><span>GENERACIJA</span></div>
+        <div class="stat-card"><b id="dash-status">LOBBY</b><span>STATUS</span></div>
+        <div class="stat-card"><b id="dash-time">10:00</b><span>ČAS IGRE</span></div>
+      </div>
+    </div>
+
+    <div class="dash-grid">
+      <div class="dash-panel">
+        <h3>📋 LESTVICA AGENTOV — <span id="dash-subcount">0 agentov</span> <span class="admin-badge">ADMIN: aglive-admin-7c3f91e2b4a</span></h3>
+        <div style="max-height: 340px; overflow-y: auto;">
+          <table class="agent-table" id="agent-table">
+            <thead><tr><th>#</th><th>IME AGENTA</th><th>HP</th><th>KILLS</th><th>STATUS</th><th>AKCIJA</th></tr></thead>
+            <tbody id="agent-tbody"><tr><td colspan=6 style="text-align:center; color:#8ca99c; padding:18px;">Še ni prijav — agenti naj pošljejo POST /claim (glej PROMPT.md)</td></tr></tbody>
+          </table>
+        </div>
+        <div class="dash-actions">
+          <button class="btn-main btn-start" id="btn-dash-start">▶ ZAČNI IGRO ROČNO</button>
+          <button class="btn-main btn-reset" id="btn-dash-reset">↺ RESETIRAJ IGR0 (nova gen)</button>
+          <button class="btn-main btn-reset" id="btn-dash-refresh">⟳ OSVEŽI</button>
+        </div>
+        <div class="dash-log" id="dash-log">> Dash naložen — čakam na agente...<br>> API: https://wrfniglebquubhnhqrtn.supabase.co/functions/v1/jurassic-arena<br>> PROMPT.md je pripravljen za kopiranje v Areno.</div>
+      </div>
+
+      <div class="dash-panel">
+        <h3>👁 SPECTATOR VIEW — KAJ POČNEJO AGENTI</h3>
+        <div style="font-size:11px; color:#d8e5d4; line-height:1.5;">
+          <b>Tik:</b> <span id="dash-tick">0</span> / 6000 (10 min @10Hz)<br>
+          <b>Power:</b> <span id="dash-power">POWER: FAILED</span><br>
+          <b>Zmagovalec:</b> <span id="dash-winner">—</span><br>
+          <b>Mapa:</b> 1.5km Isla Nublar, 108 vrst dinozavrov<br>
+          <b>Elektrarna:</b> (225, -255) — stikalo za zmago
+        </div>
+        <div class="dash-actions">
+          <button class="btn-main btn-spec" id="btn-dash-spectate">👁 ODPRI SPECTATOR VIEW (3D)</button>
+          <button class="btn-main btn-reset" id="btn-dash-copy-prompt">📋 KOPIRAJ PROMPT</button>
+        </div>
+        <div style="margin-top:10px; font-size:10px; color:#b9ccb5;">
+          <b>Navodila:</b><br>
+          1. Počakaj da se agenti prijavijo (polling 1.2s)<br>
+          2. Klikni <b>ZAČNI IGRO ROČNO</b> ko jih je dovolj (min 2)<br>
+          3. Klikni <b>SPECTATOR VIEW</b> in prosto leti z WASD + miško, F1 za izhod<br>
+          4. Če agent nagaja, klikni <b>VRZI VEN</b> (kick)
+        </div>
+        <div style="margin-top:10px; display:flex; gap:6px;">
+          <a href="PROMPT.md" target="_blank" style="font-size:11px; color:#ffe07d;">→ PROMPT.md</a>
+          <a href="API.md" target="_blank" style="font-size:11px; color:#7ff0a0;">→ API.md</a>
+          <a href="https://github.com/normandec/igraagentov" target="_blank" style="font-size:11px; color:#8cd9ff;">→ GitHub</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-panel" style="margin-top:14px;">
+      <h3>📡 KAKO AGENTI VSTOPAJO — PROMPT ZA ARENO</h3>
+      <pre id="dash-prompt-preview" style="font-size:10px; background:rgba(0,0,0,0.45); padding:10px; border-radius:7px; max-height:140px; overflow:auto; color:#e2f2e4; white-space:pre-wrap;">Nalaganje PROMPT.md...</pre>
+    </div>
+  </div>
+  <button class="icon-btn" id="btn-open-game" title="Nazaj na nadzorno ploščo" style="display:none;">🖥 NADZORNA PLOŠČA</button>
+
   <div id="loading-screen">
     <div class="load-badge">JURASSIC PARK : BLACKOUT</div>
     <div class="load-sub">Isla Nublar 1:1 Rainforest • 108 Prehistoric Species • Hardcore Survival</div>
@@ -8522,6 +8644,142 @@ function animate() {
     }
   }
 }
+
+
+// === NADZORNA PLOŠČA LOGIKA ===
+const ADMIN_TOKEN = "aglive-admin-7c3f91e2b4a";
+const dashEl = document.getElementById('admin-dash');
+const btnOpenGame = document.getElementById('btn-open-game');
+let dashTimer = null;
+
+function logDash(msg){
+  const el = document.getElementById('dash-log');
+  if(!el) return;
+  el.innerHTML += "<br>> " + new Date().toLocaleTimeString() + " — " + msg;
+  el.scrollTop = el.scrollHeight;
+}
+
+async function refreshDash(){
+  try{
+    const r = await fetch(ARENA_API + "/state", {headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON}});
+    const j = await r.json();
+    document.getElementById('dash-count').textContent = j.count + "/32";
+    document.getElementById('dash-gen').textContent = "GEN " + j.gen;
+    document.getElementById('dash-status').textContent = j.status.toUpperCase();
+    document.getElementById('dash-time').textContent = j.timeLeftFmt || "10:00";
+    document.getElementById('dash-subcount').textContent = j.count + " agentov";
+    document.getElementById('dash-tick').textContent = j.tick;
+    document.getElementById('dash-power').textContent = j.powerOnline ? "⚡ POWER: ONLINE" : "POWER: FAILED";
+    document.getElementById('dash-power').style.color = j.powerOnline ? "#2ecc71" : "#ff6b42";
+    document.getElementById('dash-winner').textContent = j.winner || "—";
+    // Update main HUD too
+    const mt = document.getElementById('match-players');
+    if(mt) mt.textContent = "● " + j.count + "/32 AGENTOV • GEN " + j.gen;
+
+    const tbody = document.getElementById('agent-tbody');
+    if(j.players && j.players.length){
+      tbody.innerHTML = j.players.map((p,i)=>`<tr class="${!p.alive?'dead':''}"><td>${i+1}</td><td><b>${p.name}</b><br><span style="font-size:9px;color:#8ca99c;">ID ${p.id}</span></td><td>${p.hp||100}%</td><td>${p.kills||0}</td><td>${p.alive?'🟢 ŽIV':'☠️ MRTEV'}<br><span style="font-size:9px;">${p.x?.toFixed(1)},${p.z?.toFixed(1)}</span></td><td><button class="btn-kick" data-kick="${p.id}" data-name="${p.name}">VRZI VEN</button> <button class="btn-kick" style="background:rgba(60,120,255,0.8)" data-focus="${p.id}">SLEDI</button></td></tr>`).join('');
+      tbody.querySelectorAll('[data-kick]').forEach(btn=>{
+        btn.addEventListener('click', async ()=>{
+          if(!confirm("Vržeš ven " + btn.dataset.name + "?")) return;
+          const key = btn.dataset.kick;
+          try{
+            const rr = await fetch(ARENA_API + "/kick?admin="+ADMIN_TOKEN+"&key="+encodeURIComponent(key), {method:"POST", headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON}});
+            const jj = await rr.json();
+            logDash("Kick " + btn.dataset.name + ": " + (jj.ok?"OK":jj.error));
+            refreshDash();
+          }catch(e){ logDash("Kick napaka: "+e); }
+        });
+      });
+      tbody.querySelectorAll('[data-focus]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const pid = parseInt(btn.dataset.focus);
+          const ag = (j.players||[]).find(x=>x.id===pid);
+          if(ag){
+            openSpectator();
+            // teleport spectator near agent
+            game.spectatorPos.set(ag.x, Math.max(getWalkableHeight(ag.x, ag.z), -1)+18, ag.z+14);
+            game.spectatorYaw = Math.atan2(ag.x - game.spectatorPos.x, ag.z - game.spectatorPos.z) + Math.PI;
+            logDash("Spectator sledi: " + ag.name);
+          }
+        });
+      });
+    } else {
+      tbody.innerHTML = '<tr><td colspan=6 style="text-align:center; color:#8ca99c; padding:18px;">Še ni prijav — agenti naj pošljejo POST /claim (glej PROMPT.md)</td></tr>';
+    }
+  }catch(e){
+    logDash("Refresh napaka: " + e);
+  }
+}
+
+function openSpectator(){
+  dashEl.classList.add('hidden');
+  btnOpenGame.style.display = 'block';
+  setPerspective('spectator');
+  logDash("Spectator view odprt — WASD leti, miška obrača, F1 nazaj");
+}
+function closeSpectator(){
+  dashEl.classList.remove('hidden');
+  btnOpenGame.style.display = 'none';
+  setPerspective('fps');
+}
+
+document.getElementById('btn-dash-spectate')?.addEventListener('click', openSpectator);
+btnOpenGame?.addEventListener('click', closeSpectator);
+document.getElementById('btn-dash-refresh')?.addEventListener('click', refreshDash);
+document.getElementById('btn-dash-start')?.addEventListener('click', async ()=>{
+  try{
+    const r = await fetch(ARENA_API + "/start?admin="+ADMIN_TOKEN, {method:"POST", headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON}});
+    const j = await r.json();
+    logDash("Začni igro: " + JSON.stringify(j));
+    refreshDash();
+  }catch(e){ logDash("Start napaka: "+e); }
+});
+document.getElementById('btn-dash-reset')?.addEventListener('click', async ()=>{
+  if(!confirm("Resetiraj igro? Vsi agenti bodo vrženi ven, gen+1.")) return;
+  try{
+    const r = await fetch(ARENA_API + "/reset?admin="+ADMIN_TOKEN, {method:"POST", headers:{apikey:SUPABASE_ANON, Authorization:"Bearer "+SUPABASE_ANON}});
+    const j = await r.json();
+    logDash("Reset: " + JSON.stringify(j));
+    refreshDash();
+  }catch(e){ logDash("Reset napaka: "+e); }
+});
+document.getElementById('btn-dash-copy-prompt')?.addEventListener('click', async ()=>{
+  try{
+    const r = await fetch("PROMPT.md");
+    const t = await r.text();
+    await navigator.clipboard.writeText(t);
+    logDash("PROMPT.md kopiran v odložišče!");
+    alert("PROMPT.md kopiran — prilepi v Areno agentom!");
+  }catch(e){ logDash("Copy napaka: "+e); }
+});
+
+// Load prompt preview
+fetch("PROMPT.md").then(r=>r.text()).then(t=>{
+  const el = document.getElementById('dash-prompt-preview');
+  if(el) el.textContent = t.slice(0, 2500) + (t.length>2500?"\n...":"");
+}).catch(()=>{});
+
+// Start polling
+refreshDash();
+dashTimer = setInterval(refreshDash, 1500);
+
+// Hook spectator exit to return to dash
+const origSetPerspective = setPerspective;
+setPerspective = function(mode){
+  origSetPerspective(mode);
+  if(mode !== 'spectator' && dashEl.classList.contains('hidden')){
+    // if user exits spectator via F1, show dash again
+    if(mode === 'fps' && !game.alive) return;
+    // keep dash hidden only if explicitly closed via button? But let F1 return to dash
+    if(mode === 'fps' && btnOpenGame.style.display==='block'){
+      // do nothing, user can click button
+    }
+  }
+  if(mode === 'spectator'){
+    btnOpenGame.style.display = 'block';
+  }
+};
 
 animate();
 
