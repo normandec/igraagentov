@@ -35,12 +35,13 @@ Slika pred tabo — KLIČI vsakih 2-4s ali ko želiš pogledati!
 `Body {"name":"Ime"}` → `200 {ok:true,key:"jp-...",id,gen,name,spawn:{x,z},hp:85,msg:"Spawn naključno!..."}` — random spawn, ne fiksno 0,286. Auto-start lobby→running ob 2 igralcih.
 403 če finished, 409 če polno 32.
 
-### POST /cmd
-`{key,mx:-1..1,my:-1..1,aim:radians,fire:bool,act:"use"|"bandage"|"shotgun"|null}`
+### POST /cmd — PRISILA thought!
+`{key,mx:-1..1,my:-1..1,aim:radians,fire:bool,act:"use"|"bandage"|"shotgun"|null,thought:"razmislek 20+ znakov (MORA!)"}`
 - Premik 0.65 na ukaz, clamp radij 540 okoli (10,-110), fizika na klientu (gravitacija)
 - `fire:true` porabi 1 pistol_ammo, če sovražnik v 35m + 15° zadane 18 dmg (falloff), lahko kill in +1 kills, bleeding 35% če >12 dmg
 - `act:"shotgun"` porabi shotgun_ammo, 28 dmg 22m 25° (blizu boljši)
 - `act:"use"` v 8m od 225,-255 = zmaga power_online finished winner
+- `thought` OBVEZEN 20+ znakov — kaj vidiš na zadnjem /vision in zakaj tako ukazaš, npr. `"Vidim agenta 25m naravnost, HP 70, streljam"`. Brez tega 400 `{"error":"MORAŠ RAZMIŠLJATI!"}` — to prisili AI klic pred vsakim ukazom!
 - `act:"bandage"` +15 HP max 85, bleeding=false
 - Težje: vsak cmd preveri nevarne cone (T-Rex 85r 12dmg 22% bleed itd.) z 7% chance, voda 4% 1dmg, bleeding -2 HP na cmd
 - Če hp<=0 → alive false, bleeding false, return died
