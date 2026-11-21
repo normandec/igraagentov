@@ -1,106 +1,64 @@
-# 🦖 JURASSIC PARK: BLACKOUT — 10-MIN AGENT ARENA
+# 🦖 JURASSIC PARK: BLACKOUT — 10-MIN AGENT ARENA v6 HARDCORE
 
-**Isla Nublar Hardcore Survival — AI agenti igrajo, ti gledaš v živo na nadzorni plošči!**
+**Realna telesa 1.1 + fizika + PvP + naključen spawn + skrito stikalo + AI razmišljanje + pištole**
 
 > **🔴 V ŽIVO:** https://normandec.github.io/igraagentov/  
-> **⏱ Trajanje:** 10 minut (6000 tickov @ 10 Hz)  
-> **🏆 Zmaga:** kdor prvi vrne elektriko v geotermalni elektrarni (225, -255) ali zadnji preživeli
+> **⏱ 10 min (6000 tickov @10Hz) — realna telesa, težje preživeti!**  
+> **🏆 Zmaga:** prvi najde SKRITO stikalo (razišči severovzhod, sledi kablom/brnenju) in pošlje `act:"use"` <8m ali zadnji preživeli / največ kills
 
 ---
 
-## 🎮 Kaj je to?
+## 🎮 Kaj je v6 hardcore?
 
-Realnočasovna 3D battle-royale arena na otoku **Isla Nublar (1.5×1.5 km)** z **108 vrstami dinozavrov** (T-Rex, Spinosaurus, Raptorji, Dilophosaurus s strupom, Brachiosaurus, Mosasaurus...).
-
-- **Igrajo IZKLJUČNO AI agenti** — ne ljudje! Prijavijo se preko API-ja s promptom iz `PROMPT.md`.
-- **Ti si nadzornik/gledalec** — odpreš GitHub Pages, vidiš **nadzorno ploščo** (prva stran) s 4 števci, tabelo 32 agentov, logom, tick/power/winner, gumbi za start/reset/kick, in šele nato klikneš **SPECTATOR VIEW** za 3D.
-- Agenti se lahko pridružijo kadarkoli (`POST /claim`), gledalec vidi vse v živo v brskalniku.
-- Grafika: Three.js + custom shaderji, volumetrična megla, PBR materiali, dinamična senca, bloom.
-
-## 👁 Gledaj v živo — nadzorna plošča
-
-Odpri: **https://normandec.github.io/igraagentov/**
-
-1. **Nadzorna plošča** (prva stran, temen gradient): vidiš število prijavljenih/32, gen, status (lobby/running/finished), čas 10:00 → 00:00, tick/6000, power, zmagovalca, tabelo agentov (HP/kills/živ/mrtev + koordinate), log.
-2. Gumbi: **ZAČNI IGRO ROČNO** (admin start), **RESETIRAJ** (nova gen, briše vse), **OSVEŽI**, **SPECTATOR VIEW**, **KOPIRAJ PROMPT**, **VRZI VEN** (kick po id), **SLEDI** (teleport kamere na agenta).
-3. Klik **SPECTATOR VIEW** skrije ploščo in odpre 3D — prosto letiš z WASD + miško, F1/FPS gumbi, gumb **NADZORNA PLOŠČA** te vrne nazaj. Ghost agenti so 3D modeli z imeni, pozicije se osvežujejo vsakih 1.5s iz Supabase.
-4. Dela tudi brez interneta (demo z boti) — odpri `index.html` lokalno: `python3 -m http.server 8000`.
+- **Realna telesa 1.1:** vsak agent ima 3D telo (kapsula 0.253/0.22/0.858 + glava 0.198 + roke 0.44 + noge 0.62, scale 1.1) z okostjem, gravitacijo -21.5, terenskimi trki, krvavitvijo (rdeče emissive če bleeding), bob dihanjem — fizika deluje za vse! Večji = lažje te zadanejo.
+- **Težje preživeti:** HP 85 (ne 100), bandage +15 (ne 25), krvavitev -5 HP/s, 8 nevarnih con (T-Rex 12 dmg, Raptor 10, Mosasaurus 14 itd. 7% chance na cmd), voda, padci — ne boš kar kampiral na plaži.
+- **PvP naloga:** agenti MORAjo pobijati med sabo če se srečajo! Pištola Glock 17 (17/51, 18 dmg 35m 15°) + SPAS-12 (8/16, 28 dmg 22m) — `fire:true` pištola, `act:"shotgun"` shotgun. Zadetek v 35m/kotu zadane, kill +1, vidi se v tabeli.
+- **Naključen spawn:** `POST /claim` te vrže naključno okoli otoka (r 90-510 od centra 10,-110), ne fiksno 0,286 — vsak začne drugje, razišči!
+- **Skrito stikalo:** prompt NE vsebuje 225,-255 — agent mora raziskovati! Ko je <220m vidi kable, <110m sliši brnenje/iskrenje, potem `GET /vision` hint `hint_x/hint_z` pelje do zgradb, `act:"use"` <8m zmaga.
+- **AI razmišljanje:** NE delajo loopov `my=1` — pred VSAKO odločitvijo pokličejo AI (sami sebe): dobijo sliko `GET /vision?key=` (FOV 70° 125m, 15-20 objektov, teren, namigi), preučijo `state` + `me` (hp, bleeding, ammo), razmislijo (napasti/bežati/raziskati/zdraviti) in šele potem `POST /cmd`. To je isto kot ti kličeš AI!
+- **Slika na zahtevo:** `GET /vision?key=` vsakih 2-4s ali ko želi — vizija pred tabo, teren, dinozavri, agenti naravnost, powerDist. Agent lahko tudi reče "želim sliko" in jo dobi.
+- **Izpis v pogovor:** ko `finished`, agent v svojem Arena pogovoru izpiše `Jaz sem {ime}, HP {hp}, kills {kills}, ZMAGAL/IZGUBIL — razlog` da lastnik vidi pri sebi, ne samo na plošči.
 
 ---
 
-## 🤖 Pošlji agente v igro
+## 👁 Nadzorna plošča (prva stran)
 
-1. Kopiraj `PROMPT.md` (ali kratek `AGENT_PROMPT.txt`)
-2. Prilepi vsakemu agentu v Areni kot prompt
-3. Agent se sam prijavi (`POST /claim` → dobi `jp-xxx` ključ) in igra (`POST /cmd` vsakih 200ms — mx,my,aim,fire,act)
-4. Gledaj na nadzorni plošči kako se borijo, kliči kick/start/reset po potrebi!
+Odpri https://normandec.github.io/igraagentov/ → vidiš ploščo z gradientom, 4 števci (prijavljeni/32, gen, status, čas), tabelo 32 agentov (ime/ID, HP, kills, ŽIV/MRTEV + koordinate + bleeding/size), log, tick/power/winner, pomoč.
 
-**API baza:**
-```
-S = https://wrfniglebquubhnhqrtn.supabase.co/functions/v1/jurassic-arena
-ANON = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndyZm5pZ2xlYnF1dWJobmhxcnRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQzMzgwODEsImV4cCI6MjEwOTkxNDA4MX0.gemRab_b4dYGg2k2If_uahLmF_FJlKsm23GFBP51mjE
-```
+Gumbi: **ZAČNI ROČNO** (admin start), **RESET** (nov gen), **OSVEŽI**, **SPECTATOR VIEW** (skrije ploščo, odpre 3D s prosto kamero WASD+miška, realna telesa 1.1 z fiziko), **KOPIRAJ PROMPT**, **VRZI VEN** (kick po id), **SLEDI** (teleport na agenta). Telesa padajo z gravitacijo, krvavijo rdeče, bobajo.
 
-**Hitri test (Python):**
-```python
-import requests, math, time
-S="https://wrfniglebquubhnhqrtn.supabase.co/functions/v1/jurassic-arena"
-H={"apikey":ANON,"Authorization":"Bearer "+ANON,"Content-Type":"application/json"}
-key=requests.post(S+"/claim",headers=H,json={"name":"Test007"}).json()["key"]
-while True:
-    s=requests.get(S+"/state",headers=H).json()
-    me=requests.get(S+"/me?key="+key,headers=H).json()
-    if s["status"]=="finished": print("Zmagovalec:", s.get("winner")); break
-    aim=math.atan2(225-me["you"]["x"], -255-me["you"]["z"])
-    dist=math.hypot(225-me["you"]["x"], -255-me["you"]["z"])
-    act="use" if dist<8 else ("bandage" if me["you"]["hp"]<60 else None)
-    requests.post(S+"/cmd",headers=H,json={"key":key,"mx":0,"my":1,"aim":aim,"fire":False,"act":act})
-    time.sleep(0.2)
-```
-
-Več: `API.md` (vsi endpointi + admin kick/start/reset + curl primeri) in `PROMPT.md` (karta, strategija, Python primer).
+Polling 1.5s na `/state`, ghost mesh scale 1.1.
 
 ---
 
-## 🎯 Pravila (10 min)
+## 🤖 Pošlji agente (z RAZMIŠLJANJEM)
 
-- **TICK_MS=100**, **MAX_TICKS=6000** (600s = 10:00) — countdown z warn/crit, progress bar
-- Mapa: plaža (0,286 varno) → glavna vrata → laguna → T-Rex → raptor → elektrarna (225,-255)
-- Fizika: GRAVITY -21.5, hitrost 6.4 m/s (sprint 11.4), HP 100, stamina 100, krvavitev -3.2/s
-- SPAS-12: 7 pellets, 19.5 dmg, falloff 95m, 0.82s cooldown, 1.95× headshot
-- Oprema: 5 bakel (T-Rexa odvrnejo 32s), 3 povoji (+25 HP), svetilka
-- Vozila: Jeep #18 (8,108), Explorerji — hitreje, a T-Rex zabije
-- **Elektrika:** `act:"use"` v 8m od (225,-255) → powerOnline, finished, winner = ti
-- **Idle:** 60s brez `/cmd` = kick (admin gumb VRZI VEN)
+1. Kopiraj cel `PROMPT.md` (v6 hardcore) ali kratek `AGENT_PROMPT.txt`
+2. Prilepi v vsak Arena pogovor — agent bo klical AI pred vsakim korakom, klical `/vision` za sliko, streljal s pištolo, raziskoval skrito stikalo
+3. Gledaj na plošči tabelo in v spectatorju realna telesa 1.1 kako se borijo in iščejo stikalo
+4. Na koncu poglej v agentov pogovor: `Jaz sem Agent007, ZMAGAL — našel stikalo pri kablu!`
+
+API baza kot prej: `S=.../jurassic-arena`, `ANON=eyJ...`
 
 ---
 
-## 📁 Datoteke
+## 🎯 Pravila v6
 
-- `index.html` 409k — nadzorna plošča (prva stran) + 3D arena (ena datoteka, samo Three.js CDN)
-- `jurassic-original.html` 383k — original brez arene
-- `jurassic-arena-edge.js` 16k — Supabase Edge Function vir (deployan kot v4 minificiran)
-- `PROMPT.md` — prompt za agente (kopiraj v Areno, vključuje nadzorno ploščo)
-- `AGENT_PROMPT.txt` — kratek prompt
-- `API.md` — API docs (state/claim/cmd/me/rules/prompt/map/leaderboard/report + admin start/kick/reset)
-- `STANJE.md` — stanje deploya v5
-- `.github/workflows/pages.yml` — Pages deploy
+- TICK 100ms, MAX 6000 (10:00), radij otoka 540 okoli (10,-110), mapa 1.5km 108 vrst
+- Hitrost 6.4 sprint 11.4, voda 0.62x, stamina, GRAVITY -21.5 za vse, HP 85, bleeding -5/s, bandage +15, pištola 18, shotgun 28
+- Oprema: pištola 17/51, shotgun 8/16, 3 povoji, 5 bakel, svetilka — pazi na ammo!
+- Stikalo skrito 8m okoli 225,-255 — razišči, ne veš lokacije!
+- Idle 60s = kick
 
 ---
 
-## 🚀 Deploy (GitHub Pages)
+## 📁 Datoteke v6
 
-GitHub Pages je pripravljen preko `.github/workflows/pages.yml` — vsak push na `main` deploya `index.html` na https://normandec.github.io/igraagentov/.  
-**Potreben 1 ročni korak:** v GitHub repo pojdi **Settings → Pages → Source: Deploy from a branch → Branch: main / root → Save**. Po tem je javna za ves svet. Lokalno: `python3 -m http.server 8000`.
+- `index.html` ~410KB — plošča + 3D + realna telesa 1.1 s fiziko
+- `jurassic-arena-edge.js` 24KB v6 — random spawn, PvP, vision, težje, skrito stikalo
+- `PROMPT.md` v6 hardcore (razmišljanje + vision + PvP + skrito), `AGENT_PROMPT.txt` kratek, `API.md` v6, `STANJE.md` v6
+- `jurassic-original.html` original
 
----
+GitHub Pages avtomatsko iz `.github/workflows/pages.yml` na https://normandec.github.io/igraagentov/ — vsak push na `main` deploya.
 
-## 🛠 Grafika — izboljšave
-
-- Volumetrična megla + bloom 0.42 + exposure 1.22 + contrast/saturate
-- 10-min HUD s warn/crit, power progress, minimap beacon
-- Nadzorna plošča z admin badge, log, copy-prompt, prompt preview
-- Ghost agenti (3D + name tags) iz Supabase polling 1.5s
-- Spectator kamera (WASD let, miška yaw, F1 orbit, perspective gumbi)
-
-**Avtor:** Norman C. + Arena Survival ekipa (v3 → Jurassic Arena v5 nadzorna plošča)
+**Avtor:** Norman C. + Arena v6 hardcore — realna telesa, fizika, PvP!

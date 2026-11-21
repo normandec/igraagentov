@@ -7501,10 +7501,17 @@ const agentMeshes = new Map();
 function ensureAgentMesh(agent){
   if(agentMeshes.has(agent.id)) return agentMeshes.get(agent.id);
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.23,0.2,0.78,8), new THREE.MeshStandardMaterial({color: agent.name.includes('Alpha')?'#ff4d4d': agent.name.includes('Bravo')?'#4da6ff':'#ffd700'}));
-  body.position.y=1.22; body.castShadow=true;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.18,8,7), new THREE.MeshStandardMaterial({color:'#d8a984'}));
-  head.position.y=1.78;
+  // HARDCORE v6: real bodies 1.1x bigger with physics
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.253,0.22,0.858,8), new THREE.MeshStandardMaterial({color: agent.name.includes('Alpha')?'#ff4d4d': agent.name.includes('Bravo')?'#4da6ff':'#ffd700'}));
+  body.position.y=1.34; body.castShadow=true;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.198,8,7), new THREE.MeshStandardMaterial({color:'#d8a984'}));
+  head.position.y=1.96;
+  const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.045,0.44,6), new THREE.MeshStandardMaterial({color:'#d8a984'})); armL.position.set(-0.31,1.2,0); armL.rotation.z=0.12; g.add(armL);
+  const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.045,0.44,6), new THREE.MeshStandardMaterial({color:'#d8a984'})); armR.position.set(0.31,1.2,0); armR.rotation.z=-0.12; g.add(armR);
+  const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.095,0.08,0.62,6), new THREE.MeshStandardMaterial({color:'#2b3a4f'})); legL.position.set(-0.12,0.42,0); g.add(legL);
+  const legR = new THREE.Mesh(new THREE.CylinderGeometry(0.095,0.08,0.62,6), new THREE.MeshStandardMaterial({color:'#2b3a4f'})); legR.position.set(0.12,0.42,0); g.add(legR);
+  g.scale.set(1.1,1.1,1.1);
+  g.userData.velY=0; g.userData.bleeding=false;
   const nametag = new THREE.Sprite(new THREE.SpriteMaterial({color:0xffffff}));
   // simple text sprite via canvas
   const c=document.createElement('canvas'); c.width=256; c.height=64;
@@ -7521,11 +7528,30 @@ function updateAgentMeshes(){
   for(const ag of arenaAgents){
     if(ag.x===0 && ag.z===286) continue; // not moved yet
     const mesh = ensureAgentMesh(ag);
-    mesh.position.set(ag.x, Math.max(getWalkableHeight(ag.x, ag.z), -1)+0.15, ag.z);
+    // HARDCORE v6 physics: gravity + terrain collision, 1.1 size
+    const ground = Math.max(getWalkableHeight(ag.x, ag.z), -1)+0.16;
+    if(!mesh.userData.groundY) mesh.userData.groundY=ground;
+    // simple gravity simulation per ghost (client-side prediction)
+    if(ag.alive){
+      let vy = mesh.userData.velY||0;
+      let y = mesh.position.y;
+      // if just spawned, snap to ground
+      if(Math.abs(y-ground)>6) { y=ground; vy=0; }
+      vy += -21.5 * 0.016; // gravity per frame ~60fps
+      y += vy*0.016;
+      if(y <= ground){ y=ground; vy=0; }
+      mesh.userData.velY=vy;
+      mesh.position.set(ag.x, y, ag.z);
+      mesh.position.y += Math.sin(elapsed*3+idx)*0.055; // breathing bob
+      // bleeding flash
+      const bmesh=mesh.children[0]; if(ag.bleeding){ bmesh.material.emissive.setHex(0x330000); bmesh.material.emissiveIntensity=0.6; } else { bmesh.material.emissive.setHex(0x000000); bmesh.material.emissiveIntensity=0; }
+    } else {
+      mesh.position.set(ag.x, ground, ag.z);
+      mesh.rotation.z = Math.PI*0.35; mesh.rotation.x=0.2;
+    }
     mesh.rotation.y = ag.yaw || 0;
-    // Bob when alive
-    if(ag.alive) mesh.position.y += Math.sin(elapsed*3+idx)*0.04;
-    else mesh.rotation.z = Math.PI*0.35;
+    // scale already 1.1, add subtle damage flash if low HP
+    if(ag.hp<30){ mesh.children[0].material.color.setHex(0x8a1a1a); }
     idx++;
   }
   // If no real movement, simulate demo bots wandering for visual spectacle
