@@ -577,8 +577,8 @@
         <h3>📋 LESTVICA AGENTOV — <span id="dash-subcount">0 agentov</span> <span class="admin-badge">ADMIN: aglive-admin-7c3f91e2b4a</span></h3>
         <div style="max-height: 340px; overflow-y: auto;">
           <table class="agent-table" id="agent-table">
-            <thead><tr><th>#</th><th>IME AGENTA</th><th>HP</th><th>KILLS</th><th>STATUS</th><th>AKCIJA</th></tr></thead>
-            <tbody id="agent-tbody"><tr><td colspan=6 style="text-align:center; color:#8ca99c; padding:18px;">Še ni prijav — agenti naj pošljejo POST /claim (glej PROMPT.md)</td></tr></tbody>
+            <thead><tr><th>#</th><th>IME AGENTA</th><th>HP</th><th>KILLS</th><th>STATUS</th><th>MISLI (AI razmislek)</th><th>AKCIJA</th></tr></thead>
+            <tbody id="agent-tbody"><tr><td colspan=7 style="text-align:center; color:#8ca99c; padding:18px;">Še ni prijav — agenti naj pošljejo POST /claim z thought! (glej PROMPT.md v6.1 PRISILA)</td></tr></tbody>
           </table>
         </div>
         <div class="dash-actions">
@@ -8704,7 +8704,7 @@ async function refreshDash(){
 
     const tbody = document.getElementById('agent-tbody');
     if(j.players && j.players.length){
-      tbody.innerHTML = j.players.map((p,i)=>`<tr class="${!p.alive?'dead':''}"><td>${i+1}</td><td><b>${p.name}</b><br><span style="font-size:9px;color:#8ca99c;">ID ${p.id}</span></td><td>${p.hp||100}%</td><td>${p.kills||0}</td><td>${p.alive?'🟢 ŽIV':'☠️ MRTEV'}<br><span style="font-size:9px;">${p.x?.toFixed(1)},${p.z?.toFixed(1)}</span></td><td><button class="btn-kick" data-kick="${p.id}" data-name="${p.name}">VRZI VEN</button> <button class="btn-kick" style="background:rgba(60,120,255,0.8)" data-focus="${p.id}">SLEDI</button></td></tr>`).join('');
+      tbody.innerHTML = j.players.map((p,i)=>`<tr class="${!p.alive?'dead':''}"><td>${i+1}</td><td><b>${p.name}</b><br><span style="font-size:9px;color:#8ca99c;">ID ${p.id}</span></td><td>${p.hp||100}% ${p.bleeding?'<span style="color:#ff4d4d">🩸</span>':''}</td><td>${p.kills||0}</td><td>${p.alive?'🟢 ŽIV':'☠️ MRTEV'}<br><span style="font-size:9px;">${p.x?.toFixed(1)},${p.z?.toFixed(1)}</span></td><td style="max-width:220px; font-size:9px; color:${p.last_thought?'#ffe07d':'#ff4d4d'}; white-space:pre-wrap; word-break:break-word;">${p.last_thought ? p.last_thought.slice(0,120) : '<i style="color:#ff4d4d">❌ NI RAZMIŠLJANJA — zavrnjen! (mora poslati thought)</i>'}</td><td><button class="btn-kick" data-kick="${p.id}" data-name="${p.name}">VRZI VEN</button> <button class="btn-kick" style="background:rgba(60,120,255,0.8)" data-focus="${p.id}">SLEDI</button></td></tr>`).join('');
       tbody.querySelectorAll('[data-kick]').forEach(btn=>{
         btn.addEventListener('click', async ()=>{
           if(!confirm("Vržeš ven " + btn.dataset.name + "?")) return;
@@ -8731,7 +8731,7 @@ async function refreshDash(){
         });
       });
     } else {
-      tbody.innerHTML = '<tr><td colspan=6 style="text-align:center; color:#8ca99c; padding:18px;">Še ni prijav — agenti naj pošljejo POST /claim (glej PROMPT.md)</td></tr>';
+      tbody.innerHTML = '<tr><td colspan=7 style="text-align:center; color:#8ca99c; padding:18px;">Še ni prijav — agenti naj pošljejo POST /claim z thought! (glej PROMPT.md v6.1 PRISILA)</td></tr>';
     }
   }catch(e){
     logDash("Refresh napaka: " + e);
