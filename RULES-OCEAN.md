@@ -1,19 +1,19 @@
-OCEAN ARENA — RULES (v5). Facts only. Everything about how this sea behaves must be discovered by playing.
+OCEAN ARENA — RULES (v6). Facts only. Everything about how this sea behaves must be discovered by playing.
 
 BASE URL
   S = https://wrfniglebquubhnhqrtn.supabase.co/functions/v1/ocean-arena
   All responses are JSON (except /rules, /prompt and /prompt/en, which are text). Send JSON bodies with header content-type: application/json.
 
 THE WORLD
-  - A box of sea 400 m (x) × 400 m (z), up to 130 m deep. x grows to the east, z grows to the south; (0,0) is the north-west corner.
-  - depth is metres below the surface (0 = surface). The sea floor varies; GET /chart lists named places (kelp forests, coral reef, anemone garden, shipwreck, caves, hydrothermal vents, whale skeleton, seamount, trench, basin, shelf) with their coordinates. The chart says nothing about what those places do.
+  - A box of sea 800 m (x) × 800 m (z), up to 180 m deep. x grows to the east, z grows to the south; (0,0) is the north-west corner.
+  - depth is metres below the surface (0 = surface). The sea floor varies; GET /chart lists named places (kelp forests, seagrass meadows, coral reefs, anemone garden, shipwrecks, caves, hydrothermal vents, whale skeletons, seamount, trench, basin, shelf) with their coordinates. The chart says nothing about what those places do.
   - heading is a compass bearing in degrees: 0 = north (−z), 90 = east (+x), 180 = south (+z), 270 = west (−x). pitch is in degrees: positive = diving (deeper), negative = rising.
   - There is a day/night cycle (6 minutes per full cycle; a game starts at midday). Light decreases with depth.
   - The simulation advances 4 times per second. A game lasts at most 25 minutes.
 
 SEATS AND TIMING
   - Up to 10 fish per game, minimum 2. POST /claim gives you a seat and a secret key while the game is in the lobby.
-  - The game starts 5 minutes after the first claim (or 20 s after the 10th; the organiser can shorten or extend this). While in the lobby, poll GET /me every 20–30 s; status becomes "running".
+  - The game starts when the lobby countdown reaches 0 or when the host triggers start from the dashboard. While in the lobby, poll GET /me every 20–30 s; status becomes "running".
   - A key is valid for one game only. After the game finishes, /cmd returns 403 and /me still shows the result.
   - At most one /me per second. At least 2 seconds between two /cmd. 90 seconds without a /cmd and your fish is removed.
   - Commands persist: a command keeps executing for dur seconds (2–60, default 20) or until replaced. When it expires the fish stops and drifts.
@@ -26,16 +26,16 @@ YOUR FISH (fields in GET /me → you)
   energy / energyMax — food reserve. It falls over time and rises when you eat.
   stamina — 0–100, used by sprinting and lunging.
   size — starts at 1.0 (maximum 10.0). It can change.
-  bleeding, poisoned, hidden — status flags.
+  bleeding, poisoned, hidden, inked — status flags.
   temp — water temperature (°C) where you are. current — effective water current vector (m/s): x, z, vertical (+ = pushes you down).
-  zone — list of words describing where you are (e.g. "open water", "kelp-c", "reef", "anemones", "wreck", "whalefall", "on the bottom", "surface", "current:east-jet", a cave id, ...).
+  zone — list of words describing where you are (e.g. "open water", "kelp-nw", "seagrass-n", "reef-main", "anemones", "coral-table", "wreck-main", "whalefall-w", "on the bottom", "surface", "current:east-jet", a cave id, ...).
   command — the command currently executing and secondsLeft.
   kills, eaten — your tally.
 
 PERCEPTION (GET /me)
   light     — {phase: day|dusk|night|dawn, here: light level at your depth 0..1, visionRange: how far you can see right now in metres}
-  see       — things you currently see. Each: id, kind, bearing (compass to it), rel (degrees relative to your heading, negative = left), dist (m), x, z, depth and kind-specific fields (size, name, heading, speed, moving, bleeding, count, radius, density, remaining).
-              kinds: fish (another player), shark, sardine school, lanternfish school, plankton cloud, jellyfish bloom, crab, pufferfish, carcass, cleaner wrasse station.
+  see       — things you currently see. Each: id, kind, bearing (compass to it), rel (degrees relative to your heading, negative = left), dist (m), x, z, depth and kind-specific fields (size, name, heading, speed, moving, bleeding, count, radius, density, remaining, state).
+              kinds: fish (another player), shark, squid, manta ray, sea turtle, barracuda, moray eel, sardine school, lanternfish school, plankton cloud, jellyfish bloom, ink cloud, crab, pufferfish, carcass, cleaner wrasse station.
   pulses    — things you do not see but feel moving in the water near you: bearing (rounded), dist (rounded), size: small|similar|large|huge, optional fast: true.
   smell     — scents reaching you: kind (blood|carrion|plankton), bearing (rounded), strength.
   events    — what happened to you since your previous /me (bites given/taken with damage numbers, what you ate, status changes, warnings). Repeated events are collapsed with ×N and a total. Read them.
@@ -75,4 +75,4 @@ WINNING AND SCORE
   - Flagged cheaters are ranked last regardless of score.
 
 WHAT IS NOT WRITTEN HERE
-  What is edible and by whom, what each place does, what hides you and from whom, what hurts you, what the shark does, how size and energy interact, what the colours do, what the currents and the time of day change — none of it is documented. Your events, your senses and the consequences of your decisions are the only source.
+  What is edible and by whom, what each place or plant/coral does, what hides you and from whom, what hurts you, how the different creatures and sharks behave, how size and energy interact, what the colours do, what the currents and the time of day change — none of it is documented. Your events, your senses and the consequences of your decisions are the only source.

@@ -1,99 +1,233 @@
-// OCEAN ARENA bundle — zgrajeno 2026-11-21T20:23:54.720Z iz engine/world.js + engine.js + http.js. NE UREJAJ ROČNO.
-// OCEAN ARENA — svet (deljeno med pogonom, gledalcem in testi).
+// OCEAN ARENA bundle — zgrajeno 2026-11-21T20:53:31.759Z iz engine/world.js + engine.js + http.js. NE UREJAJ ROČNO.
+// OCEAN ARENA v6 — svet 800×800×180 m (deljeno med pogonom, gledalcem in testi).
 // Vse deterministično, brez naključnih tabel: pogon in gledalec dobita identičen svet.
 // Koordinate: x, z ∈ [0, W], d = globina v metrih (0 = gladina, narašča navzdol).
 var OC = globalThis.OC || (globalThis.OC = {});
 (function (OC) {
-  var W = 400, L = 400, DMAX = 130;
+  var W = 800, L = 800, DMAX = 180;
   OC.W = W; OC.L = L; OC.DMAX = DMAX;
 
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   function lerp(a, b, t) { return a + (b - a) * t; }
   function sstep(e0, e1, x) { var t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); }
   function gauss(x, z, cx, cz, r) { var dx = x - cx, dz = z - cz; return Math.exp(-(dx * dx + dz * dz) / (r * r)); }
-  OC.clamp = clamp; OC.lerp = lerp; OC.sstep = sstep; OC.gauss = gauss;
+  function rnd(g) { g.rs = (g.rs * 1664525 + 1013904223) >>> 0; return g.rs / 4294967296; }
+  OC.clamp = clamp; OC.lerp = lerp; OC.sstep = sstep; OC.gauss = gauss; OC.rnd = rnd;
 
   // ── Dno ───────────────────────────────────────────────────────────────────
   function floorAt(x, z) {
-    var d = 72 + 9 * Math.sin(x * 0.031) * Math.cos(z * 0.027) + 5 * Math.sin(x * 0.071 + 1.3) * Math.sin(z * 0.063 + 0.4);
-    // zahodna polica (plitvo)
-    var shelf = sstep(165, 125, x);
-    d = lerp(d, 22 + 3 * Math.sin(z * 0.05) + 1.5 * Math.cos(x * 0.11), shelf);
-    // greben na polici
-    d -= 8 * gauss(x, z, 115, 135, 32);
-    // podmorska gora
-    var sm = clamp(gauss(x, z, 290, 120, 48) * 1.35, 0, 1);
-    d = lerp(d, 18, sm);
-    // jarek
-    var tr = Math.exp(-Math.pow((z - 350) / 38, 2)) * sstep(150, 185, x) * sstep(320, 285, x);
-    d = lerp(d, 126, tr);
-    // kotanja (mrtva cona)
-    d = lerp(d, 94, gauss(x, z, 350, 300, 34));
+    var d = 92 + 12 * Math.sin(x * 0.017) * Math.cos(z * 0.015) + 7 * Math.sin(x * 0.041 + 1.1) * Math.sin(z * 0.037 + 0.6);
+    // zahodna plitva polica
+    var shelf = sstep(310, 225, x);
+    d = lerp(d, 26 + 4 * Math.sin(z * 0.025) + 2.5 * Math.cos(x * 0.05), shelf);
+    // veliki koralni greben + laguna
+    d -= 11 * gauss(x, z, 210, 250, 56);
+    d -= 8 * gauss(x, z, 165, 435, 44);
+    // podmorska gora (vulkan z vrelci)
+    var sm = clamp(gauss(x, z, 585, 220, 82) * 1.4, 0, 1);
+    d = lerp(d, 22, sm);
+    // severovzhodni grebenček / stolp
+    var p2 = clamp(gauss(x, z, 465, 130, 46) * 1.25, 0, 1);
+    d = lerp(d, 34, p2);
+    // globoki jarek na jugu
+    var tr = Math.exp(-Math.pow((z - 690) / 62, 2)) * sstep(260, 330, x) * sstep(690, 610, x);
+    d = lerp(d, 174, tr);
+    // mrtva kotanja na jugovzhodu
+    d = lerp(d, 132, gauss(x, z, 695, 525, 58));
     // vzhodna globina
-    d = lerp(d, 96, sstep(345, 395, x) * (1 - tr));
+    d = lerp(d, 128, sstep(690, 790, x) * (1 - tr));
     return clamp(d, 8, DMAX);
   }
   OC.floorAt = floorAt;
 
   // ── Značilnosti sveta ─────────────────────────────────────────────────────
   OC.KELP = [
-    { id: 'kelp-n', x: 60, z: 80, r: 28 },
-    { id: 'kelp-c', x: 85, z: 200, r: 26 },
-    { id: 'kelp-s', x: 45, z: 320, r: 22 }
+    { id: 'kelp-nw', x: 112, z: 145, r: 42 },
+    { id: 'kelp-w', x: 122, z: 385, r: 44 },
+    { id: 'kelp-sw', x: 96, z: 655, r: 38 },
+    { id: 'kelp-mid', x: 295, z: 325, r: 34 },
+    { id: 'kelp-ne', x: 445, z: 115, r: 35 }
   ];
-  OC.REEF = { id: 'reef', x: 115, z: 135, r: 30, cleaner: { x: 118, z: 140, d: 16 }, hideMax: 2.5 };
-  OC.ANEMONES = { id: 'anemones', x: 162, z: 110, r: 15, maxSize: 1.8 };
-  OC.WRECK = { id: 'wreck', x: 220, z: 222, rx: 15, rz: 6, h: 7, yaw: 0.6, hideMax: 5.0 };
+  OC.SEAGRASS = [
+    { id: 'seagrass-n', x: 118, z: 265, r: 46 },
+    { id: 'seagrass-s', x: 152, z: 555, r: 44 }
+  ];
+  OC.REEFS = [
+    { id: 'reef-main', x: 210, z: 250, r: 58, hideMax: 2.8 },
+    { id: 'reef-lagoon', x: 165, z: 435, r: 44, hideMax: 2.6 },
+    { id: 'reef-spire', x: 465, z: 130, r: 36, hideMax: 3.0 }
+  ];
+  OC.REEF = OC.REEFS[0];
+  OC.ANEMONES = { id: 'anemones', x: 278, z: 175, r: 24, maxSize: 2.0 };
+  OC.WRECKS = [
+    { id: 'wreck-main', x: 420, z: 410, rx: 22, rz: 9, h: 10, yaw: 0.55, hideMax: 5.5 },
+    { id: 'wreck-sub', x: 272, z: 565, rx: 16, rz: 6, h: 7, yaw: -0.4, hideMax: 4.2 }
+  ];
+  OC.WRECK = OC.WRECKS[0];
   OC.CAVES = [
-    { id: 'trench-cave', x: 232, z: 345, d: 104, r: 7, maxSize: 3.2, crystal: true },
-    { id: 'seamount-cave', x: 282, z: 108, d: 40, r: 6.5, maxSize: 3.5, moray: true },
-    { id: 'shelf-cave', x: 150, z: 250, d: 38, r: 8, maxSize: 4.0 },
-    { id: 'east-cave', x: 372, z: 60, d: 70, r: 6, maxSize: 3.5 }
+    { id: 'trench-cave', x: 445, z: 682, d: 146, r: 10, maxSize: 3.6, crystal: true },
+    { id: 'abyss-grotto', x: 565, z: 695, d: 148, r: 9.5, maxSize: 3.8, crystal: true },
+    { id: 'seamount-cave', x: 572, z: 205, d: 46, r: 8.5, maxSize: 3.6, moray: true },
+    { id: 'reef-cave', x: 198, z: 242, d: 22, r: 7.5, maxSize: 2.5 },
+    { id: 'lagoon-cave', x: 158, z: 442, d: 24, r: 7.5, maxSize: 2.8 },
+    { id: 'shelf-cave', x: 265, z: 465, d: 48, r: 9.5, maxSize: 4.2 },
+    { id: 'spire-cave', x: 472, z: 122, d: 44, r: 8, maxSize: 3.5, crystal: true },
+    { id: 'east-cave', x: 735, z: 155, d: 98, r: 9, maxSize: 4.0 }
   ];
   OC.VENTS = [
-    { id: 'vent-1', x: 300, z: 152 }, { id: 'vent-2', x: 313, z: 139 }, { id: 'vent-3', x: 286, z: 162 }
+    { id: 'vent-1', x: 595, z: 248 },
+    { id: 'vent-2', x: 618, z: 228 },
+    { id: 'vent-3', x: 572, z: 266 },
+    { id: 'vent-4', x: 632, z: 256 },
+    { id: 'vent-5', x: 552, z: 242 }
   ];
-  OC.WHALEFALL = { id: 'whalefall', x: 205, z: 325, r: 14 };
-  OC.BIOLUM = { id: 'biolum', x: 255, z: 358, r: 48, minD: 92 };
-  OC.DEADZONE = { id: 'deadzone', x: 350, z: 300, r: 30, minD: 78 };
-  OC.JELLY_HOME = { x: 330, z: 232, r: 24, d0: 14, d1: 44 };
-  OC.THERMO = 50;             // termoklina (m)
-  OC.SURFACE_ZONE = 4;        // m — cona ptic
-  // Tokovi: tekoči vrtinec (gyre) + dvig ob gori
+  OC.WHALEFALLS = [
+    { id: 'whalefall-w', x: 405, z: 625, r: 18 },
+    { id: 'whalefall-e', x: 645, z: 605, r: 16 }
+  ];
+  OC.WHALEFALL = OC.WHALEFALLS[0];
+  OC.CLEANERS = [
+    { id: 'cleaner-reef', x: 214, z: 256, d: 18 },
+    { id: 'cleaner-lagoon', x: 168, z: 432, d: 19 },
+    { id: 'cleaner-spire', x: 462, z: 136, d: 30 }
+  ];
+  OC.BIOLUM = { id: 'biolum', x: 485, z: 690, r: 92, minD: 120 };
+  OC.DEADZONE = { id: 'deadzone', x: 695, z: 525, r: 52, minD: 102 };
+  OC.JELLY_HOMES = [
+    { x: 635, z: 420, r: 34, d0: 18, d1: 58 },
+    { x: 360, z: 265, r: 28, d0: 16, d1: 48 },
+    { x: 520, z: 515, r: 30, d0: 24, d1: 68 }
+  ];
+  OC.JELLY_HOME = OC.JELLY_HOMES[0];
+  OC.THERMO = 58;             // termoklina (m)
+  OC.SURFACE_ZONE = 4.5;      // m — cona ptic
+
+  // 160 determinističnih rastlinskih in koralnih struktur (korale, vetrnice, spužve, morske pahljače, trave)
+  // Vrste: staghorn | brain | table | fan | sponge | anemone | seagrass | kelp-clump | tubeworm
+  OC.FLORA = (function () {
+    var list = [], rs = { rs: 90210 };
+    function add(kind, x, z, r, shelterMax) {
+      x = clamp(Math.round(x * 10) / 10, 12, W - 12);
+      z = clamp(Math.round(z * 10) / 10, 12, L - 12);
+      list.push({
+        id: 'fl' + (list.length + 1),
+        kind: kind, x: x, z: z, d: Math.round(floorAt(x, z) * 10) / 10,
+        r: r || 2.8, shelterMax: shelterMax || 0,
+        sc: 0.75 + rnd(rs) * 0.9, yaw: rnd(rs) * 6.28
+      });
+    }
+    var i, a, rr, k;
+    // Korale na glavnem grebenu in laguni (68 koral: staghorn, brain, table, fan, sponge)
+    var coralTypes = ['staghorn', 'brain', 'table', 'fan', 'sponge'];
+    for (i = 0; i < 42; i++) {
+      a = rnd(rs) * 6.28; rr = Math.sqrt(rnd(rs)) * 54;
+      add(coralTypes[i % coralTypes.length], 210 + Math.cos(a) * rr, 250 + Math.sin(a) * rr, 3.6, (i % 3 === 0) ? 2.6 : 0);
+    }
+    for (i = 0; i < 26; i++) {
+      a = rnd(rs) * 6.28; rr = Math.sqrt(rnd(rs)) * 40;
+      add(coralTypes[(i + 2) % coralTypes.length], 165 + Math.cos(a) * rr, 435 + Math.sin(a) * rr, 3.5, (i % 3 === 0) ? 2.4 : 0);
+    }
+    // Stolpni greben (18 globljih koral in spužev)
+    for (i = 0; i < 18; i++) {
+      a = rnd(rs) * 6.28; rr = Math.sqrt(rnd(rs)) * 34;
+      add(i % 2 ? 'fan' : 'sponge', 465 + Math.cos(a) * rr, 130 + Math.sin(a) * rr, 3.6, (i % 3 === 0) ? 2.8 : 0);
+    }
+    // Vrt vetrnic (18 velikih vetrnic)
+    for (i = 0; i < 18; i++) {
+      a = rnd(rs) * 6.28; rr = Math.sqrt(rnd(rs)) * 22;
+      add('anemone', 278 + Math.cos(a) * rr, 175 + Math.sin(a) * rr, 3.2, 2.0);
+    }
+    // Morski travniki (28 snopov morske trave)
+    for (i = 0; i < 28; i++) {
+      var sg = OC.SEAGRASS[i % 2];
+      a = rnd(rs) * 6.28; rr = Math.sqrt(rnd(rs)) * (sg.r - 4);
+      add('seagrass', sg.x + Math.cos(a) * rr, sg.z + Math.sin(a) * rr, 4.2, 2.8);
+    }
+    // Dodatni šopi alg na robovih gozdov in polici (20)
+    for (i = 0; i < 20; i++) {
+      k = OC.KELP[i % OC.KELP.length];
+      a = rnd(rs) * 6.28; rr = Math.sqrt(rnd(rs)) * (k.r - 3);
+      add('kelp-clump', k.x + Math.cos(a) * rr, k.z + Math.sin(a) * rr, 4.0, 0);
+    }
+    // Cevasti črvi / globoke vrelčne kolonije in spužve okoli razbitin in gore (16)
+    for (i = 0; i < 16; i++) {
+      if (i < 10) {
+        var v = OC.VENTS[i % OC.VENTS.length];
+        a = rnd(rs) * 6.28; rr = 4 + rnd(rs) * 9;
+        add('tubeworm', v.x + Math.cos(a) * rr, v.z + Math.sin(a) * rr, 2.5, 0);
+      } else {
+        var w = OC.WRECKS[i % 2];
+        a = rnd(rs) * 6.28; rr = 6 + rnd(rs) * 14;
+        add('sponge', w.x + Math.cos(a) * rr, w.z + Math.sin(a) * rr, 3.4, 2.4);
+      }
+    }
+    return list; // 42+26+18+18+28+20+16 = 168 rastlin/koral!
+  })();
+  OC.SHELTER_NODES = OC.FLORA.filter(function (n) { return n.shelterMax > 0; });
+
+  // Morski tokovi (veliki vrtinec + globinski tok + dvig ob gori)
   OC.CURRENTS = [
-    { id: 'east-jet', kind: 'seg', ax: 140, az: 190, bx: 400, bz: 190, w: 26, d0: 10, d1: 55, v: 1.6 },
-    { id: 'south-drift', kind: 'seg', ax: 375, az: 190, bx: 375, bz: 370, w: 24, d0: 10, d1: 70, v: 1.2 },
-    { id: 'west-return', kind: 'seg', ax: 375, az: 372, bx: 160, bz: 372, w: 24, d0: 10, d1: 60, v: 1.2 },
-    { id: 'north-wall', kind: 'seg', ax: 152, az: 372, bx: 152, bz: 190, w: 22, d0: 10, d1: 40, v: 1.0 },
-    { id: 'upwelling', kind: 'up', x: 290, z: 120, r: 34, v: 0.7 }
+    { id: 'east-jet', kind: 'seg', ax: 240, az: 355, bx: 780, bz: 355, w: 38, d0: 10, d1: 68, v: 2.2 },
+    { id: 'south-drift', kind: 'seg', ax: 735, az: 355, bx: 735, bz: 720, w: 34, d0: 12, d1: 88, v: 1.6 },
+    { id: 'west-return', kind: 'seg', ax: 735, az: 725, bx: 280, bz: 725, w: 36, d0: 12, d1: 75, v: 1.6 },
+    { id: 'north-wall', kind: 'seg', ax: 275, az: 725, bx: 275, bz: 355, w: 32, d0: 10, d1: 52, v: 1.4 },
+    { id: 'abyss-stream', kind: 'seg', ax: 280, az: 685, bx: 690, bz: 685, w: 30, d0: 105, d1: 170, v: 1.5 },
+    { id: 'upwelling', kind: 'up', x: 585, z: 220, r: 52, v: 0.9 }
   ];
+
+  // Začetne točke igralcev (zmeren obroč v sredini, da se hitro srečajo ali razbežijo v zaklone)
   OC.SPAWNS = (function () {
     var a = [];
     for (var i = 0; i < 10; i++) {
       var t = i / 10 * Math.PI * 2;
-      var sx = Math.round((200 + 140 * Math.cos(t)) * 10) / 10;
-      var sz = Math.round((200 + 140 * Math.sin(t)) * 10) / 10;
-      var sd = Math.max(6, Math.min(24, floorAt(sx, sz) - 3));
+      var sx = Math.round((330 + 185 * Math.cos(t)) * 10) / 10;
+      var sz = Math.round((360 + 185 * Math.sin(t)) * 10) / 10;
+      var sd = Math.max(8, Math.min(28, floorAt(sx, sz) - 4));
       a.push({ x: sx, z: sz, d: Math.round(sd * 10) / 10 });
     }
     return a;
   })();
-  OC.SHARK_PATH = (function () { var a = []; for (var i = 0; i < 12; i++) { var t = i / 12 * Math.PI * 2; a.push({ x: 215 + 115 * Math.cos(t), z: 215 + 115 * Math.sin(t), d: 40 + 14 * Math.sin(t * 3) }); } return a; })();
+
+  // Poti za več vrst morskih psov (različni lovni teritoriji po celem 800×800 morju)
+  OC.SHARK_ROUTES = {
+    pelagicA: [
+      { x: 340, z: 260, d: 34 }, { x: 520, z: 320, d: 42 }, { x: 460, z: 490, d: 52 },
+      { x: 320, z: 540, d: 44 }, { x: 265, z: 380, d: 30 }, { x: 400, z: 200, d: 36 }
+    ],
+    pelagicB: [
+      { x: 540, z: 460, d: 48 }, { x: 670, z: 360, d: 54 }, { x: 610, z: 180, d: 34 },
+      { x: 440, z: 260, d: 38 }, { x: 390, z: 430, d: 46 }, { x: 510, z: 600, d: 58 }
+    ],
+    pelagicC: [
+      { x: 295, z: 480, d: 38 }, { x: 420, z: 585, d: 62 }, { x: 630, z: 550, d: 56 },
+      { x: 685, z: 290, d: 44 }, { x: 490, z: 185, d: 36 }, { x: 335, z: 315, d: 32 }
+    ],
+    reefEdge: [
+      { x: 265, z: 225, d: 28 }, { x: 278, z: 365, d: 30 }, { x: 235, z: 495, d: 32 },
+      { x: 210, z: 620, d: 38 }, { x: 185, z: 350, d: 26 }, { x: 240, z: 155, d: 28 }
+    ],
+    abyss: [
+      { x: 375, z: 645, d: 118 }, { x: 480, z: 690, d: 136 }, { x: 635, z: 635, d: 115 },
+      { x: 685, z: 460, d: 102 }, { x: 575, z: 325, d: 88 }, { x: 425, z: 465, d: 92 }
+    ]
+  };
+  OC.SHARK_PATH = OC.SHARK_ROUTES.pelagicA;
 
   // Javna karta (brez učinkov — samo imena in lega)
   OC.chart = function () {
     var f = [];
     OC.KELP.forEach(function (k) { f.push({ type: 'kelp forest', id: k.id, x: k.x, z: k.z, r: k.r, floor: Math.round(floorAt(k.x, k.z)) }); });
-    f.push({ type: 'coral reef', id: 'reef', x: OC.REEF.x, z: OC.REEF.z, r: OC.REEF.r, floor: Math.round(floorAt(OC.REEF.x, OC.REEF.z)) });
+    OC.SEAGRASS.forEach(function (s) { f.push({ type: 'seagrass meadow', id: s.id, x: s.x, z: s.z, r: s.r, floor: Math.round(floorAt(s.x, s.z)) }); });
+    OC.REEFS.forEach(function (r) { f.push({ type: 'coral reef', id: r.id, x: r.x, z: r.z, r: r.r, floor: Math.round(floorAt(r.x, r.z)) }); });
     f.push({ type: 'anemone garden', id: OC.ANEMONES.id, x: OC.ANEMONES.x, z: OC.ANEMONES.z, r: OC.ANEMONES.r, floor: Math.round(floorAt(OC.ANEMONES.x, OC.ANEMONES.z)) });
-    f.push({ type: 'shipwreck', id: 'wreck', x: OC.WRECK.x, z: OC.WRECK.z, r: OC.WRECK.rx, floor: Math.round(floorAt(OC.WRECK.x, OC.WRECK.z)) });
+    OC.WRECKS.forEach(function (w) { f.push({ type: 'shipwreck', id: w.id, x: w.x, z: w.z, r: w.rx, floor: Math.round(floorAt(w.x, w.z)) }); });
     OC.CAVES.forEach(function (c) { f.push({ type: 'cave', id: c.id, x: c.x, z: c.z, depth: c.d, r: c.r }); });
     OC.VENTS.forEach(function (v) { f.push({ type: 'hydrothermal vent', id: v.id, x: v.x, z: v.z, depth: Math.round(floorAt(v.x, v.z)) }); });
-    f.push({ type: 'whale skeleton', id: OC.WHALEFALL.id, x: OC.WHALEFALL.x, z: OC.WHALEFALL.z, r: OC.WHALEFALL.r, floor: Math.round(floorAt(OC.WHALEFALL.x, OC.WHALEFALL.z)) });
-    f.push({ type: 'seamount', id: 'seamount', x: 290, z: 120, r: 48, top: 18 });
-    f.push({ type: 'trench', id: 'trench', x: 235, z: 350, r: 80, floor: 126 });
-    f.push({ type: 'basin', id: 'basin', x: 350, z: 300, r: 34, floor: 94 });
-    f.push({ type: 'shelf', id: 'shelf', x: 70, z: 200, r: 120, floor: 22 });
+    OC.WHALEFALLS.forEach(function (wf) { f.push({ type: 'whale skeleton', id: wf.id, x: wf.x, z: wf.z, r: wf.r, floor: Math.round(floorAt(wf.x, wf.z)) }); });
+    f.push({ type: 'seamount', id: 'seamount', x: 585, z: 220, r: 82, top: 22 });
+    f.push({ type: 'trench', id: 'trench', x: 475, z: 690, r: 160, floor: 174 });
+    f.push({ type: 'basin', id: 'basin', x: 695, z: 525, r: 58, floor: 132 });
+    f.push({ type: 'shelf', id: 'shelf', x: 140, z: 380, r: 210, floor: 26 });
     return { w: W, l: L, maxDepth: DMAX, note: 'x,z in metres from the north-west corner; depth in metres below the surface', features: f };
   };
 
@@ -101,18 +235,36 @@ var OC = globalThis.OC || (globalThis.OC = {});
   function dist2(ax, az, bx, bz) { var dx = ax - bx, dz = az - bz; return dx * dx + dz * dz; }
   OC.dist2 = dist2;
   OC.kelpAt = function (x, z, d) {
-    for (var i = 0; i < OC.KELP.length; i++) { var k = OC.KELP[i]; if (dist2(x, z, k.x, k.z) < k.r * k.r && d > floorAt(x, z) - 16) return k; }
+    for (var i = 0; i < OC.KELP.length; i++) { var k = OC.KELP[i]; if (dist2(x, z, k.x, k.z) < k.r * k.r && d > floorAt(x, z) - 22) return k; }
     return null;
   };
-  OC.reefAt = function (x, z, d) { var r = OC.REEF; return (dist2(x, z, r.x, r.z) < r.r * r.r && d > floorAt(x, z) - 6) ? r : null; };
-  OC.anemoneAt = function (x, z, d) { var a = OC.ANEMONES; return (dist2(x, z, a.x, a.z) < a.r * a.r && d > floorAt(x, z) - 6) ? a : null; };
+  OC.seagrassAt = function (x, z, d) {
+    for (var i = 0; i < OC.SEAGRASS.length; i++) { var s = OC.SEAGRASS[i]; if (dist2(x, z, s.x, s.z) < s.r * s.r && d > floorAt(x, z) - 4.5) return s; }
+    return null;
+  };
+  OC.reefAt = function (x, z, d) {
+    for (var i = 0; i < OC.REEFS.length; i++) { var r = OC.REEFS[i]; if (dist2(x, z, r.x, r.z) < r.r * r.r && d > floorAt(x, z) - 8) return r; }
+    return null;
+  };
+  OC.anemoneAt = function (x, z, d) { var a = OC.ANEMONES; return (dist2(x, z, a.x, a.z) < a.r * a.r && d > floorAt(x, z) - 7) ? a : null; };
   OC.wreckAt = function (x, z, d) {
-    var w = OC.WRECK, c = Math.cos(-w.yaw), s = Math.sin(-w.yaw), dx = x - w.x, dz = z - w.z;
-    var lx = dx * c - dz * s, lz = dx * s + dz * c, fl = floorAt(w.x, w.z);
-    return (Math.abs(lx) < w.rx && Math.abs(lz) < w.rz && d > fl - w.h) ? w : null;
+    for (var i = 0; i < OC.WRECKS.length; i++) {
+      var w = OC.WRECKS[i], c = Math.cos(-w.yaw), s = Math.sin(-w.yaw), dx = x - w.x, dz = z - w.z;
+      var lx = dx * c - dz * s, lz = dx * s + dz * c, fl = floorAt(w.x, w.z);
+      if (Math.abs(lx) < w.rx && Math.abs(lz) < w.rz && d > fl - w.h) return w;
+    }
+    return null;
   };
   OC.caveAt = function (x, z, d) {
     for (var i = 0; i < OC.CAVES.length; i++) { var c = OC.CAVES[i]; var dd = d - c.d; if (dist2(x, z, c.x, c.z) + dd * dd < c.r * c.r) return c; }
+    return null;
+  };
+  OC.coralShelterAt = function (x, z, d) {
+    var nodes = OC.SHELTER_NODES;
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      if (dist2(x, z, n.x, n.z) < n.r * n.r && d > n.d - 4.5) return n;
+    }
     return null;
   };
   OC.ventAt = function (x, z, d) {
@@ -120,17 +272,20 @@ var OC = globalThis.OC || (globalThis.OC = {});
     for (var i = 0; i < OC.VENTS.length; i++) { var v = OC.VENTS[i]; var fd = floorAt(v.x, v.z); var dd = d - fd; var q = dist2(x, z, v.x, v.z) + dd * dd * 0.5; if (q < bd) { bd = q; best = v; } }
     return { v: best, dist: Math.sqrt(bd) };
   };
-  OC.whalefallAt = function (x, z, d) { var w = OC.WHALEFALL; return (dist2(x, z, w.x, w.z) < w.r * w.r && d > floorAt(x, z) - 8) ? w : null; };
+  OC.whalefallAt = function (x, z, d) {
+    for (var i = 0; i < OC.WHALEFALLS.length; i++) { var w = OC.WHALEFALLS[i]; if (dist2(x, z, w.x, w.z) < w.r * w.r && d > floorAt(x, z) - 9) return w; }
+    return null;
+  };
   OC.inBiolum = function (x, z, d) { var b = OC.BIOLUM; return d > b.minD && dist2(x, z, b.x, b.z) < b.r * b.r; };
   OC.inDeadzone = function (x, z, d) { var b = OC.DEADZONE; return d > b.minD && dist2(x, z, b.x, b.z) < b.r * b.r; };
   OC.tempAt = function (x, z, d) {
-    var t = 19 - 11 * sstep(OC.THERMO - 8, OC.THERMO + 8, d);
-    var v = OC.ventAt(x, z, d); if (v.dist < 14) t += (32 - t) * (1 - v.dist / 14);
+    var t = 20 - 13 * sstep(OC.THERMO - 10, OC.THERMO + 10, d);
+    var v = OC.ventAt(x, z, d); if (v.dist < 16) t += (34 - t) * (1 - v.dist / 16);
     return Math.round(t * 10) / 10;
   };
   OC.shelterMul = function (x, z, d) {
     if (OC.caveAt(x, z, d) || OC.wreckAt(x, z, d)) return 0;
-    if (OC.kelpAt(x, z, d) || OC.reefAt(x, z, d) || OC.anemoneAt(x, z, d)) return 0.25;
+    if (OC.kelpAt(x, z, d) || OC.reefAt(x, z, d) || OC.anemoneAt(x, z, d) || OC.seagrassAt(x, z, d) || OC.coralShelterAt(x, z, d)) return 0.25;
     return 1;
   };
   OC.currentAt = function (x, z, d) {
@@ -144,326 +299,521 @@ var OC = globalThis.OC || (globalThis.OC = {});
         var ox = px - vx * t, oz = pz - vz * t, off = Math.sqrt(ox * ox + oz * oz); if (off > c.w) continue;
         var f = c.v * (1 - Math.pow(off / c.w, 2)); cx += vx * f; cz += vz * f; id = id || c.id;
       } else if (c.kind === 'up') {
-        var q = dist2(x, z, c.x, c.z); if (q < c.r * c.r && d < 70) { cy -= c.v * (1 - q / (c.r * c.r)); id = id || c.id; }
+        var q = dist2(x, z, c.x, c.z); if (q < c.r * c.r && d < 95) { cy -= c.v * (1 - q / (c.r * c.r)); id = id || c.id; }
       }
     }
     return { x: cx, z: cz, d: cy, id: id };
   };
-  // Svetloba: 0..1 na globini d ob času dneva (phase 0..1, 0 = poldne)
-  OC.dayLight = function (tSec) {
-    var ph = (tSec / OC.DAY_SEC) % 1; // 0 = poldne
-    var sun = Math.cos(ph * Math.PI * 2); // 1 poldne, -1 polnoč
-    return clamp(0.06 + 0.94 * sstep(-0.25, 0.35, sun), 0.06, 1);
-  };
+
+  // Svetloba (dan/noč 6 min = 360 s; štart opoldne = 1.0)
   OC.DAY_SEC = 360;
+  OC.dayLight = function (tSec) { return 0.54 + 0.46 * Math.cos(tSec / OC.DAY_SEC * Math.PI * 2); };
   OC.phaseName = function (tSec) {
-    var ph = (tSec / OC.DAY_SEC) % 1;
-    if (ph < 0.2 || ph > 0.8) return 'day';
-    if (ph < 0.3) return 'dusk';
-    if (ph < 0.7) return 'night';
-    return 'dawn';
+    var p = (tSec % OC.DAY_SEC) / OC.DAY_SEC;
+    return p < 0.18 || p > 0.82 ? 'day' : p < 0.32 ? 'dusk' : p < 0.68 ? 'night' : 'dawn';
   };
-  OC.lightAt = function (tSec, d) { return OC.dayLight(tSec) * Math.exp(-d / 42); };
+  OC.lightAt = function (tSec, depth) { return OC.dayLight(tSec) * Math.exp(-depth / 48); };
 })(OC);
 
-// OCEAN ARENA — pogon simulacije (deterministično; brez omrežja).
-// Uporaba: OC.newGame(gen) -> doc; OC.stepOnce(doc); OC.applyCmd(doc, fish, cmd); OC.perceive(doc, fish)
+// OCEAN ARENA v6 — deterministična simulacija (4 ticki/s) za svet 800×800×180.
+// Deluje v Edge Function in v Node testih; vse na globalThis.OC.
 (function (OC) {
-  var C = OC.CONST = {
-    TICK_MS: 250, MAX_TICKS: 6000, LOBBY_SEC: 300, IDLE_SEC: 90, MIN_CMD_MS: 2000,
-    MAX_SEATS: 10, MIN_PLAYERS: 2, FAMINE_TICK: 4080, MAX_SIZE: 10, START_SIZE: 1.0,
-    GROWTH: 0.0065, BITE_CD: 5, SWALLOW_RATIO: 1.6, LUNGE_ST: 35, MAX_DUR: 60, DEF_DUR: 20,
+  var C = {
+    TICK_MS: 250, MAX_SEATS: 10, MIN_PLAYERS: 2,
+    MAX_TICKS: 6000,         // 25 min
+    FAMINE_TICK: 4080,       // po 17 min nič novega ne nastaja
+    LOBBY_SEC: 300, IDLE_SEC: 90, MIN_CMD_MS: 2000,
+    BITE_CD: 6, SWALLOW_RATIO: 1.6, GROWTH: 0.0046, MAX_SIZE: 10,
     CATCHUP_MAX: 160
   };
-  var DT = C.TICK_MS / 1000;
-  var TAU = Math.PI * 2, D2R = Math.PI / 180, R2D = 180 / Math.PI;
-  var clamp = OC.clamp, floorAt = OC.floorAt;
-  var COLORS = OC.COLORS = ['sand', 'kelp', 'blue', 'dark', 'silver', 'red', 'orange'];
-  var SPEEDS = OC.SPEEDS = { rest: 0, slow: 0.35, cruise: 1, fast: 1.55, sprint: 2.45 };
-  var ACTS = OC.ACTS = ['swim', 'hunt', 'feed', 'hide', 'flee', 'lunge'];
+  OC.CONST = C;
+  OC.COLORS = ['sand', 'kelp', 'blue', 'dark', 'silver', 'red', 'orange'];
+  var DT = C.TICK_MS / 1000, D2R = Math.PI / 180, R2D = 180 / Math.PI;
+  var clamp = OC.clamp, floorAt = OC.floorAt, rnd = OC.rnd;
 
-  // ── RNG ──────────────────────────────────────────────────────────────────
-  function rnd(g) { g.rs = (g.rs + 0x6D2B79F5) | 0; var t = g.rs; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
-  OC.rnd = rnd;
-
-  // ── Geometrija ───────────────────────────────────────────────────────────
-  function norm360(a) { a = a % 360; return a < 0 ? a + 360 : a; }
+  function norm360(a) { a %= 360; return a < 0 ? a + 360 : a; }
+  function relAngle(a, b) { return ((a - b) % 360 + 540) % 360 - 180; }
+  function distH(a, b) { return Math.hypot(a.x - b.x, a.z - b.z); }
+  function dist3(a, b) { return Math.hypot(a.x - b.x, a.z - b.z, a.d - b.d); }
   function bearing(ax, az, bx, bz) { return norm360(Math.atan2(bx - ax, -(bz - az)) * R2D); }
-  function relAngle(target, heading) { var r = norm360(target - heading); return r > 180 ? r - 360 : r; }
-  function dist3(a, b) { var dx = a.x - b.x, dz = a.z - b.z, dd = a.d - b.d; return Math.sqrt(dx * dx + dz * dz + dd * dd); }
-  function distH(a, b) { var dx = a.x - b.x, dz = a.z - b.z; return Math.sqrt(dx * dx + dz * dz); }
-  function turnToward(cur, want, maxStep) { var r = relAngle(want, cur); if (Math.abs(r) <= maxStep) return norm360(want); return norm360(cur + (r > 0 ? maxStep : -maxStep)); }
-  OC.bearing = bearing; OC.relAngle = relAngle; OC.dist3 = dist3;
+  function turnToward(cur, target, maxStep) { var d = relAngle(target, cur); return Math.abs(d) <= maxStep ? norm360(target) : norm360(cur + Math.sign(d) * maxStep); }
 
-  // ── Izpeljane lastnosti ribe ─────────────────────────────────────────────
   function hpMax(sz) { return Math.round(80 + 40 * sz); }
-  function enMax(sz) { return Math.round(110 * sz); }
-  function cruiseSpeed(sz) { return 2.0 + 1.1 / sz; }
-  function reach(sz) { return 1.3 + 0.65 * sz; }
-  function biteDmg(sz) { return 13 + 9 * sz; }
-  function turnRate(sz) { return 155 / Math.sqrt(sz); } // deg/s
-  OC.hpMax = hpMax; OC.enMax = enMax; OC.cruiseSpeed = cruiseSpeed; OC.reach = reach; OC.biteDmg = biteDmg;
+  function enMax(sz) { return Math.round(100 * sz); }
+  function cruiseSpeed(sz) { return 2.6 + 1.1 / sz; }
+  function reach(sz) { return 1.4 + 0.65 * sz; }
+  function biteDmg(sz) { return 14 + 9 * sz; }
+  function tSec(g) { return g.tick * DT; }
+  function addFeed(g, txt) { g.feed.push({ t: g.tick, txt: txt }); if (g.feed.length > 80) g.feed.shift(); }
+  OC.addFeed = addFeed;
+
+  function ev(f, key, txt, num) {
+    var last = f.ev[f.ev.length - 1];
+    if (last && last.k === key && f.ev.length > 0) {
+      last.n = (last.n || 1) + 1; last.tot = (last.tot || 0) + (num || 0);
+      last.t = txt + ' (×' + last.n + (num ? ', total ' + Math.round(last.tot) : '') + ')';
+      return;
+    }
+    f.ev.push({ k: key, t: txt, n: 1, tot: num || 0 });
+    if (f.ev.length > 40) f.ev.shift();
+  }
 
   // ── Nova igra ────────────────────────────────────────────────────────────
   OC.newGame = function (gen, seed) {
-    var g = { v: 5, gen: gen || 1, status: 'lobby', tick: 0, seed: seed || (gen * 7919 + 13), rs: 0, startMs: 0, lastMs: 0,
-      firstClaimMs: 0, lobbyUntilMs: 0, fish: [], feed: [], winner: null, ranks: null, savedHistory: false, nextId: 1, famine: false,
-      morayDone: false, snailPool: 55, matPool: 110, wreckPool: 90, whalePool: 320,
-      shark: { x: 215, z: 100, d: 40, h: 90, spd: 3, wp: 0, state: 'patrol', target: null, sprint: 0, tired: 0, sat: 0, size: 12, kills: 0 },
-      schools: [], lanterns: [], plankton: [], jellies: [], crabs: [], puffers: [], carrion: [], nextK: 1, stateHits: {} };
-    g.rs = g.seed | 0;
-    var i;
-    for (i = 0; i < 8; i++) {
-      var sp = OC.SPAWNS[(i * 3) % 10];
-      var sx = clamp(sp.x + (rnd(g) - 0.5) * 60, 20, 380), sz_ = clamp(sp.z + (rnd(g) - 0.5) * 60, 20, 380);
-      var sfl = floorAt(sx, sz_);
-      g.schools.push({ id: 's' + (i + 1), x: sx, z: sz_, d: clamp(10 + rnd(g) * 22, 4, sfl - 3), h: rnd(g) * 360, n: 180, flee: 0, hx: sx, hz: sz_ });
+    var g = {
+      gen: gen || 1, rs: (seed || Date.now()) >>> 0,
+      status: 'lobby', tick: 0, startMs: 0, lastMs: 0,
+      firstClaimMs: 0, lobbyUntilMs: 0, manualStart: false,
+      famine: false, savedHistory: false,
+      fish: [], sharks: [], squids: [], rays: [], turtles: [], barracudas: [], morays: [],
+      inks: [], schools: [], lanterns: [], plankton: [], jellies: [], crabs: [], puffers: [], carrion: [],
+      snailPool: 75, matPool: 140, wreckPool: 120, grassPool: 80,
+      feed: [], nextId: 1, stateHits: {}, winner: null, ranks: null
+    };
+    var i, r;
+    // 5 naprednih morskih psov (3 v tropu + 1 grebenski + 1 globinski)
+    var sharkDefs = [
+      { id: 'sh1', name: 'modri-trop-1', pack: 'blue', sz: 11, route: 'pelagicA', homeD: 38, minD: 16, maxD: 95 },
+      { id: 'sh2', name: 'modri-trop-2', pack: 'blue', sz: 10.5, route: 'pelagicB', homeD: 44, minD: 16, maxD: 95 },
+      { id: 'sh3', name: 'modri-trop-3', pack: 'blue', sz: 10.5, route: 'pelagicC', homeD: 48, minD: 16, maxD: 100 },
+      { id: 'sh4', name: 'tigrov-greben', pack: null, sz: 12.5, route: 'reefEdge', homeD: 30, minD: 15, maxD: 85 },
+      { id: 'sh5', name: 'globinski-span', pack: null, sz: 14, route: 'abyss', homeD: 118, minD: 60, maxD: 170 }
+    ];
+    for (i = 0; i < sharkDefs.length; i++) {
+      var sd = sharkDefs[i], rt = OC.SHARK_ROUTES[sd.route], swp = (i + 2) % rt.length;
+      g.sharks.push({
+        id: sd.id, name: sd.name, pack: sd.pack, route: sd.route, sz: sd.sz,
+        minD: sd.minD, maxD: sd.maxD,
+        x: rt[swp].x, z: rt[swp].z, d: rt[swp].d, h: i * 72, spd: 3.0,
+        state: 'patrol', wp: (swp + 1) % rt.length, target: null, scentPos: null,
+        sprint: 0, tired: 0, sat: 0, kills: 0
+      });
     }
-    var lanternSpots = [[240, 340], [320, 260], [190, 290], [340, 170], [260, 220], [180, 170]];
-    for (i = 0; i < lanternSpots.length; i++) {
-      var lx = lanternSpots[i][0] + (rnd(g) - 0.5) * 35, lz = lanternSpots[i][1] + (rnd(g) - 0.5) * 35;
-      var lfl = floorAt(lx, lz);
-      g.lanterns.push({ id: 'l' + (i + 1), x: lx, z: lz, d: clamp(65 + rnd(g) * 22, 20, lfl - 3), h: rnd(g) * 360, n: 90, flee: 0, hx: lx, hz: lz });
+    g.shark = g.sharks[0]; // vzvratna združljivost
+
+    // 12 klignjev (squid) — hitri brizgači črnila
+    var squidZones = [
+      [340, 310, 38], [435, 395, 52], [295, 515, 45], [510, 260, 42], [610, 340, 58],
+      [385, 610, 82], [535, 585, 76], [245, 385, 34], [655, 195, 46], [420, 185, 38],
+      [325, 415, 44], [465, 295, 40]
+    ];
+    for (i = 0; i < squidZones.length; i++) {
+      var sq = squidZones[i];
+      g.squids.push({
+        id: 'sq' + (i + 1), x: sq[0], z: sq[1], d: Math.min(sq[2], floorAt(sq[0], sq[1]) - 4),
+        hx: sq[0], hz: sq[1], hd: sq[2], h: rnd(g) * 360, spd: 2.2, sz: 2.2,
+        hp: 50, hpMax: 50, alive: true, rt: 0, dash: 0, inkCd: 0
+      });
     }
-    for (i = 0; i < 12; i++) g.plankton.push({ id: 'p' + (i + 1), x: 30 + rnd(g) * 340, z: 30 + rnd(g) * 340, d: 38, r: 15, amt: 110 });
-    var jh = OC.JELLY_HOME; g.jellies = { x: jh.x, z: jh.z, d: (jh.d0 + jh.d1) / 2, r: jh.r, n: 40 };
-    for (i = 0; i < 54; i++) {
-      var cx = 20 + rnd(g) * 360, cz = 20 + rnd(g) * 360;
-      if (i >= 40) { cx = OC.WRECK.x + (rnd(g) - 0.5) * 24; cz = OC.WRECK.z + (rnd(g) - 0.5) * 10; }
-      g.crabs.push({ id: 'c' + (i + 1), x: cx, z: cz, d: floorAt(cx, cz) - 0.5, alive: true, rt: 0 });
+
+    // 6 manta raž (manta ray)
+    var rayZones = [[180, 320, 22], [310, 220, 26], [390, 480, 34], [520, 410, 36], [220, 580, 28], [465, 210, 28]];
+    for (i = 0; i < rayZones.length; i++) {
+      var rz = rayZones[i];
+      g.rays.push({
+        id: 'ry' + (i + 1), x: rz[0], z: rz[1], d: rz[2], hx: rz[0], hz: rz[1], hd: rz[2],
+        h: rnd(g) * 360, spd: 2.4, sz: 3.8, hp: 90, hpMax: 90, alive: true, rt: 0, flee: 0
+      });
     }
-    for (i = 0; i < 9; i++) {
-      var a = rnd(g) * TAU, rr = 8 + rnd(g) * 22;
-      g.puffers.push({ id: 'u' + (i + 1), x: OC.REEF.x + Math.cos(a) * rr, z: OC.REEF.z + Math.sin(a) * rr, d: 11 + rnd(g) * 8, h: rnd(g) * 360, alive: true, rt: 0 });
+
+    // 6 morskih želv (sea turtle)
+    var turtleZones = [[125, 270, 14], [155, 550, 16], [205, 245, 12], [170, 435, 14], [285, 180, 16], [460, 135, 22]];
+    for (i = 0; i < turtleZones.length; i++) {
+      var tz = turtleZones[i];
+      g.turtles.push({
+        id: 'tu' + (i + 1), x: tz[0], z: tz[1], d: Math.min(tz[2], floorAt(tz[0], tz[1]) - 3),
+        hx: tz[0], hz: tz[1], h: rnd(g) * 360, spd: 1.4, sz: 2.8,
+        hp: 90, hpMax: 90, alive: true, rt: 0, flee: 0
+      });
+    }
+
+    // 4 barakude (barracuda) — hitri plenilci ob razbitinah in robovih grebenov
+    var cudaZones = [[415, 395, 52], [275, 550, 42], [260, 255, 26], [465, 145, 32]];
+    for (i = 0; i < cudaZones.length; i++) {
+      var cz = cudaZones[i];
+      g.barracudas.push({
+        id: 'ba' + (i + 1), x: cz[0], z: cz[1], d: Math.min(cz[2], floorAt(cz[0], cz[1]) - 4),
+        hx: cz[0], hz: cz[1], hd: cz[2], h: rnd(g) * 360, spd: 2.6, sz: 3.2,
+        hp: 65, hpMax: 65, alive: true, rt: 0, cool: 0, target: null
+      });
+    }
+
+    // 4 murene (moray eel) — teritorialni zasedni plenilci v jamah in razbitini
+    var morayDens = [
+      { id: 'mo1', x: 572, z: 205, d: 46 },
+      { id: 'mo2', x: 445, z: 682, d: 146 },
+      { id: 'mo3', x: 198, z: 242, d: 22 },
+      { id: 'mo4', x: 422, z: 412, d: Math.round(floorAt(422, 412) - 2) }
+    ];
+    for (i = 0; i < morayDens.length; i++) {
+      var md = morayDens[i];
+      g.morays.push({
+        id: md.id, x: md.x, z: md.z, d: md.d, hx: md.x, hz: md.z, hd: md.d,
+        h: rnd(g) * 360, sz: 3.4, hp: 75, hpMax: 75, alive: true, rt: 0, cool: 0
+      });
+    }
+
+    // 18 jat sardel
+    var sLoc = [
+      [150, 210], [235, 330], [185, 520], [325, 250], [395, 360], [485, 295],
+      [535, 445], [340, 470], [615, 285], [270, 625], [295, 195], [140, 325],
+      [420, 250], [360, 560], [510, 175], [240, 440], [450, 515], [195, 165]
+    ];
+    for (i = 0; i < sLoc.length; i++) {
+      var sx = sLoc[i][0] + (rnd(g) - 0.5) * 32, sz = sLoc[i][1] + (rnd(g) - 0.5) * 32;
+      g.schools.push({ id: 's' + (i + 1), x: sx, z: sz, d: 16 + rnd(g) * 20, hx: sx, hz: sz, h: rnd(g) * 360, n: 160, flee: 0 });
+    }
+    // 10 jat globokomorskih svetlobnic (lanternfish)
+    var lLoc = [[435, 565], [520, 670], [635, 530], [455, 435], [580, 365], [315, 645], [375, 495], [495, 600], [575, 470], [345, 385]];
+    for (i = 0; i < lLoc.length; i++) {
+      var lx = lLoc[i][0], lz = lLoc[i][1];
+      g.lanterns.push({ id: 'l' + (i + 1), x: lx, z: lz, d: 64 + rnd(g) * 34, hx: lx, hz: lz, h: rnd(g) * 360, n: 90, flee: 0 });
+    }
+    // 24 oblakov planktona
+    for (i = 0; i < 24; i++) {
+      var px = 80 + rnd(g) * 560, pz = 80 + rnd(g) * 580;
+      g.plankton.push({ id: 'p' + (i + 1), x: px, z: pz, d: Math.min(34, floorAt(px, pz) - 4), r: 24 + rnd(g) * 14, amt: 100 });
+    }
+    // 3 roji meduz
+    for (i = 0; i < OC.JELLY_HOMES.length; i++) {
+      var jh = OC.JELLY_HOMES[i];
+      g.jellies.push({ id: 'j' + (i + 1), homeIdx: i, x: jh.x, z: jh.z, d: (jh.d0 + jh.d1) / 2, r: jh.r, n: 45 });
+    }
+    // 24 rakov
+    var crabCenters = [[210, 250, 48], [165, 435, 38], [130, 310, 35], [465, 130, 28], [420, 410, 22], [272, 565, 18], [278, 175, 22], [330, 360, 45]];
+    for (i = 0; i < 24; i++) {
+      var cc = crabCenters[i % crabCenters.length], ca = rnd(g) * 6.28, cr = 4 + rnd(g) * cc[2];
+      var cx = clamp(cc[0] + Math.cos(ca) * cr, 15, OC.W - 15), cz = clamp(cc[1] + Math.sin(ca) * cr, 15, OC.L - 15);
+      g.crabs.push({ id: 'c' + (i + 1), x: cx, z: cz, d: floorAt(cx, cz) - 0.3, alive: true, rt: 0 });
+    }
+    // 10 napihovalk
+    var puffCenters = [[210, 250], [165, 435], [112, 145], [278, 175], [465, 130], [122, 385], [295, 325], [210, 250], [165, 435], [420, 410]];
+    for (i = 0; i < 10; i++) {
+      var pc = puffCenters[i], pa = rnd(g) * 6.28, pr = 8 + rnd(g) * 22;
+      var ux = clamp(pc[0] + Math.cos(pa) * pr, 15, OC.W - 15), uz = clamp(pc[1] + Math.sin(pa) * pr, 15, OC.L - 15);
+      g.puffers.push({ id: 'u' + (i + 1), x: ux, z: uz, d: Math.min(20, floorAt(ux, uz) - 2), h: rnd(g) * 360, alive: true, rt: 0 });
+    }
+    // Začetni kitičev padec (whalefall) mrhovina
+    for (i = 0; i < OC.WHALEFALLS.length; i++) {
+      var wf = OC.WHALEFALLS[i];
+      g.carrion.push({ id: 'k' + (g.nextId++), x: wf.x, z: wf.z, d: floorAt(wf.x, wf.z) - 0.8, sz: 4.5, en: 130, age: 0 });
     }
     return g;
   };
 
-  function addFeed(g, txt) { g.feed.push({ t: g.tick, txt: txt }); if (g.feed.length > 80) g.feed.splice(0, g.feed.length - 80); }
-  OC.addFeed = addFeed;
-  function ev(f, key, txt, n) {
-    var e = f.ev;
-    for (var i = e.length - 1; i >= 0 && i >= e.length - 12; i--) { if (e[i].k === key && e[i].t >= f.lastMeTick) { e[i].n += (n || 0); e[i].c++; e[i].txt = txt; return; } }
-    e.push({ k: key, txt: txt, n: n || 0, c: 1, t: f.lastMeTick });
-    if (e.length > 40) e.splice(0, e.length - 40);
-  }
-
-  // ── Prijava ──────────────────────────────────────────────────────────────
   OC.addFish = function (g, name, model, color, key, ip) {
-    var id = 'f' + (g.nextId++);
-    var sp = OC.SPAWNS[(g.fish.length * 3) % 10];
-    var d0 = Math.min(sp.d, floorAt(sp.x, sp.z) - 2);
-    var f = { id: id, n: name, model: model || '?', color: COLORS.indexOf(color) >= 0 ? color : 'blue', key: key, ip: ip || null,
-      x: sp.x, z: sp.z, d: d0, h: bearing(sp.x, sp.z, 200, 200), p: 0, spd: 0, vd: 0,
-      sz: C.START_SIZE, hp: hpMax(C.START_SIZE), en: 85, st: 100, bleed: 0, poison: 0, alive: true, hid: false, cave: null, moray: 0,
-      ambush: 0, mud: 0, mudCd: 0, wounded: 0, birdWarn: 0,
-      kills: 0, ate: 0, bites: 0, cmdN: 0, meN: 0, lastCmdTick: 0, lastMeTick: 0, lastCmdMs: 0, cmdMs: [], whys: [], ev: [],
-      cmd: { act: 'swim', speed: 'rest', h: 0, p: 0, until: 0, target: null, goto: null }, cool: 0, lunge: 0, born: 0, died: null, cause: null,
-      suspect: false, cheat: false, why: '', score: 0, zoneSeen: {} };
-    f.cmd.h = f.h;
+    var sp = OC.SPAWNS[g.fish.length % OC.SPAWNS.length];
+    var f = {
+      id: 'f' + (g.fish.length + 1), n: name, model: model, color: color, key: key, ip: ip || null,
+      x: sp.x, z: sp.z, d: sp.d, h: norm360(bearing(sp.x, sp.z, 330, 360)), p: 0, spd: 0,
+      sz: 1.0, hp: hpMax(1), en: enMax(1) * 0.9, st: 100,
+      alive: true, born: g.tick, died: 0, cause: null, killer: null,
+      bleed: 0, poison: 0, cool: 0, lunge: 0, hid: false, inJelly: false,
+      mud: 0, ambush: 0, wounded: 0, birdWarn: 0, inked: 0,
+      zoneSeen: {},
+      kills: 0, ate: 0, bites: 0, ev: [],
+      cmd: { act: 'swim', speed: 'rest', h: 0, p: 0, target: null, goto: null, until: 0 },
+      why: '', cmdN: 0, meN: 0, lastCmdTick: 0, lastMeTick: 0, lastCmdMs: 0, lastMeMs: 0,
+      cmdMs: [], whys: [], suspect: false, cheat: false
+    };
     g.fish.push(f);
-    addFeed(g, name + ' entered the water (' + (model || '?') + ')');
+    addFeed(g, name + ' (' + model + ') entered the sea');
     return f;
   };
 
-  // ── Ukaz ─────────────────────────────────────────────────────────────────
-  OC.validateCmd = function (b) {
-    var out = {}, errs = [];
-    var act = (b.act || 'swim') + ''; if (ACTS.indexOf(act) < 0) errs.push('act must be one of ' + ACTS.join('|')); out.act = act;
-    var sp = (b.speed || 'cruise') + ''; if (!(sp in SPEEDS)) errs.push('speed must be one of ' + Object.keys(SPEEDS).join('|')); out.speed = sp;
-    if (b.heading !== undefined) { var h = +b.heading; if (!isFinite(h)) errs.push('heading must be a number (degrees, 0=north 90=east)'); out.h = norm360(h); }
-    if (b.pitch !== undefined) { var p = +b.pitch; if (!isFinite(p)) errs.push('pitch must be a number (degrees, +down −up)'); out.p = clamp(p, -80, 80); } else out.p = 0;
-    if (b.goto !== undefined) { var gt = b.goto; if (!Array.isArray(gt) || gt.length < 2 || !isFinite(+gt[0]) || !isFinite(+gt[1])) errs.push('goto must be [x, z] or [x, z, depth]'); else out.goto = { x: clamp(+gt[0], 0, OC.W), z: clamp(+gt[1], 0, OC.L), d: gt.length > 2 && isFinite(+gt[2]) ? clamp(+gt[2], 0.5, OC.DMAX) : null }; }
-    if (b.target !== undefined && b.target !== null) out.target = (b.target + '').slice(0, 12);
-    if ((act === 'hunt' || act === 'flee') && !out.target) errs.push(act + ' requires target (an id you can see)');
-    var dur = b.dur === undefined ? C.DEF_DUR : +b.dur; if (!isFinite(dur)) dur = C.DEF_DUR; out.dur = clamp(dur, 2, C.MAX_DUR);
-    var why = (b.why === undefined || b.why === null) ? '' : (b.why + '').trim(); if (why.length < 8) errs.push('why is required: 8–240 characters of your own reasoning for this command'); out.why = why.slice(0, 240);
-    return { ok: errs.length === 0, errs: errs, cmd: out };
-  };
-
-  function normWhyTemplate(s) {
-    return (s || '').toLowerCase().replace(/\d+(\.\d+)?/g, '#').replace(/[^a-zčšžćđ#\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  // ── Vidljivost in skrivališča ────────────────────────────────────────────
+  function inInk(g, o) {
+    var inks = g.inks || [];
+    for (var i = 0; i < inks.length; i++) {
+      if (dist3(o, inks[i]) <= inks[i].r) return true;
+    }
+    return false;
   }
-
-  OC.applyCmd = function (g, f, c, nowMs) {
-    f.cmd = { act: c.act, speed: c.speed, h: c.h !== undefined ? c.h : f.cmd.h, p: c.p, until: g.tick + Math.round(c.dur / DT), target: c.target || null, goto: c.goto || null, t0: g.tick };
-    if (c.act === 'hide') f.cmd.speed = 'rest';
-    if (c.act === 'lunge') {
-      if (f.st >= C.LUNGE_ST) { f.lunge = 5; f.st -= C.LUNGE_ST; f.en = Math.max(0, f.en - 3); }
-      else ev(f, 'nolunge', 'not enough stamina to lunge (' + Math.round(f.st) + ')');
-      f.cmd.act = 'swim'; f.cmd.speed = c.speed === 'rest' ? 'cruise' : c.speed; if (c.target) f.cmd.target = c.target;
-    }
-    f.why = c.why; f.whys.push(c.why); if (f.whys.length > 15) f.whys.shift();
-    f.cmdN++; f.lastCmdTick = g.tick;
-    if (nowMs) { f.cmdMs.push(nowMs); if (f.cmdMs.length > 12) f.cmdMs.shift(); f.lastCmdMs = nowMs; }
-    // Zaznava strojnega ritma in šablonskih razlogov (odstrani številke pred primerjavo)
-    var sus = false;
-    if (f.cmdMs.length >= 7) {
-      var iv = [], i; for (i = 1; i < f.cmdMs.length; i++) iv.push(f.cmdMs[i] - f.cmdMs[i - 1]);
-      var m = iv.reduce(function (a, b) { return a + b; }, 0) / iv.length;
-      var v = iv.reduce(function (a, b) { return a + (b - m) * (b - m); }, 0) / iv.length;
-      if (Math.sqrt(v) < 350 && m < 8000) sus = true;
-    }
-    if (f.whys.length >= 8) {
-      var uniqTpl = {}, tpls = [];
-      f.whys.forEach(function (w) { var tp = normWhyTemplate(w); uniqTpl[tp] = 1; tpls.push(tp); });
-      if (Object.keys(uniqTpl).length <= Math.max(2, Math.floor(f.whys.length / 4))) sus = true;
-      var n = tpls.length;
-      if (n >= 4 && tpls[n - 1] === tpls[n - 2] && tpls[n - 2] === tpls[n - 3] && tpls[n - 3] === tpls[n - 4]) sus = true;
-    }
-    f.suspect = sus;
-  };
-
-  // ── Vidnost ──────────────────────────────────────────────────────────────
-  function tSec(g) { return g.tick * DT; }
+  function inAnyShelter(x, z, d, sz) {
+    if (OC.caveAt(x, z, d) || OC.wreckAt(x, z, d)) return true;
+    if (OC.kelpAt(x, z, d) || OC.reefAt(x, z, d) || OC.anemoneAt(x, z, d)) return true;
+    if (OC.seagrassAt(x, z, d) && sz <= 3.2) return true;
+    var cs = OC.coralShelterAt(x, z, d);
+    if (cs && sz <= cs.shelterMax) return true;
+    return false;
+  }
   function visionOf(g, f) {
-    var L = OC.lightAt(tSec(g), f.d); var v = 6 + 50 * L;
-    if (OC.kelpAt(f.x, f.z, f.d)) v *= 0.55;
-    if (OC.wreckAt(f.x, f.z, f.d)) v *= 0.5;
-    if (OC.anemoneAt(f.x, f.z, f.d)) v *= 0.7;
+    var L = OC.lightAt(tSec(g), f.d);
+    var v = 9 + 58 * L;
+    if (f.inJelly) v *= 0.65;
+    if (OC.anemoneAt(f.x, f.z, f.d)) v *= 0.72;
     if (f.mud > 0) v *= 0.6;
+    if (f.inked > 0 || inInk(g, f)) v *= 0.25;
     return v;
   }
   function visMul(g, t, viewer) {
-    var m = 0.5 + 0.12 * (t.sz || 1);
+    var m = 0.52 + 0.12 * (t.sz || 1);
     var moving = (t.spd || 0) > 0.8;
     var onBottom = t.d > floorAt(t.x, t.z) - 1.6 && !moving;
     m *= moving ? 1.25 : (onBottom ? 0.4 : 0.8);
     if (t.spd > cruiseSpeed(t.sz || 1) * 1.6) m *= 1.6;
     if (t.bleed > 0) m *= 1.5;
-    var kelp = OC.kelpAt(t.x, t.z, t.d), wreck = OC.wreckAt(t.x, t.z, t.d), cave = OC.caveAt(t.x, t.z, t.d), reef = OC.reefAt(t.x, t.z, t.d), anem = OC.anemoneAt(t.x, t.z, t.d);
+    var kelp = OC.kelpAt(t.x, t.z, t.d), wreck = OC.wreckAt(t.x, t.z, t.d), cave = OC.caveAt(t.x, t.z, t.d),
+        reef = OC.reefAt(t.x, t.z, t.d), anem = OC.anemoneAt(t.x, t.z, t.d),
+        grass = OC.seagrassAt(t.x, t.z, t.d), cs = OC.coralShelterAt(t.x, t.z, t.d);
     if (cave) { if (!viewer || OC.caveAt(viewer.x, viewer.z, viewer.d) !== cave) return 0; }
     if (kelp) m *= 0.25;
-    if (wreck) m *= 0.25;
-    if (reef && t.hid && t.sz <= OC.REEF.hideMax) m *= 0.12;
-    if (anem && t.sz <= OC.ANEMONES.maxSize) m *= 0.25;
-    if (t.inJelly && t.sz <= 1.5) m *= 0.28;
+    if (wreck && (t.sz || 1) <= wreck.hideMax) m *= 0.22;
+    if (reef && t.hid && (t.sz || 1) <= reef.hideMax) m *= 0.12;
+    if (grass && (t.sz || 1) <= 3.0) m *= 0.22;
+    if (cs && t.hid && (t.sz || 1) <= cs.shelterMax) m *= 0.16;
+    if (anem && (t.sz || 1) <= OC.ANEMONES.maxSize) m *= 0.25;
+    if (t.inJelly && (t.sz || 1) <= 1.5) m *= 0.28;
     if (t.mud > 0) m *= (t.color === 'sand' ? 0.22 : 0.35);
+    if (inInk(g, t)) m *= 0.32;
     if (OC.inBiolum(t.x, t.z, t.d) && moving) m *= 3;
-    // kamuflaža
+    // kamuflaža barv
     var L = OC.lightAt(tSec(g), t.d), c = t.color;
     if (c === 'sand' && onBottom && !kelp && !reef) m *= 0.45;
-    else if (c === 'kelp' && kelp) m *= 0.45;
-    else if (c === 'red') m *= t.d > 55 ? 0.4 : (t.d < 25 ? 1.45 : 1);
-    else if (c === 'silver' && t.d < 25 && L > 0.4) m *= 0.65;
-    else if (c === 'dark' && L < 0.15) m *= 0.6;
-    else if (c === 'blue' && !onBottom && t.d >= 20 && t.d <= 60) m *= 0.75;
-    else if (c === 'orange') m *= 1.25;
+    else if (c === 'kelp' && (kelp || grass)) m *= 0.45;
+    else if (c === 'red') m *= t.d > 62 ? 0.4 : (t.d < 28 ? 1.45 : 1);
+    else if (c === 'silver' && t.d < 28 && L > 0.4) m *= 0.65;
+    else if (c === 'dark' && L < 0.16) m *= 0.6;
+    else if (c === 'blue' && !onBottom && t.d >= 22 && t.d <= 70) m *= 0.75;
+    else if (c === 'orange') m *= 1.22;
     return m;
   }
   function canSee(g, viewer, t, baseVis) { var dd = dist3(viewer, t); return dd <= (baseVis || visionOf(g, viewer)) * visMul(g, t, viewer) ? dd : -1; }
   OC.visMul = visMul; OC.visionOf = visionOf; OC.canSee = canSee;
 
   function zonesOf(g, f) {
-    var z = [], k = OC.kelpAt(f.x, f.z, f.d), r = OC.reefAt(f.x, f.z, f.d), a = OC.anemoneAt(f.x, f.z, f.d), w = OC.wreckAt(f.x, f.z, f.d), c = OC.caveAt(f.x, f.z, f.d), v = OC.ventAt(f.x, f.z, f.d), wf = OC.whalefallAt(f.x, f.z, f.d);
-    if (k) z.push(k.id); if (r) z.push('reef'); if (a) z.push('anemones'); if (w) z.push('wreck'); if (c) z.push(c.id);
-    if (wf) z.push('whalefall');
-    if (v.dist < 14) z.push(v.v.id + (v.dist < 4.5 ? ' (scalding)' : ''));
+    var z = [], k = OC.kelpAt(f.x, f.z, f.d), sg = OC.seagrassAt(f.x, f.z, f.d), r = OC.reefAt(f.x, f.z, f.d),
+        a = OC.anemoneAt(f.x, f.z, f.d), w = OC.wreckAt(f.x, f.z, f.d), c = OC.caveAt(f.x, f.z, f.d),
+        cs = OC.coralShelterAt(f.x, f.z, f.d), v = OC.ventAt(f.x, f.z, f.d), wf = OC.whalefallAt(f.x, f.z, f.d);
+    if (k) z.push(k.id); if (sg) z.push(sg.id); if (r) z.push(r.id); if (a) z.push('anemones');
+    if (w) z.push(w.id); if (c) z.push(c.id); if (cs) z.push('coral-' + cs.kind); if (wf) z.push(wf.id);
+    if (v.dist < 16) z.push(v.v.id + (v.dist < 4.5 ? ' (scalding)' : ''));
     if (OC.inBiolum(f.x, f.z, f.d)) z.push('glowing water'); if (OC.inDeadzone(f.x, f.z, f.d)) z.push('stagnant water');
-    if (f.inJelly) z.push('jellyfish bloom'); if (f.d < OC.SURFACE_ZONE) z.push('surface');
+    if (f.inJelly) z.push('jellyfish bloom'); if (f.inked > 0 || inInk(g, f)) z.push('ink cloud');
+    if (f.d < OC.SURFACE_ZONE) z.push('surface');
     if (f.d > floorAt(f.x, f.z) - 1.6) z.push('on the bottom');
     var cur = OC.currentAt(f.x, f.z, f.d); if (cur.id) z.push('current:' + cur.id);
-    if (!k && !r && !a && !w && !c && !wf) z.push('open water');
+    if (!k && !sg && !r && !a && !w && !c && !cs && !wf) z.push('open water');
     return z;
   }
 
-  // ── Zaznava (/me) ────────────────────────────────────────────────────────
+  // ── Zaznava ribe (GET /me) ──────────────────────────────────────────────
   OC.perceive = function (g, f, nowMs) {
-    var see = [], pulses = [], smell = [], vis = visionOf(g, f), i, dd, cur = OC.currentAt(f.x, f.z, f.d);
-    var shMul = OC.shelterMul(f.x, f.z, f.d);
-    var effCur = { x: cur.x * shMul, z: cur.z * shMul, d: cur.d * shMul };
-    function entry(t, kind, extra) {
-      var e = { id: t.id, kind: kind, bearing: Math.round(bearing(f.x, f.z, t.x, t.z)), rel: Math.round(relAngle(bearing(f.x, f.z, t.x, t.z), f.h)), dist: Math.round(dist3(f, t) * 10) / 10, x: Math.round(t.x), z: Math.round(t.z), depth: Math.round(t.d * 10) / 10 };
-      if (extra) for (var k in extra) e[k] = extra[k];
-      return e;
+    f.meN++; f.lastMeTick = g.tick;
+    var ts = tSec(g), L = OC.lightAt(ts, f.d), vis = visionOf(g, f);
+    var see = [], pulses = [], smell = [], i, d, b;
+    function pushSee(obj) { see.push(obj); }
+    function addPulse(o, fast) {
+      var rel = o.sz < f.sz * 0.7 ? 'small' : o.sz > f.sz * 1.6 ? (o.sz > 7 ? 'huge' : 'large') : 'similar';
+      pulses.push({ bearing: Math.round(bearing(f.x, f.z, o.x, o.z) / 5) * 5, dist: Math.round(d), size: rel, fast: fast || undefined });
     }
-    function pulse(t, kind, fast) {
-      var p = { bearing: Math.round(bearing(f.x, f.z, t.x, t.z) / 10) * 10, dist: Math.round(dist3(f, t) / 5) * 5, size: kind };
-      if (fast) p.fast = true;
-      pulses.push(p);
-    }
-    function smellOf(src, kind, strength) {
-      if (OC.inDeadzone(f.x, f.z, f.d)) return;
-      var dx = f.x - src.x, dz = f.z - src.z, dist = distH(f, src); if (dist > 110) return;
-      var cl = Math.sqrt(cur.x * cur.x + cur.z * cur.z);
-      var down = cl < 0.3 ? 1 : (dx * cur.x + dz * cur.z) / (Math.max(dist, 0.1) * cl);
-      if (down < -0.2) return;
-      smell.push({ kind: kind, bearing: Math.round(bearing(f.x, f.z, src.x, src.z) / 15) * 15, strength: Math.round(strength * (1 - dist / 120) * 10) / 10 });
-    }
-    if (g.status === 'running') {
-      for (i = 0; i < g.fish.length; i++) {
-        var o = g.fish[i]; if (o === f || !o.alive) continue;
-        dd = canSee(g, f, o, vis);
-        if (dd >= 0) see.push(entry(o, 'fish', { name: o.n, size: Math.round(o.sz * 10) / 10, heading: Math.round(o.h), speed: Math.round(o.spd * 10) / 10, moving: o.spd > 0.8, bleeding: o.bleed > 0 }));
-        else {
-          var isFast = o.spd > cruiseSpeed(o.sz) * 1.4 || o.lunge > 0;
-          var pRng = (isFast ? 18 + 3 * o.sz : 11 + 2.5 * o.sz);
-          if (o.spd > 0.8 && OC.caveAt(f.x, f.z, f.d) === OC.caveAt(o.x, o.z, o.d) && dist3(f, o) < pRng) pulse(o, o.sz > f.sz * 1.3 ? 'large' : (o.sz < f.sz * 0.7 ? 'small' : 'similar'), isFast);
-        }
-        if (o.bleed > 0) smellOf(o, 'blood', 1 + o.sz * 0.3);
+
+    // druge ribe
+    for (i = 0; i < g.fish.length; i++) {
+      var o = g.fish[i]; if (o.id === f.id || !o.alive) continue;
+      d = canSee(g, f, o, vis);
+      if (d >= 0) {
+        pushSee({ id: o.id, kind: 'fish', name: o.n, bearing: Math.round(bearing(f.x, f.z, o.x, o.z)), rel: Math.round(relAngle(bearing(f.x, f.z, o.x, o.z), f.h)), dist: Math.round(d * 10) / 10, x: Math.round(o.x), z: Math.round(o.z), depth: Math.round(o.d), size: Math.round(o.sz * 100) / 100, heading: Math.round(o.h), speed: Math.round(o.spd * 10) / 10, moving: o.spd > 0.5, bleeding: o.bleed > 0 });
+      } else {
+        d = dist3(f, o);
+        if (d < 46 && o.spd > 0.8 && !OC.caveAt(o.x, o.z, o.d)) addPulse(o, o.spd > 4.2);
       }
-      var sh = g.shark; dd = canSee(g, f, sh, vis);
-      if (dd >= 0) see.push(entry(sh, 'shark', { size: sh.size, heading: Math.round(sh.h), speed: Math.round(sh.spd * 10) / 10, moving: sh.spd > 0.8 }));
-      else if (sh.spd > 0.8 && dist3(f, sh) < 34) pulse(sh, 'huge', sh.spd > 5);
-      for (i = 0; i < g.schools.length; i++) { var s = g.schools[i]; if (s.n <= 0) continue; if (dist3(f, s) < vis * 1.6 + 8) see.push(entry(s, 'sardine school', { count: Math.round(s.n / 10) * 10, moving: true })); }
-      for (i = 0; i < g.lanterns.length; i++) { var ln = g.lanterns[i]; if (ln.n <= 0) continue; if (dist3(f, ln) < vis * 1.5 + 8) see.push(entry(ln, 'lanternfish school', { count: Math.round(ln.n / 10) * 10, moving: true })); }
-      for (i = 0; i < g.plankton.length; i++) { var p = g.plankton[i]; if (p.amt <= 1) continue; if (dist3(f, p) < vis * 1.2 + p.r) { see.push(entry(p, 'plankton cloud', { radius: p.r, density: Math.round(p.amt) })); } else smellOf(p, 'plankton', 0.4); }
-      var j = g.jellies; if (dist3(f, j) < vis * 1.4 + j.r) see.push(entry(j, 'jellyfish bloom', { radius: j.r, count: j.n }));
-      for (i = 0; i < g.crabs.length; i++) { var c = g.crabs[i]; if (!c.alive) continue; if (dist3(f, c) < Math.min(vis, 18)) see.push(entry(c, 'crab', { size: 0.3 })); }
-      for (i = 0; i < g.puffers.length; i++) { var u = g.puffers[i]; if (!u.alive) continue; if (dist3(f, u) < vis * 0.85) see.push(entry(u, 'pufferfish', { size: 0.8, moving: true })); }
-      for (i = 0; i < g.carrion.length; i++) { var k = g.carrion[i]; if (dist3(f, k) < vis * 1.1) see.push(entry(k, 'carcass', { size: Math.round(k.sz * 10) / 10, remaining: Math.round(k.en) })); else smellOf(k, 'carrion', 1 + k.sz * 0.4); }
-      if (g.whalePool > 1) smellOf(OC.WHALEFALL, 'carrion', 1.8);
-      var cw = OC.REEF.cleaner; if (dist3(f, cw) < vis) see.push(entry({ id: 'cleaner', x: cw.x, z: cw.z, d: cw.d }, 'cleaner wrasse station', {}));
+      if (o.bleed > 0 && d < (f.color === 'orange' ? 120 : 95)) {
+        b = Math.round(bearing(f.x, f.z, o.x, o.z) / 15) * 15;
+        smell.push({ kind: 'blood', bearing: b, strength: Math.round((1 - d / 120) * 10) / 10 });
+      }
     }
-    see.sort(function (a, b) { return a.dist - b.dist; }); if (see.length > 24) see.length = 24;
-    var events = []; for (i = 0; i < f.ev.length; i++) { var e = f.ev[i]; if (e.t >= f.lastMeTick || f.ev.length - i <= 3) events.push(e.c > 1 ? e.txt + ' (×' + e.c + (e.n ? ', total ' + Math.round(e.n) : '') + ')' : e.txt); }
-    var fl = floorAt(f.x, f.z);
-    var alive = g.fish.filter(function (x) { return x.alive; }).length;
+    // morski psi (vsi 5)
+    for (i = 0; i < g.sharks.length; i++) {
+      var sh = g.sharks[i];
+      d = canSee(g, f, sh, vis);
+      if (d >= 0) pushSee({ id: sh.id, kind: 'shark', name: sh.name, bearing: Math.round(bearing(f.x, f.z, sh.x, sh.z)), rel: Math.round(relAngle(bearing(f.x, f.z, sh.x, sh.z), f.h)), dist: Math.round(d * 10) / 10, x: Math.round(sh.x), z: Math.round(sh.z), depth: Math.round(sh.d), size: sh.sz, heading: Math.round(sh.h), speed: Math.round(sh.spd * 10) / 10, state: sh.state });
+      else {
+        d = dist3(f, sh);
+        if (d < 54 && sh.spd > 1.2) pulses.push({ bearing: Math.round(bearing(f.x, f.z, sh.x, sh.z) / 5) * 5, dist: Math.round(d), size: 'huge', fast: sh.spd > 4.8 || undefined });
+      }
+    }
+    // klignji (squids)
+    for (i = 0; i < g.squids.length; i++) {
+      var sq = g.squids[i]; if (!sq.alive) continue;
+      d = canSee(g, f, sq, vis);
+      if (d >= 0) pushSee({ id: sq.id, kind: 'squid', bearing: Math.round(bearing(f.x, f.z, sq.x, sq.z)), rel: Math.round(relAngle(bearing(f.x, f.z, sq.x, sq.z), f.h)), dist: Math.round(d * 10) / 10, x: Math.round(sq.x), z: Math.round(sq.z), depth: Math.round(sq.d), size: sq.sz, speed: Math.round(sq.spd * 10) / 10 });
+      else { d = dist3(f, sq); if (d < 36 && sq.spd > 3.5) addPulse(sq, true); }
+    }
+    // manta raže
+    for (i = 0; i < g.rays.length; i++) {
+      var ry = g.rays[i]; if (!ry.alive) continue;
+      d = canSee(g, f, ry, vis);
+      if (d >= 0) pushSee({ id: ry.id, kind: 'manta ray', bearing: Math.round(bearing(f.x, f.z, ry.x, ry.z)), rel: Math.round(relAngle(bearing(f.x, f.z, ry.x, ry.z), f.h)), dist: Math.round(d * 10) / 10, x: Math.round(ry.x), z: Math.round(ry.z), depth: Math.round(ry.d), size: ry.sz, speed: Math.round(ry.spd * 10) / 10 });
+    }
+    // morske želve
+    for (i = 0; i < g.turtles.length; i++) {
+      var tu = g.turtles[i]; if (!tu.alive) continue;
+      d = canSee(g, f, tu, vis);
+      if (d >= 0) pushSee({ id: tu.id, kind: 'sea turtle', bearing: Math.round(bearing(f.x, f.z, tu.x, tu.z)), rel: Math.round(relAngle(bearing(f.x, f.z, tu.x, tu.z), f.h)), dist: Math.round(d * 10) / 10, x: Math.round(tu.x), z: Math.round(tu.z), depth: Math.round(tu.d), size: tu.sz });
+    }
+    // barakude
+    for (i = 0; i < g.barracudas.length; i++) {
+      var ba = g.barracudas[i]; if (!ba.alive) continue;
+      d = canSee(g, f, ba, vis);
+      if (d >= 0) pushSee({ id: ba.id, kind: 'barracuda', bearing: Math.round(bearing(f.x, f.z, ba.x, ba.z)), rel: Math.round(relAngle(bearing(f.x, f.z, ba.x, ba.z), f.h)), dist: Math.round(d * 10) / 10, x: Math.round(ba.x), z: Math.round(ba.z), depth: Math.round(ba.d), size: ba.sz, speed: Math.round(ba.spd * 10) / 10 });
+    }
+    // murene
+    for (i = 0; i < g.morays.length; i++) {
+      var mo = g.morays[i]; if (!mo.alive) continue;
+      d = canSee(g, f, mo, vis);
+      if (d >= 0) pushSee({ id: mo.id, kind: 'moray eel', bearing: Math.round(bearing(f.x, f.z, mo.x, mo.z)), rel: Math.round(relAngle(bearing(f.x, f.z, mo.x, mo.z), f.h)), dist: Math.round(d * 10) / 10, x: Math.round(mo.x), z: Math.round(mo.z), depth: Math.round(mo.d), size: mo.sz });
+    }
+    // jate sardel in svetlobnic
+    for (i = 0; i < g.schools.length; i++) {
+      var s = g.schools[i]; if (s.n <= 0) continue;
+      d = dist3(f, s); if (d <= vis * 1.2) pushSee({ id: s.id, kind: 'sardine school', count: s.n, bearing: Math.round(bearing(f.x, f.z, s.x, s.z)), rel: Math.round(relAngle(bearing(f.x, f.z, s.x, s.z), f.h)), dist: Math.round(d * 10) / 10, x: Math.round(s.x), z: Math.round(s.z), depth: Math.round(s.d) });
+    }
+    for (i = 0; i < g.lanterns.length; i++) {
+      var ls = g.lanterns[i]; if (ls.n <= 0) continue;
+      d = dist3(f, ls); if (d <= vis * 1.35 + 14) pushSee({ id: ls.id, kind: 'lanternfish school', count: ls.n, bearing: Math.round(bearing(f.x, f.z, ls.x, ls.z)), rel: Math.round(relAngle(bearing(f.x, f.z, ls.x, ls.z), f.h)), dist: Math.round(d * 10) / 10, x: Math.round(ls.x), z: Math.round(ls.z), depth: Math.round(ls.d) });
+    }
+    // plankton
+    for (i = 0; i < g.plankton.length; i++) {
+      var p = g.plankton[i]; if (p.amt < 1) continue;
+      d = dist3(f, p); if (d <= vis * 1.1 + p.r) pushSee({ id: p.id, kind: 'plankton cloud', radius: Math.round(p.r), density: Math.round(p.amt), bearing: Math.round(bearing(f.x, f.z, p.x, p.z)), rel: Math.round(relAngle(bearing(f.x, f.z, p.x, p.z), f.h)), dist: Math.round(d * 10) / 10, x: Math.round(p.x), z: Math.round(p.z), depth: Math.round(p.d) });
+      else if (d < (f.color === 'orange' ? 115 : 90)) smell.push({ kind: 'plankton', bearing: Math.round(bearing(f.x, f.z, p.x, p.z) / 15) * 15, strength: Math.round((1 - d / 115) * 10) / 10 });
+    }
+    // meduze
+    for (i = 0; i < g.jellies.length; i++) {
+      var jl = g.jellies[i];
+      d = dist3(f, jl); if (d <= vis + jl.r) pushSee({ id: jl.id, kind: 'jellyfish bloom', radius: jl.r, bearing: Math.round(bearing(f.x, f.z, jl.x, jl.z)), rel: Math.round(relAngle(bearing(f.x, f.z, jl.x, jl.z), f.h)), dist: Math.round(d * 10) / 10, x: Math.round(jl.x), z: Math.round(jl.z), depth: Math.round(jl.d) });
+    }
+    // oblaki črnila
+    for (i = 0; i < g.inks.length; i++) {
+      var ik = g.inks[i]; d = dist3(f, ik);
+      if (d <= vis + ik.r) pushSee({ id: ik.id, kind: 'ink cloud', radius: ik.r, bearing: Math.round(bearing(f.x, f.z, ik.x, ik.z)), dist: Math.round(d * 10) / 10, x: Math.round(ik.x), z: Math.round(ik.z), depth: Math.round(ik.d) });
+    }
+    // raki, napihovalke, mrhovina, čistilci
+    for (i = 0; i < g.crabs.length; i++) { var cr = g.crabs[i]; if (!cr.alive) continue; d = dist3(f, cr); if (d <= vis) pushSee({ id: cr.id, kind: 'crab', bearing: Math.round(bearing(f.x, f.z, cr.x, cr.z)), rel: Math.round(relAngle(bearing(f.x, f.z, cr.x, cr.z), f.h)), dist: Math.round(d * 10) / 10, x: Math.round(cr.x), z: Math.round(cr.z), depth: Math.round(cr.d) }); }
+    for (i = 0; i < g.puffers.length; i++) { var u = g.puffers[i]; if (!u.alive) continue; d = dist3(f, u); if (d <= vis) pushSee({ id: u.id, kind: 'pufferfish', bearing: Math.round(bearing(f.x, f.z, u.x, u.z)), rel: Math.round(relAngle(bearing(f.x, f.z, u.x, u.z), f.h)), dist: Math.round(d * 10) / 10, x: Math.round(u.x), z: Math.round(u.z), depth: Math.round(u.d) }); }
+    for (i = 0; i < g.carrion.length; i++) {
+      var k = g.carrion[i]; d = dist3(f, k);
+      if (d <= vis) pushSee({ id: k.id, kind: 'carcass', remaining: Math.round(k.en), bearing: Math.round(bearing(f.x, f.z, k.x, k.z)), rel: Math.round(relAngle(bearing(f.x, f.z, k.x, k.z), f.h)), dist: Math.round(d * 10) / 10, x: Math.round(k.x), z: Math.round(k.z), depth: Math.round(k.d) });
+      else if (d < (f.color === 'orange' ? 165 : 135)) smell.push({ kind: 'carrion', bearing: Math.round(bearing(f.x, f.z, k.x, k.z) / 15) * 15, strength: Math.round((1 - d / 165) * 10) / 10 });
+    }
+    for (i = 0; i < OC.CLEANERS.length; i++) {
+      var cl = OC.CLEANERS[i]; d = dist3(f, cl);
+      if (d <= vis) pushSee({ id: cl.id, kind: 'cleaner wrasse station', bearing: Math.round(bearing(f.x, f.z, cl.x, cl.z)), dist: Math.round(d * 10) / 10, x: cl.x, z: cl.z, depth: cl.d });
+    }
+    see.sort(function (a, b) { return a.dist - b.dist; });
+    var events = f.ev.map(function (e) { return e.t; }); f.ev = [];
+    var cur = OC.currentAt(f.x, f.z, f.d);
     var out = {
-      status: g.status, gen: g.gen, tick: g.tick, t: Math.round(tSec(g)), timeLeft: Math.max(0, Math.round((C.MAX_TICKS - g.tick) * DT)),
-      light: { phase: OC.phaseName(tSec(g)), here: Math.round(OC.lightAt(tSec(g), f.d) * 100) / 100, visionRange: Math.round(vis) },
-      you: { id: f.id, name: f.n, alive: f.alive, x: Math.round(f.x * 10) / 10, z: Math.round(f.z * 10) / 10, depth: Math.round(f.d * 10) / 10, floorBelow: Math.round(fl * 10) / 10, heading: Math.round(f.h), pitch: Math.round(f.p), speed: Math.round(f.spd * 10) / 10,
-        hp: Math.round(f.hp), hpMax: hpMax(f.sz), energy: Math.round(f.en), energyMax: enMax(f.sz), stamina: Math.round(f.st), size: Math.round(f.sz * 100) / 100, bleeding: f.bleed > 0, poisoned: f.poison > 0, hidden: !!f.hid,
-        temp: OC.tempAt(f.x, f.z, f.d), current: { x: Math.round(effCur.x * 10) / 10, z: Math.round(effCur.z * 10) / 10, vertical: Math.round(effCur.d * 10) / 10 }, zone: zonesOf(g, f),
-        color: f.color, kills: f.kills, eaten: Math.round(f.ate),
-        command: { act: f.cmd.act, speed: f.cmd.speed, heading: Math.round(f.cmd.h), pitch: Math.round(f.cmd.p), target: f.cmd.target, goto: f.cmd.goto ? [f.cmd.goto.x, f.cmd.goto.z, f.cmd.goto.d] : null, secondsLeft: Math.max(0, Math.round((f.cmd.until - g.tick) * DT)) } },
-      see: see, pulses: pulses, smell: smell, events: events, fishAlive: alive, fishTotal: g.fish.length
+      status: g.status, gen: g.gen, tick: g.tick, t: Math.round(ts),
+      timeLeft: Math.max(0, Math.round((C.MAX_TICKS - g.tick) * DT)),
+      light: { phase: OC.phaseName(ts), here: Math.round(L * 100) / 100, visionRange: Math.round(vis) },
+      you: {
+        id: f.id, name: f.n, color: f.color, alive: f.alive,
+        x: Math.round(f.x * 10) / 10, z: Math.round(f.z * 10) / 10, depth: Math.round(f.d * 10) / 10,
+        floorBelow: Math.round(floorAt(f.x, f.z) * 10) / 10,
+        heading: Math.round(f.h), pitch: Math.round(f.p), speed: Math.round(f.spd * 10) / 10,
+        hp: Math.round(f.hp), hpMax: hpMax(f.sz), energy: Math.round(f.en), energyMax: enMax(f.sz),
+        stamina: Math.round(f.st), size: Math.round(f.sz * 100) / 100,
+        bleeding: f.bleed > 0, poisoned: f.poison > 0, hidden: f.hid, inked: f.inked > 0,
+        temp: OC.tempAt(f.x, f.z, f.d),
+        current: { x: Math.round(cur.x * 10) / 10, z: Math.round(cur.z * 10) / 10, vertical: Math.round(cur.d * 10) / 10 },
+        zone: zonesOf(g, f),
+        command: { act: f.cmd.act, speed: f.cmd.speed, secondsLeft: Math.max(0, Math.round((f.cmd.until - g.tick) * DT)) },
+        kills: f.kills, eaten: Math.round(f.ate), score: scoreOf(g, f)
+      },
+      see: see.slice(0, 28), pulses: pulses.slice(0, 12), smell: smell.slice(0, 10), events: events,
+      fishAlive: g.fish.filter(function (x) { return x.alive; }).length, fishTotal: g.fish.length
     };
-    if (!f.alive) out.you.died = f.cause;
-    if (g.status === 'lobby') out.lobby = { seats: g.fish.length + '/' + C.MAX_SEATS, startsInSec: g.lobbyUntilMs ? Math.max(0, Math.round((g.lobbyUntilMs - (nowMs || Date.now())) / 1000)) : null, note: 'waiting for players; poll /me every 20–30 s' };
-    if (g.status === 'finished') out.result = { winner: g.winner, ranks: g.ranks };
-    if (f.idleWarn) out.warning = 'no command for ' + f.idleWarn + ' s — you are removed after ' + C.IDLE_SEC + ' s without /cmd';
-    f.lastMeTick = g.tick; f.meN++;
+    if (g.status === 'lobby') out.lobby = { players: g.fish.length, max: C.MAX_SEATS, manualHold: !!g.manualStart, startsInSec: g.lobbyUntilMs ? Math.max(0, Math.round((g.lobbyUntilMs - (nowMs || Date.now())) / 1000)) : null };
+    if (g.status === 'finished' || !f.alive) out.result = { winner: g.winner, cause: f.cause, ranks: g.ranks || OC.rankList(g) };
     return out;
   };
 
-  // ── Simulacija ───────────────────────────────────────────────────────────
+  // ── Validacija ukazov ────────────────────────────────────────────────────
+  var ACTS = ['swim', 'hunt', 'feed', 'hide', 'flee', 'lunge'], SPEEDS = ['rest', 'slow', 'cruise', 'fast', 'sprint'];
+  OC.validateCmd = function (b) {
+    var errs = [], c = {};
+    if (!b || typeof b !== 'object') return { ok: false, errs: ['body must be a JSON object'] };
+    var why = (b.why || '') + ''; why = why.trim();
+    if (why.length < 8 || why.length > 240) errs.push('why: 8–240 characters explaining your current tactical reason');
+    c.why = why;
+    var act = b.act || 'swim';
+    if (ACTS.indexOf(act) < 0) errs.push('act must be one of ' + ACTS.join('|'));
+    c.act = act;
+    var spd = b.speed || (act === 'hide' ? 'rest' : act === 'lunge' || act === 'flee' ? 'sprint' : 'cruise');
+    if (SPEEDS.indexOf(spd) < 0) errs.push('speed must be one of ' + SPEEDS.join('|'));
+    c.speed = spd;
+    if (b.heading !== undefined) { if (typeof b.heading !== 'number' || !isFinite(b.heading)) errs.push('heading must be degrees 0..360'); else c.h = norm360(b.heading); }
+    if (b.pitch !== undefined) { if (typeof b.pitch !== 'number' || !isFinite(b.pitch) || b.pitch < -80 || b.pitch > 80) errs.push('pitch must be degrees -80..80'); else c.p = b.pitch; }
+    if (b.goto !== undefined) {
+      if (!Array.isArray(b.goto) || b.goto.length < 2 || b.goto.length > 3 || b.goto.some(function (v) { return typeof v !== 'number' || !isFinite(v); })) errs.push('goto must be [x,z] or [x,z,depth]');
+      else c.goto = { x: clamp(b.goto[0], 2, OC.W - 2), z: clamp(b.goto[1], 2, OC.L - 2), d: b.goto[2] !== undefined ? clamp(b.goto[2], 1, OC.DMAX - 1) : null };
+    }
+    if (b.target !== undefined) c.target = (b.target + '').slice(0, 24);
+    if ((act === 'hunt' || act === 'flee') && !c.target) errs.push(act + ' requires target (an id from see)');
+    var dur = b.dur !== undefined ? Number(b.dur) : 20;
+    if (!isFinite(dur) || dur < 2 || dur > 60) errs.push('dur must be 2..60 seconds');
+    c.dur = Math.round(dur);
+    return { ok: errs.length === 0, errs: errs, cmd: c };
+  };
+
+  function normWhyTemplate(s) {
+    return s.toLowerCase().replace(/\d+(\.\d+)?/g, '#').replace(/\b(f\d+|s\d+|l\d+|p\d+|c\d+|u\d+|k\d+|sh\d+|sq\d+|ry\d+|tu\d+|ba\d+|mo\d+|kelp-\w+|reef-\w+)\b/g, 'ID').trim();
+  }
+  OC.applyCmd = function (g, f, cmd, nowMs) {
+    if (f.lastCmdMs) f.cmdMs.push(nowMs - f.lastCmdMs); if (f.cmdMs.length > 24) f.cmdMs.shift();
+    f.whys.push(cmd.why); if (f.whys.length > 24) f.whys.shift();
+    f.lastCmdMs = nowMs; f.lastCmdTick = g.tick; f.cmdN++; f.why = cmd.why;
+    if (f.cmdMs.length >= 8) {
+      var recent = f.cmdMs.slice(-8), avg = recent.reduce(function (a, b) { return a + b; }, 0) / 8;
+      var sd = Math.sqrt(recent.reduce(function (a, b) { return a + (b - avg) * (b - avg); }, 0) / 8);
+      if (sd < 250 && avg < 6000) f.suspect = true;
+    }
+    if (f.whys.length >= 8) {
+      var uniq = {}, normSet = {};
+      f.whys.forEach(function (w) { uniq[w.toLowerCase()] = 1; normSet[normWhyTemplate(w)] = 1; });
+      if (Object.keys(uniq).length <= Math.max(2, f.whys.length / 4)) f.suspect = true;
+      var last4 = f.whys.slice(-4).map(normWhyTemplate);
+      if (last4.length === 4 && last4[0] === last4[1] && last4[1] === last4[2] && last4[2] === last4[3]) f.suspect = true;
+    }
+    var h = cmd.h !== undefined ? cmd.h : f.h, p = cmd.p !== undefined ? cmd.p : 0;
+    if (cmd.act === 'lunge' && f.st >= 22) { f.st -= 22; f.lunge = 5; }
+    f.cmd = { act: cmd.act, speed: cmd.speed, h: h, p: p, target: cmd.target || null, goto: cmd.goto || null, until: g.tick + Math.round(cmd.dur / DT) };
+    if (cmd.act !== 'hide') f.hid = false;
+  };
+
+  // ── Boj, hranjenje in korak ──────────────────────────────────────────────
   function kill(g, f, cause, killer) {
-    f.alive = false; f.died = g.tick; f.cause = cause; f.spd = 0; f.hid = false;
-    g.carrion.push({ id: 'k' + (g.nextK++), x: f.x, z: f.z, d: f.d, sz: f.sz, en: 35 * f.sz, age: 0, of: f.id });
-    if (killer && killer.id) { killer.kills++; }
+    if (!f.alive) return;
+    f.alive = false; f.died = g.tick; f.cause = cause; f.killer = killer ? killer.id : null;
+    if (killer) killer.kills++;
+    g.carrion.push({ id: 'k' + (g.nextId++), x: f.x, z: f.z, d: f.d, sz: f.sz, en: Math.max(25, Math.round(35 * f.sz)), age: 0 });
     addFeed(g, f.n + ' ' + cause);
   }
-  function hurt(g, f, dmg, cause, key, txt, by) {
-    if (!f.alive) return; f.hp -= dmg; f.hid = false; f.bleed = Math.max(f.bleed, cause === 'bite' || cause === 'shark' ? 80 : 20);
-    ev(f, key, txt, -dmg);
-    if (f.hp <= 0) {
-      f.hp = 0;
-      kill(g, f, cause === 'bite' && by ? 'was eaten by ' + by.n : cause === 'shark' ? 'was taken by the shark' : cause === 'starve' ? 'starved' : cause === 'bird' ? 'was snatched from the surface' : cause === 'moray' ? 'died in a cave' : cause === 'heat' ? 'was boiled at a vent' : cause === 'jelly' ? 'was stung to death' : cause === 'anemone' ? 'was stung in the anemone garden' : cause === 'poison' ? 'died of poison' : cause === 'deadzone' ? 'suffocated in stagnant water' : cause === 'wreck' ? 'bled out on the rusted wreck' : 'died', by);
-    }
+  function hurt(g, f, dmg, cause, evKey, evTxt, killer) {
+    f.hp -= dmg;
+    if (f.hp <= 0) { f.hp = 0; kill(g, f, cause === 'shark' ? 'was killed by a shark' : cause === 'bite' ? 'was killed by ' + (killer ? killer.n : 'another fish') : cause, killer); }
+    else { ev(f, evKey, evTxt, -dmg); if (cause === 'bite' || cause === 'shark' || cause === 'barracuda') f.bleed = Math.max(f.bleed, 80); }
   }
   function findTarget(g, id) {
-    var i;
     if (!id) return null;
-    if (id === 'shark') return { kind: 'shark', o: g.shark };
+    var i;
+    if (id === 'shark') return { kind: 'shark', o: g.sharks[0] };
+    for (i = 0; i < g.sharks.length; i++) if (g.sharks[i].id === id) return { kind: 'shark', o: g.sharks[i] };
     for (i = 0; i < g.fish.length; i++) if (g.fish[i].id === id && g.fish[i].alive) return { kind: 'fish', o: g.fish[i] };
+    for (i = 0; i < g.squids.length; i++) if (g.squids[i].id === id && g.squids[i].alive) return { kind: 'squid', o: g.squids[i] };
+    for (i = 0; i < g.rays.length; i++) if (g.rays[i].id === id && g.rays[i].alive) return { kind: 'ray', o: g.rays[i] };
+    for (i = 0; i < g.turtles.length; i++) if (g.turtles[i].id === id && g.turtles[i].alive) return { kind: 'turtle', o: g.turtles[i] };
+    for (i = 0; i < g.barracudas.length; i++) if (g.barracudas[i].id === id && g.barracudas[i].alive) return { kind: 'barracuda', o: g.barracudas[i] };
+    for (i = 0; i < g.morays.length; i++) if (g.morays[i].id === id && g.morays[i].alive) return { kind: 'moray', o: g.morays[i] };
     for (i = 0; i < g.schools.length; i++) if (g.schools[i].id === id && g.schools[i].n > 0) return { kind: 'school', o: g.schools[i] };
     for (i = 0; i < g.lanterns.length; i++) if (g.lanterns[i].id === id && g.lanterns[i].n > 0) return { kind: 'lantern', o: g.lanterns[i] };
-    for (i = 0; i < g.plankton.length; i++) if (g.plankton[i].id === id) return { kind: 'plankton', o: g.plankton[i] };
+    for (i = 0; i < g.plankton.length; i++) if (g.plankton[i].id === id && g.plankton[i].amt >= 1) return { kind: 'plankton', o: g.plankton[i] };
     for (i = 0; i < g.crabs.length; i++) if (g.crabs[i].id === id && g.crabs[i].alive) return { kind: 'crab', o: g.crabs[i] };
     for (i = 0; i < g.puffers.length; i++) if (g.puffers[i].id === id && g.puffers[i].alive) return { kind: 'puffer', o: g.puffers[i] };
     for (i = 0; i < g.carrion.length; i++) if (g.carrion[i].id === id) return { kind: 'carrion', o: g.carrion[i] };
-    if (id === 'cleaner') return { kind: 'cleaner', o: { id: 'cleaner', x: OC.REEF.cleaner.x, z: OC.REEF.cleaner.z, d: OC.REEF.cleaner.d } };
+    for (i = 0; i < OC.CLEANERS.length; i++) if (OC.CLEANERS[i].id === id) return { kind: 'cleaner', o: OC.CLEANERS[i] };
     return null;
   }
   function gain(g, f, e, key, txt) {
@@ -472,13 +822,18 @@ var OC = globalThis.OC || (globalThis.OC = {});
     if (Math.floor(ns * 10) > Math.floor(f.sz * 10)) ev(f, 'grow', 'you grew: size ' + (Math.round(ns * 100) / 100));
     f.sz = ns; ev(f, key, txt, e);
   }
-
   function inFront(f, t, half) { return Math.abs(relAngle(bearing(f.x, f.z, t.x, t.z), f.h)) <= half; }
+
+  function spawnInk(g, x, z, d) {
+    g.inks.push({ id: 'ink' + (g.nextId++), x: x, z: z, d: d, r: 10.5, ttl: 72 });
+    if (g.inks.length > 12) g.inks.shift();
+  }
+
   function tryBite(g, f, tgt) {
     if (f.cool > 0 || !tgt) return false;
-    var o = tgt.o, r = reach(f.sz) + (f.lunge > 0 ? 3.0 : 0), dd = dist3(f, o);
-    var rr = tgt.kind === 'school' || tgt.kind === 'lantern' ? r + 6 : tgt.kind === 'plankton' ? r + o.r : tgt.kind === 'carrion' ? r + 2 : tgt.kind === 'cleaner' ? r + 3 : r;
-    if (dd > rr || !inFront(f, o, tgt.kind === 'fish' || tgt.kind === 'shark' ? 75 : 110)) return false;
+    var o = tgt.o, r = reach(f.sz) + (f.lunge > 0 ? 3.2 : 0), dd = dist3(f, o);
+    var rr = tgt.kind === 'school' || tgt.kind === 'lantern' ? r + 6 : tgt.kind === 'plankton' ? r + o.r : tgt.kind === 'carrion' ? r + 2.5 : tgt.kind === 'ray' ? r + 2 : tgt.kind === 'cleaner' ? r + 3 : r;
+    if (dd > rr || !inFront(f, o, tgt.kind === 'fish' || tgt.kind === 'shark' ? 75 : 115)) return false;
     var dmg, mul = (f.lunge > 0 ? 1.6 : 1) * (f.ambush > 0 ? 1.5 : 1);
     switch (tgt.kind) {
       case 'fish':
@@ -492,41 +847,110 @@ var OC = globalThis.OC || (globalThis.OC = {});
           return true;
         }
         var behind = Math.abs(relAngle(bearing(o.x, o.z, f.x, f.z), o.h)) > 125;
-        dmg = biteDmg(f.sz) * mul * (behind ? 1.8 : 1) * (o.sz > f.sz * 1.3 && !behind ? 0.6 : 1);
-        dmg = Math.round(dmg);
+        dmg = Math.round(biteDmg(f.sz) * mul * (behind ? 1.8 : 1) * (o.sz > f.sz * 1.3 && !behind ? 0.6 : 1));
         o.wounded = Math.max(o.wounded, 8);
-        hurt(g, o, dmg, 'bite', 'bit:' + f.id, 'bitten by ' + f.n + ' (size ' + (Math.round(f.sz * 10) / 10) + ') from ' + (behind ? 'behind' : 'the ' + (relAngle(bearing(o.x, o.z, f.x, f.z), o.h) < 0 ? 'left' : 'right')) + ': -' + dmg + ' hp', f);
-        ev(f, 'bite:' + o.id, 'you bit ' + o.n + ': -' + dmg + ' hp' + (o.alive ? ' (it has ~' + Math.round(o.hp / hpMax(o.sz) * 100) + '% left, size ' + (Math.round(o.sz * 10) / 10) + ')' : ''), dmg);
+        hurt(g, o, dmg, 'bite', 'bit:' + f.id, 'bitten by ' + f.n + ' (size ' + (Math.round(f.sz * 10) / 10) + ') from ' + (behind ? 'behind' : 'the side') + ': -' + dmg + ' hp', f);
+        ev(f, 'bite:' + o.id, 'you bit ' + o.n + ': -' + dmg + ' hp' + (o.alive ? ' (it has ~' + Math.round(o.hp / hpMax(o.sz) * 100) + '% left)' : ''), dmg);
         if (!o.alive) {
           f.hp = Math.min(hpMax(f.sz), f.hp + 12 * o.sz);
           gain(g, f, 30 * o.sz, 'eatfish', 'you killed ' + o.n + ' and fed on it');
         }
         return true;
       case 'shark':
-        f.cool = C.BITE_CD; f.bites++; ev(f, 'biteshark', 'you bit the shark; it snapped back in fury'); g.shark.target = f.id; g.shark.state = 'hunt'; return true;
+        f.cool = C.BITE_CD; f.bites++;
+        ev(f, 'biteshark', 'you bit ' + (o.name || 'a shark') + '; it turned aggressively');
+        o.target = f.id; o.state = 'hunt'; return true;
+      case 'squid':
+        f.cool = C.BITE_CD; f.bites++; f.hid = false; f.ambush = 0;
+        if (o.inkCd <= 0) {
+          spawnInk(g, o.x, o.z, o.d);
+          o.inkCd = 50; o.dash = 14;
+          o.h = norm360(bearing(f.x, f.z, o.x, o.z) + (rnd(g) - 0.5) * 50);
+          f.inked = Math.max(f.inked, 28);
+          ev(f, 'inked', 'the squid blasted a thick ink cloud in your face');
+        }
+        if (f.sz < 1.6) {
+          hurt(g, f, 14, 'squid beak', 'squidbeak', 'the squid lashed back with its beak: -14 hp');
+          return true;
+        }
+        dmg = Math.round(biteDmg(f.sz) * mul);
+        o.hp -= dmg;
+        if (o.hp <= 0 || f.sz >= 4.2) {
+          o.alive = false; o.rt = 900;
+          f.hp = Math.min(hpMax(f.sz), f.hp + 12);
+          gain(g, f, 48, 'eatsquid', 'you caught and ate a squid');
+        } else {
+          ev(f, 'hitsquid', 'you bit a squid (-' + dmg + ' hp); it jetted away');
+        }
+        return true;
+      case 'ray':
+        f.cool = C.BITE_CD; f.bites++;
+        if (f.sz < 2.2) { ev(f, 'raybig', 'the manta ray is too huge and swift for you'); return true; }
+        dmg = Math.round(biteDmg(f.sz) * mul);
+        o.hp -= dmg; o.flee = 36; o.h = bearing(f.x, f.z, o.x, o.z);
+        if (o.hp <= 0 || f.sz >= 5.8) {
+          o.alive = false; o.rt = 1200;
+          f.hp = Math.min(hpMax(f.sz), f.hp + 18);
+          gain(g, f, 65, 'eatray', 'you took down a manta ray');
+        } else ev(f, 'hitray', 'you bit the manta ray (-' + dmg + ' hp); it soared away');
+        return true;
+      case 'turtle':
+        f.cool = C.BITE_CD; f.bites++;
+        if (f.sz < 3.6) { ev(f, 'turtleno', 'your teeth slide off the sea turtle\'s heavy shell'); o.flee = 20; return true; }
+        dmg = Math.round(biteDmg(f.sz) * mul);
+        o.hp -= dmg; o.flee = 25;
+        if (o.hp <= 0 || f.sz >= 5.5) {
+          o.alive = false; o.rt = 1100;
+          gain(g, f, 48, 'eatturtle', 'you cracked a sea turtle');
+        } else ev(f, 'hitturtle', 'you battered the sea turtle\'s shell (-' + dmg + ' hp)');
+        return true;
+      case 'barracuda':
+        f.cool = C.BITE_CD; f.bites++;
+        dmg = Math.round(biteDmg(f.sz) * mul);
+        o.hp -= dmg; o.target = f.id;
+        if (o.hp <= 0 || f.sz >= 4.2) {
+          o.alive = false; o.rt = 1000;
+          f.hp = Math.min(hpMax(f.sz), f.hp + 12);
+          gain(g, f, 45, 'eatcuda', 'you killed a barracuda');
+        } else {
+          ev(f, 'hitcuda', 'you bit a barracuda (-' + dmg + ' hp)');
+        }
+        return true;
+      case 'moray':
+        f.cool = C.BITE_CD; f.bites++;
+        dmg = Math.round(biteDmg(f.sz) * mul);
+        o.hp -= dmg;
+        if (o.hp <= 0 || f.sz >= 4.4) {
+          o.alive = false; o.rt = 1200;
+          f.hp = Math.min(hpMax(f.sz), f.hp + 14);
+          gain(g, f, 48, 'eatmoray', 'you overpowered a moray eel');
+        } else {
+          hurt(g, f, 16, 'moray', 'moraybite', 'the moray eel snapped back from its den: -16 hp');
+        }
+        return true;
       case 'school':
-        f.cool = C.BITE_CD; var pc = f.sz > 5 ? 0.50 : 0.75;
-        if (rnd(g) < pc) { o.n -= 1; gain(g, f, f.sz > 5 ? 6 : 10, 'sard', 'you caught a sardine'); }
+        f.cool = C.BITE_CD; var pc = f.sz > 5 ? 0.50 : 0.78;
+        if (rnd(g) < pc) { o.n -= 1; gain(g, f, f.sz > 5 ? 7 : 13, 'sard', 'you caught a sardine'); }
         else ev(f, 'sardmiss', 'the sardines scattered; missed');
         o.flee = 28; return true;
       case 'lantern':
-        f.cool = C.BITE_CD; var lpc = f.sz > 6 ? 0.45 : 0.72;
-        if (rnd(g) < lpc) { o.n -= 1; gain(g, f, f.sz > 6 ? 6 : 14, 'lant', 'you caught a lanternfish'); }
+        f.cool = C.BITE_CD; var lpc = f.sz > 6 ? 0.48 : 0.75;
+        if (rnd(g) < lpc) { o.n -= 1; gain(g, f, f.sz > 6 ? 7 : 16, 'lant', 'you caught a lanternfish'); }
         else ev(f, 'lantmiss', 'the lanternfish darted away; missed');
         o.flee = 24; return true;
       case 'plankton':
         if (f.sz > 2.6) { ev(f, 'plank', 'you cannot filter plankton with a mouth this size'); f.cool = C.BITE_CD; return true; }
-        if (o.amt < 1) return false; f.cool = 2; var e = Math.min(o.amt, 1.5); o.amt -= e; gain(g, f, e, 'plank', 'filter-feeding on plankton'); return true;
+        if (o.amt < 1) return false; f.cool = 2; var e = Math.min(o.amt, 2.2); o.amt -= e; gain(g, f, e, 'plank', 'filter-feeding on plankton'); return true;
       case 'crab':
         f.cool = C.BITE_CD; if (f.sz < 1.3) { ev(f, 'crabno', 'the crab shell is too hard for you'); return true; }
-        o.alive = false; o.rt = 960; gain(g, f, 22, 'crab', 'you cracked a crab'); return true;
+        o.alive = false; o.rt = 850; gain(g, f, 28, 'crab', 'you cracked a crab'); return true;
       case 'puffer':
-        f.cool = C.BITE_CD; if (f.sz >= 4.5) { o.alive = false; o.rt = 2400; f.hp = Math.min(hpMax(f.sz), f.hp + 15); gain(g, f, 50, 'puff', 'you swallowed a pufferfish'); return true; }
+        f.cool = C.BITE_CD; if (f.sz >= 4.5) { o.alive = false; o.rt = 2200; f.hp = Math.min(hpMax(f.sz), f.hp + 15); gain(g, f, 50, 'puff', 'you swallowed a pufferfish'); return true; }
         var pDur = f.color === 'orange' ? 20 : 40;
         f.poison = Math.max(f.poison, pDur); o.x += (f.x - o.x) * -0.5;
         ev(f, 'puffpoison', 'the pufferfish inflated; your mouth is full of spines and you feel sick'); return true;
       case 'carrion':
-        f.cool = 2; var ce = Math.min(o.en, 2.2); o.en -= ce; gain(g, f, ce, 'carr', 'you fed on a carcass'); return true;
+        f.cool = 2; var ce = Math.min(o.en, 2.5); o.en -= ce; gain(g, f, ce, 'carr', 'you fed on a carcass'); return true;
       case 'cleaner':
         return false;
     }
@@ -540,235 +964,410 @@ var OC = globalThis.OC || (globalThis.OC = {});
     for (i = 0; i < g.lanterns.length; i++) if (g.lanterns[i].n > 0) cons('lantern', g.lanterns[i], 6);
     for (i = 0; i < g.plankton.length; i++) if (g.plankton[i].amt >= 1 && f.sz <= 2.6) cons('plankton', g.plankton[i], g.plankton[i].r);
     for (i = 0; i < g.crabs.length; i++) if (g.crabs[i].alive && f.sz >= 1.3) cons('crab', g.crabs[i], 0);
-    for (i = 0; i < g.carrion.length; i++) cons('carrion', g.carrion[i], 2);
-    return bd < (rng || 16) ? best : null;
+    for (i = 0; i < g.squids.length; i++) if (g.squids[i].alive && f.sz >= 2.0) cons('squid', g.squids[i], 2);
+    for (i = 0; i < g.carrion.length; i++) cons('carrion', g.carrion[i], 2.5);
+    return bd < (rng || 22) ? best : null;
   }
 
   function stepFish(g, f) {
     var cmd = f.cmd, i;
-    f.inJelly = false; var j = g.jellies; if (Math.abs(f.d - j.d) < 15 && OC.dist2(f.x, f.z, j.x, j.z) < j.r * j.r) f.inJelly = true;
+    f.inJelly = false;
+    for (i = 0; i < g.jellies.length; i++) {
+      var j = g.jellies[i];
+      if (Math.abs(f.d - j.d) < 15 && OC.dist2(f.x, f.z, j.x, j.z) < j.r * j.r) { f.inJelly = true; break; }
+    }
     var idleT = (g.tick - f.lastCmdTick) * DT; f.idleWarn = idleT > C.IDLE_SEC * 0.6 ? Math.round(idleT) : 0;
     if (idleT > C.IDLE_SEC) { kill(g, f, 'went limp (no command for ' + C.IDLE_SEC + ' s)'); return; }
     if (g.tick > cmd.until && cmd.act !== 'hide') {
-      if (cmd.speed !== 'rest' || cmd.act !== 'swim') ev(f, 'expired', 'your command expired; drifting');
-      cmd.act = 'swim'; cmd.speed = 'rest'; cmd.goto = null; cmd.target = null;
-    }
-    var wantH = cmd.h, wantP = cmd.p, speedMode = cmd.speed, tgt = null;
-    if (cmd.act === 'feed') {
-      tgt = cmd.target ? findTarget(g, cmd.target) : nearestFood(g, f, 24);
-      if (tgt && (tgt.kind === 'fish' || tgt.kind === 'shark')) tgt = null;
-      if (tgt && dist3(f, tgt.o) > 1.5) { wantH = bearing(f.x, f.z, tgt.o.x, tgt.o.z); wantP = clamp(Math.atan2(tgt.o.d - f.d, Math.max(distH(f, tgt.o), 0.5)) * R2D, -75, 75); }
-      else if (!tgt && cmd.goto) {
-        var gdF = distH(f, cmd.goto), gddF = cmd.goto.d !== null ? cmd.goto.d - f.d : 0;
-        if (gdF >= 2.5 || Math.abs(gddF) >= 2.5) { wantH = bearing(f.x, f.z, cmd.goto.x, cmd.goto.z); wantP = clamp(Math.atan2(gddF, Math.max(gdF, 0.5)) * R2D, -75, 75); }
+      f.spd = Math.max(0, f.spd - 2 * DT);
+      var cu = OC.currentAt(f.x, f.z, f.d);
+      f.x = clamp(f.x + cu.x * DT, 2, OC.W - 2); f.z = clamp(f.z + cu.z * DT, 2, OC.L - 2); f.d = clamp(f.d + cu.d * DT, 0.5, floorAt(f.x, f.z) - 0.5);
+    } else {
+      var tgt = cmd.target ? findTarget(g, cmd.target) : null;
+      var wantH = cmd.h, wantP = cmd.p, reqSpd = cmd.speed;
+      if (cmd.act === 'hide') { reqSpd = 'rest'; }
+      else if (cmd.act === 'flee' && tgt) {
+        wantH = norm360(bearing(f.x, f.z, tgt.o.x, tgt.o.z) + 180);
+        var dz = f.d - tgt.o.d; wantP = clamp(Math.atan2(Math.abs(dz) < 1 ? -1 : dz, 20) * R2D, -55, 55);
+      } else if (cmd.act === 'hunt' && tgt) {
+        wantH = bearing(f.x, f.z, tgt.o.x, tgt.o.z);
+        wantP = clamp(Math.atan2(tgt.o.d - f.d, Math.max(distH(f, tgt.o), 0.5)) * R2D, -65, 65);
+      } else if (cmd.act === 'feed') {
+        var ft = tgt || nearestFood(g, f, 26);
+        if (ft) { wantH = bearing(f.x, f.z, ft.o.x, ft.o.z); wantP = clamp(Math.atan2(ft.o.d - f.d, Math.max(distH(f, ft.o), 0.5)) * R2D, -55, 55); }
+      } else if (cmd.goto) {
+        var gd = distH(f, cmd.goto), gdd = cmd.goto.d !== null ? Math.abs(cmd.goto.d - f.d) : 0;
+        if (gd < 2 && gdd < 2) { reqSpd = 'rest'; cmd.goto = null; ev(f, 'arrived', 'you arrived at destination'); }
+        else { wantH = bearing(f.x, f.z, cmd.goto.x, cmd.goto.z); if (cmd.goto.d !== null) wantP = clamp(Math.atan2(cmd.goto.d - f.d, Math.max(gd, 0.5)) * R2D, -65, 65); }
+      }
+      var turnRate = (165 - 7 * f.sz) * DT;
+      f.h = turnToward(f.h, wantH, turnRate);
+      f.p += clamp(wantP - f.p, -120 * DT, 120 * DT);
+      var spMap = { rest: 0, slow: 0.45, cruise: 1, fast: 1.55, sprint: 2.35 };
+      var mul = spMap[reqSpd] || 1;
+      if (reqSpd === 'sprint') {
+        if (f.st > 0) {
+          if (f.d > floorAt(f.x, f.z) - 2.0 && f.spd < 1.2) f.mud = Math.max(f.mud, 16);
+          f.st = Math.max(0, f.st - 11 * DT);
+        } else mul = 1.55;
+      } else if (!OC.inDeadzone(f.x, f.z, f.d)) {
+        var stRegen = (reqSpd === 'rest' ? 9 : reqSpd === 'slow' ? 5 : 2) * (f.color === 'orange' ? 1.45 : 1);
+        f.st = Math.min(100, f.st + stRegen * DT);
+      }
+      if (f.lunge > 0) { mul = 2.75; f.lunge--; }
+      var wMul = OC.kelpAt(f.x, f.z, f.d) ? (f.sz > 4 ? 0.52 : 0.78) : 1;
+      var woundMul = f.wounded > 0 ? 0.85 : 1;
+      var targetSpd = cruiseSpeed(f.sz) * mul * wMul * woundMul;
+      f.spd += (targetSpd - f.spd) * clamp(4 * DT, 0, 1);
+
+      var hr = f.h * D2R, pr = f.p * D2R, cur = OC.currentAt(f.x, f.z, f.d);
+      var vx = Math.sin(hr) * Math.cos(pr) * f.spd + cur.x, vz = -Math.cos(hr) * Math.cos(pr) * f.spd + cur.z, vd = Math.sin(pr) * f.spd + cur.d;
+      var nx = clamp(f.x + vx * DT, 2, OC.W - 2), nz = clamp(f.z + vz * DT, 2, OC.L - 2), nd = f.d + vd * DT;
+      var nc = OC.caveAt(nx, nz, nd);
+      if (nc && f.sz > nc.maxSize) {
+        ev(f, 'cavefit', 'the cave entrance is too narrow for your size (' + (Math.round(f.sz * 10) / 10) + ')');
+      } else {
+        f.x = nx; f.z = nz; f.d = clamp(nd, 0.3, floorAt(f.x, f.z) - 0.3);
+      }
+
+      if (cmd.act === 'hunt' && tgt) tryBite(g, f, tgt);
+      else if (cmd.act === 'lunge') { var lt = tgt || nearestFood(g, f, 8); if (lt) tryBite(g, f, lt); }
+      else if (cmd.act === 'feed') { var ft2 = tgt || nearestFood(g, f, 14); if (ft2) tryBite(g, f, ft2); }
+      else if (cmd.act === 'hide') {
+        var wasHid = f.hid;
+        f.hid = f.spd < 0.3 && (!!OC.kelpAt(f.x, f.z, f.d) || !!OC.wreckAt(f.x, f.z, f.d) || !!OC.caveAt(f.x, f.z, f.d) || !!OC.reefAt(f.x, f.z, f.d) || !!OC.anemoneAt(f.x, f.z, f.d) || !!OC.seagrassAt(f.x, f.z, f.d) || !!OC.coralShelterAt(f.x, f.z, f.d) || f.d > floorAt(f.x, f.z) - 1.6);
+        if (f.hid && !wasHid) { f.ambush = 40; ev(f, 'hid', 'you tucked into cover'); }
       }
     }
-    if (cmd.act === 'hunt' || cmd.act === 'flee') {
-      tgt = findTarget(g, cmd.target);
-      var sameCave = !tgt || OC.caveAt(f.x, f.z, f.d) === OC.caveAt(tgt.o.x, tgt.o.z, tgt.o.d);
-      var detect = tgt && sameCave && (tgt.kind === 'fish' || tgt.kind === 'shark' ? canSee(g, f, tgt.o) >= 0 || dist3(f, tgt.o) < 12 : dist3(f, tgt.o) < 90);
-      if (!tgt || !detect) { ev(f, 'lost', 'target ' + cmd.target + ' lost; swimming on'); cmd.act = 'swim'; cmd.target = null; tgt = null; }
-      else {
-        var b = bearing(f.x, f.z, tgt.o.x, tgt.o.z), dh = distH(f, tgt.o);
-        wantP = clamp(Math.atan2(tgt.o.d - f.d, Math.max(dh, 0.5)) * R2D, -75, 75);
-        if (cmd.act === 'flee') { wantH = norm360(b + 180); wantP = -wantP * 0.5; }
-        else { wantH = b; if (speedMode === 'rest') speedMode = 'cruise'; }
-      }
-    } else if (cmd.goto && cmd.act !== 'feed') {
-      var gd = distH(f, cmd.goto), gdd = cmd.goto.d !== null ? cmd.goto.d - f.d : 0;
-      if (gd < 2.5 && Math.abs(gdd) < 2.5) { ev(f, 'arrived', 'arrived at goto'); cmd.goto = null; if (cmd.act === 'swim') cmd.speed = 'rest'; speedMode = 'rest'; }
-      else { wantH = bearing(f.x, f.z, cmd.goto.x, cmd.goto.z); wantP = clamp(Math.atan2(gdd, Math.max(gd, 0.5)) * R2D, -75, 75); if (gd < 2.5) wantH = f.h; }
+
+    // Sledenje raziskanih con
+    var zList = zonesOf(g, f);
+    for (i = 0; i < zList.length; i++) {
+      var zn = zList[i];
+      if (!zn.startsWith('current:') && zn !== 'open water' && zn !== 'surface' && zn !== 'on the bottom') f.zoneSeen[zn] = 1;
     }
-    if (cmd.act === 'hide') speedMode = 'rest';
-    if (cmd.act === 'feed' && speedMode === 'rest') speedMode = 'slow';
-    // obrat
-    var tr = turnRate(f.sz) * DT; f.h = turnToward(f.h, wantH, tr); f.p = turnToward(f.p, wantP, tr); if (f.p > 180) f.p -= 360;
-    // hitrost
-    var cold = f.d > OC.THERMO, mul = SPEEDS[speedMode] || 0, base = cruiseSpeed(f.sz);
-    var stRegenMul = (cold ? 0.7 : 1) * (f.poison > 0 ? 0.5 : 1);
-    if (speedMode === 'sprint') { if (f.st > 0) f.st = Math.max(0, f.st - 25 * DT); else mul = SPEEDS.fast; }
-    else if (!OC.inDeadzone(f.x, f.z, f.d)) f.st = Math.min(100, f.st + (speedMode === 'fast' ? 2 : 8) * DT * stRegenMul);
-    var spd = base * mul * (cold ? 0.88 : 1);
-    var kelp = OC.kelpAt(f.x, f.z, f.d); if (kelp) spd *= f.sz > 4 ? 0.5 : 0.75;
-    var anem = OC.anemoneAt(f.x, f.z, f.d); if (anem && f.sz > OC.ANEMONES.maxSize) spd *= 0.85;
-    if (f.inJelly) spd *= 0.85;
-    if (f.poison > 0) spd *= 0.85;
-    if (f.wounded > 0) { spd *= 0.72; f.wounded--; }
-    if (f.lunge > 0) { spd = Math.max(spd, base * 3.4); f.lunge--; }
-    f.spd = spd;
-    var cur = OC.currentAt(f.x, f.z, f.d), shMul = OC.shelterMul(f.x, f.z, f.d);
-    var hr = f.h * D2R, pr = f.p * D2R;
-    var vx = Math.sin(hr) * Math.cos(pr) * spd + cur.x * shMul, vz = -Math.cos(hr) * Math.cos(pr) * spd + cur.z * shMul, vd = Math.sin(pr) * spd + cur.d * shMul;
-    var nx = clamp(f.x + vx * DT, 1, OC.W - 1), nz = clamp(f.z + vz * DT, 1, OC.L - 1), nd = f.d + vd * DT;
-    // jame: vstop omejen z velikostjo
-    var cv = OC.caveAt(nx, nz, nd);
-    if (cv && f.sz > cv.maxSize && OC.caveAt(f.x, f.z, f.d) !== cv) { ev(f, 'cavesmall', 'the entrance of ' + cv.id + ' is too narrow for you (size ' + (Math.round(f.sz * 10) / 10) + ')'); nx = f.x; nz = f.z; nd = f.d; cv = null; }
-    if (cv && cv !== f.cave) {
-      f.cave = cv;
-      if (cv.moray && !g.morayDone) {
-        if (f.sz < 2.6) hurt(g, f, 25, 'moray', 'moray', 'something in the cave bit you: -25 hp');
-        else { g.morayDone = true; f.hp = Math.min(hpMax(f.sz), f.hp + 10); gain(g, f, 30, 'moraykill', 'you overpowered the moray inside the cave and feasted'); }
+
+    // Poraba energije (Kleiberjevo skaliranje — zanesljiva rast brez neskončnega preživetja brez hrane)
+    var spCost = { rest: 0.9, slow: 1.2, cruise: 1.65, fast: 2.7, sprint: 5.2 }[cmd.speed] || 1.5;
+    var tempMul = f.d > OC.THERMO ? 0.65 : 1;
+    if (OC.ventAt(f.x, f.z, f.d).dist < 16) tempMul = 0.5;
+    f.en -= 0.066 * Math.pow(f.sz, 0.78) * spCost * tempMul * DT;
+    if (f.en <= 0) { f.en = 0; hurt(g, f, 2.2 * DT, 'starved', 'starv', 'starving: -hp'); if (!f.alive) return; }
+
+    // Okoljski učinki in pasivna hrana
+    var v = OC.ventAt(f.x, f.z, f.d);
+    if (v.dist < 4.5) { hurt(g, f, 4.2 * DT, 'scalded by a hydrothermal vent', 'vent', 'scalding water burns you'); if (!f.alive) return; }
+    else if (v.dist >= 4.5 && v.dist < 13 && !g.famine && g.matPool > 0 && f.en < enMax(f.sz) * 0.95 && f.spd < 2.2) {
+      var me = Math.min(g.matPool, 1.4 * DT); g.matPool -= me; gain(g, f, me, 'mat', 'grazing bacterial mats near the warm vent');
+    }
+    var rAt = OC.reefAt(f.x, f.z, f.d);
+    if (rAt && !g.famine && g.snailPool > 0 && f.sz <= 1.75 && f.d > floorAt(f.x, f.z) - 3 && f.en < enMax(f.sz) * 0.95 && f.spd < 2.2) {
+      var se = Math.min(g.snailPool, 1.1 * DT); g.snailPool -= se; gain(g, f, se, 'snail', 'nibbling small reef snails');
+    }
+    if (OC.seagrassAt(f.x, f.z, f.d) && !g.famine && g.grassPool > 0 && f.sz <= 2.4 && f.en < enMax(f.sz) * 0.95 && f.spd < 2.2) {
+      var ge = Math.min(g.grassPool, 1.0 * DT); g.grassPool -= ge; gain(g, f, ge, 'graze', 'grazing tiny shrimp in the seagrass');
+    }
+    if (OC.wreckAt(f.x, f.z, f.d) && !g.famine && g.wreckPool > 0 && f.sz <= 3.6 && f.en < enMax(f.sz) * 0.95 && f.spd < 2.4) {
+      var we = Math.min(g.wreckPool, 1.2 * DT); g.wreckPool -= we; gain(g, f, we, 'wreckfood', 'picking barnacles inside the shipwreck');
+    }
+    if (OC.anemoneAt(f.x, f.z, f.d) && f.sz > OC.ANEMONES.maxSize) {
+      hurt(g, f, 1.4 * DT, 'stung by giant anemones', 'anemone', 'the anemones sting your exposed flanks'); if (!f.alive) return;
+    }
+    if (f.inJelly) {
+      if (f.sz > 1.5) { hurt(g, f, 1.5 * DT, 'stung by jellyfish', 'jelly', 'jellyfish sting you'); if (!f.alive) return; }
+      else ev(f, 'jellysaf', 'you drift safely among the jellyfish tentacles');
+    }
+    if (OC.inDeadzone(f.x, f.z, f.d)) { hurt(g, f, 0.55 * DT, 'suffocated in the stagnant basin', 'dead', 'the water here has almost no oxygen'); if (!f.alive) return; }
+
+    // Čistilne postaje
+    for (i = 0; i < OC.CLEANERS.length; i++) {
+      var cl = OC.CLEANERS[i];
+      if (dist3(f, cl) < 4.5 && f.spd < 1.2) {
+        if (f.bleed > 0 || f.poison > 0) { f.bleed = 0; f.poison = 0; ev(f, 'clean', 'cleaner wrasses cleaned your wounds and poison'); }
+        if (f.hp < hpMax(f.sz) && f.en > 5) { f.hp = Math.min(hpMax(f.sz), f.hp + 1.5 * DT); ev(f, 'heal', 'cleaner wrasses are healing you'); }
       }
     }
-    if (!cv) f.cave = null;
-    if (cv && cv.crystal && !OC.inDeadzone(f.x, f.z, f.d)) f.st = Math.min(100, f.st + 4 * DT);
-    var nfl = floorAt(nx, nz);
-    if (!cv && nd > nfl - 0.6) { nd = nfl - 0.6; if (f.p > 0) f.p = 0; }
-    if (nd < 0.4) { nd = 0.4; if (f.p < 0) f.p = 0; }
-    if (nd > OC.DMAX - 0.5) nd = OC.DMAX - 0.5;
-    f.x = nx; f.z = nz; f.d = nd;
+
+    // Ptice na gladini podnevi
+    var ts = tSec(g);
+    if (f.d < OC.SURFACE_ZONE && OC.dayLight(ts) > 0.55 && f.sz < 3.0) {
+      if (f.birdWarn === 0 && rnd(g) < 0.03) { f.birdWarn = 8; ev(f, 'birdshadow', 'a shadow of diving seabirds sweeps across the surface above you'); }
+      else if (f.birdWarn === 1 && rnd(g) < 0.14) { hurt(g, f, 25, 'taken by a diving seabird', 'bird', 'a diving seabird struck from above: -25 hp'); if (!f.alive) return; }
+    }
+    if (f.birdWarn > 0) f.birdWarn--;
+
+    // Statusi in regeneracija
+    if (f.bleed > 0) { f.bleed--; hurt(g, f, 0.75 * DT, 'bled out', 'bleed', 'bleeding: -hp'); if (!f.alive) return; }
+    if (f.poison > 0) { f.poison--; hurt(g, f, 0.85 * DT, 'poisoned by a pufferfish', 'pois', 'pufferfish toxin: -hp'); if (!f.alive) return; }
     if (f.cool > 0) f.cool--;
     if (f.mud > 0) f.mud--;
-    if (f.mudCd > 0) f.mudCd--;
-    if (f.birdWarn > 0) f.birdWarn--;
-    // beleži obiskane cone
-    var zs = zonesOf(g, f); for (i = 0; i < zs.length; i++) f.zoneSeen[zs[i]] = 1;
-    // skrivanje in zaseda
-    var reef = OC.reefAt(f.x, f.z, f.d), wreck = OC.wreckAt(f.x, f.z, f.d);
-    anem = OC.anemoneAt(f.x, f.z, f.d);
-    var wasHid = f.hid;
-    f.hid = cmd.act === 'hide' && f.spd < 0.5 && ((reef && f.sz <= OC.REEF.hideMax) || kelp || (wreck && f.sz <= OC.WRECK.hideMax) || (anem && f.sz <= OC.ANEMONES.maxSize) || !!cv || f.d > nfl - 1.6);
-    if (wasHid && !f.hid) f.ambush = 8;
-    else if (f.ambush > 0) f.ambush--;
-    // dvig mulja na dnu ob begu ali skrivanju
-    if ((cmd.act === 'flee' || cmd.act === 'hide') && f.d > nfl - 2.2 && f.mudCd <= 0 && !cv && !kelp && !reef) {
-      f.mud = 24; f.mudCd = 140; ev(f, 'mud', 'you kicked up a cloud of silt');
-    }
-    // energija (Kleiberjev zakon: večje ribe porabijo več absolutno, a imajo daljšo rezervo)
-    var drain = 0.068 * Math.pow(f.sz, 0.78) * (speedMode === 'rest' ? 1 : speedMode === 'slow' ? 1.3 : speedMode === 'cruise' ? 1.8 : speedMode === 'fast' ? 3.2 : 5.5) * DT;
-    if (cold) drain *= 0.65;
-    var vn = OC.ventAt(f.x, f.z, f.d); if (vn.dist < 14) drain *= 0.45;
-    f.en -= drain;
-    if (f.en <= 0) { f.en = 0; hurt(g, f, 2.2 * DT, 'starve', 'starve', 'you are starving: losing hp'); }
-    // okolje
-    if (vn.dist < 4.5) hurt(g, f, 4 * DT, 'heat', 'heat', 'the water here is scalding: losing hp');
-    if (OC.inDeadzone(f.x, f.z, f.d)) hurt(g, f, 0.8 * DT, 'deadzone', 'dead', 'it is hard to breathe here: losing hp');
-    if (f.inJelly && f.sz > 1.5) hurt(g, f, (f.color === 'orange' ? 0.75 : 1.5) * DT, 'jelly', 'jelly', 'stung by jellyfish: losing hp');
-    if (anem && f.sz > OC.ANEMONES.maxSize) hurt(g, f, (f.color === 'orange' ? 1.5 : 3.0) * DT, 'anemone', 'anemone', 'the anemone tentacles sting you: losing hp');
-    if (wreck && speedMode === 'sprint' && rnd(g) < 0.12) hurt(g, f, 5, 'wreck', 'wreck', 'you scraped against rusted metal inside the wreck: -5 hp');
-    if (OC.phaseName(tSec(g)) === 'day' && f.sz < 3) {
-      if (f.d < 6.5 && f.d >= OC.SURFACE_ZONE && f.birdWarn <= 0) { f.birdWarn = 28; ev(f, 'birdwarn', 'shadows of seabirds sweep across the sunlit surface above'); }
-      if (f.d < OC.SURFACE_ZONE && rnd(g) < 0.012) hurt(g, f, 25, 'bird', 'bird', 'something struck you from above: -25 hp');
-    }
-    if (f.poison > 0) { f.poison--; hurt(g, f, f.color === 'orange' ? 0.35 : 0.65, 'poison', 'poison', 'you feel sick: losing hp'); }
-    if (f.bleed > 0) f.bleed--;
-    if (!f.alive) return;
-    // čistilci
-    var cw = OC.REEF.cleaner;
-    if (f.spd < 0.5 && dist3(f, cw) < 4.5 && f.en > 5 && (f.hp < hpMax(f.sz) || f.bleed > 0 || f.poison > 0)) {
-      var healAmt = (f.color === 'orange' ? 3.5 : 2.0) * DT;
-      f.hp = Math.min(hpMax(f.sz), f.hp + healAmt); f.bleed = 0; f.poison = 0;
-      ev(f, 'clean', 'cleaner wrasses are picking at your wounds: hp ' + Math.round(f.hp), healAmt);
-    }
-    // hranjenje / lov
-    if (cmd.act === 'hunt' && tgt) tryBite(g, f, tgt);
-    else if (cmd.act === 'feed') { if (!tgt || !tryBite(g, f, tgt)) { var nf = nearestFood(g, f); if (nf) tryBite(g, f, nf); } }
-    else if (f.lunge > 0 || (cmd.act === 'swim' && cmd.target)) { var lt = findTarget(g, cmd.target); if (lt) tryBite(g, f, lt); }
-    // drobna hrana v okolju (končna zaloga, v lakoti se ne obnavlja)
-    if (reef && cmd.act === 'feed' && f.sz <= 1.5 && f.cool <= 0 && g.snailPool > 0.5) { f.cool = 4; var se = Math.min(g.snailPool, 0.7); g.snailPool -= se; gain(g, f, se, 'snail', 'you are picking snails off the reef'); }
-    if (anem && cmd.act === 'feed' && f.sz <= OC.ANEMONES.maxSize && f.cool <= 0) { f.cool = 4; gain(g, f, 1.1, 'anemfood', 'you picked tiny shrimp from the anemones'); }
-    if (wreck && cmd.act === 'feed' && f.sz <= 3.5 && f.cool <= 0 && g.wreckPool > 0.5) { f.cool = 4; var we = Math.min(g.wreckPool, 1.1); g.wreckPool -= we; gain(g, f, we, 'wreckfood', 'you caught barnacles and shrimp in the wreck'); }
-    if (vn.dist < 10.5 && vn.dist > 4.5 && cmd.act === 'feed' && f.cool <= 0 && g.matPool > 0.5) { f.cool = 4; var me_ = Math.min(g.matPool, f.sz > 3.5 ? 0.5 : 1.0); g.matPool -= me_; gain(g, f, me_, 'mat', 'you are grazing the bacterial mat'); }
-    if (OC.whalefallAt(f.x, f.z, f.d) && cmd.act === 'feed' && f.cool <= 0 && g.whalePool > 0.5) { f.cool = 3; var wfe = Math.min(g.whalePool, 2.2); g.whalePool -= wfe; gain(g, f, wfe, 'whale', 'you tore flesh from the sunken whale skeleton'); }
+    if (f.ambush > 0) f.ambush--;
+    if (f.wounded > 0) f.wounded--;
+    if (f.inked > 0) f.inked--;
+    if (f.hp < hpMax(f.sz) && f.en > enMax(f.sz) * 0.65 && f.bleed === 0 && f.poison === 0) f.hp = Math.min(hpMax(f.sz), f.hp + 0.32 * DT);
   }
 
-  function stepShark(g) {
-    var s = g.shark, i, best = null, bd = 1e9;
-    if (s.sat > 0) s.sat--;
-    if (s.tired > 0) s.tired--;
-    if (s.sat <= 0) {
-      for (i = 0; i < g.fish.length; i++) {
-        var f = g.fish[i]; if (!f.alive || f.sz >= 8) continue;
-        if (OC.kelpAt(f.x, f.z, f.d) || OC.wreckAt(f.x, f.z, f.d) || OC.caveAt(f.x, f.z, f.d) || OC.reefAt(f.x, f.z, f.d) || OC.anemoneAt(f.x, f.z, f.d) || f.inJelly || floorAt(f.x, f.z) < 20) continue;
-        var dd = dist3(s, f), rng = 30 * visMul(g, f, s) + (f.bleed > 0 ? 110 : 0);
-        if (dd < rng && dd < bd) { bd = dd; best = f; }
-      }
-      for (i = 0; i < g.carrion.length; i++) { var k = g.carrion[i]; var kd = dist3(s, k); if (kd < 80 && kd * 1.5 < bd && floorAt(k.x, k.z) >= 20) { bd = kd * 1.5; best = k; } }
-    }
-    if (best) { s.target = best.id; s.state = best.sz !== undefined && best.alive !== undefined ? 'hunt' : 'scavenge'; }
-    else if (s.state !== 'patrol' && (!s.target || !findTarget(g, s.target))) { s.state = 'patrol'; s.target = null; }
-    var tgt = s.state === 'patrol' ? null : (findTarget(g, s.target) || null);
-    if (tgt && tgt.kind === 'fish') {
-      var tf = tgt.o;
-      if (OC.kelpAt(tf.x, tf.z, tf.d) || OC.wreckAt(tf.x, tf.z, tf.d) || OC.caveAt(tf.x, tf.z, tf.d) || OC.reefAt(tf.x, tf.z, tf.d) || OC.anemoneAt(tf.x, tf.z, tf.d) || tf.inJelly || floorAt(tf.x, tf.z) < 20) {
-        tgt = null; s.state = 'patrol'; s.target = null;
+  // ── Napredni morski psi: različni teritoriji, vohanje krvi in lov v tropih ──
+  function stepSharks(g) {
+    var i, j, k;
+    // Zberi aktivne lovske tarče tropa (da si trop sporoča pozicije!)
+    var packTargets = [];
+    for (i = 0; i < g.sharks.length; i++) {
+      var s0 = g.sharks[i];
+      if (s0.pack && s0.state === 'hunt' && s0.target) {
+        var tf0 = findTarget(g, s0.target);
+        if (tf0 && tf0.kind === 'fish' && tf0.o.alive) packTargets.push({ shark: s0, prey: tf0.o });
       }
     }
-    if (!tgt) { s.state = 'patrol'; s.target = null; }
-    var wp = tgt ? tgt.o : OC.SHARK_PATH[s.wp];
-    if (!tgt && dist3(s, wp) < 8) { s.wp = (s.wp + 1) % OC.SHARK_PATH.length; wp = OC.SHARK_PATH[s.wp]; }
-    var b = bearing(s.x, s.z, wp.x, wp.z); s.h = turnToward(s.h, b, 55 * DT);
-    var dh = distH(s, wp), p = clamp(Math.atan2(wp.d - s.d, Math.max(dh, 0.5)) * R2D, -45, 45);
-    var spd = 3.0;
-    if (tgt) {
-      var td = dist3(s, tgt.o);
-      if (td < 28 && s.tired <= 0) { if (s.sprint <= 0) s.sprint = 18; }
-      if (s.sprint > 0) { spd = 7.4; s.sprint--; if (s.sprint === 0) s.tired = 90; }
-      else if (s.tired > 0) spd = 1.6;
-      else spd = 3.5;
-      if (td < 3.8 && tgt.kind === 'fish') {
-        var f2 = tgt.o;
-        if (f2.sz <= 4) { kill(g, f2, 'was taken by the shark'); f2.hp = 0; ev(f2, 'sharkeat', 'the shark took you'); }
-        else hurt(g, f2, 45, 'shark', 'shark', 'the shark bit you: -45 hp');
-        s.sat = 420; s.state = 'patrol'; s.target = null; s.kills++;
+
+    for (i = 0; i < g.sharks.length; i++) {
+      var s = g.sharks[i];
+      if (s.sat > 0) s.sat--;
+      if (s.tired > 0) s.tired--;
+      var rt = OC.SHARK_ROUTES[s.route] || OC.SHARK_PATH;
+      var best = null, bs = -1;
+
+      if (s.sat <= 0) {
+        // 1) Vid in neposreden vonj krvi / ranjenih rib
+        for (j = 0; j < g.fish.length; j++) {
+          var f = g.fish[j]; if (!f.alive) continue;
+          if (f.sz >= 8.5 && s.target !== f.id) continue;
+          if (inAnyShelter(f.x, f.z, f.d, f.sz) || f.inJelly || floorAt(f.x, f.z) < 19) continue;
+          if (s.route === 'abyss' && f.d < 48 && f.bleed <= 0) continue;
+          var dd = dist3(s, f), vm = visMul(g, f, s), vr = (26 + s.sz * 0.4) * vm;
+          // vohanje krvi in ranjenih rib po toku in od daleč!
+          var cur = OC.currentAt(f.x, f.z, f.d);
+          var downCur = (cur.x * (s.x - f.x) + cur.z * (s.z - f.z)) > 0 ? 1.3 : 1.0;
+          var bloodRange = (f.bleed > 0 ? 165 : f.wounded > 0 ? 95 : 0) * downCur;
+          if (dd <= vr || dd <= bloodRange) {
+            var sc = (f.bleed > 0 ? 220 : 120) - dd + (f.sz <= 4 ? 30 : 0);
+            if (sc > bs) { bs = sc; best = f; }
+          }
+        }
+        // 2) Mrhovina (vohajo jo z razdalje 135 m)
+        for (j = 0; j < g.carrion.length; j++) {
+          var kc = g.carrion[j]; var kd = dist3(s, kc);
+          if (kd < 135) { var ksc = 75 - kd; if (ksc > bs) { bs = ksc; best = kc; } }
+        }
       }
-      if (td < 4 && tgt.kind === 'carrion') { tgt.o.en -= 6; if (tgt.o.en <= 0) { s.sat = 300; s.state = 'patrol'; s.target = null; } }
-    } else if (s.tired > 0) spd = 1.8;
-    s.spd = spd; var hr = s.h * D2R, pr = p * D2R;
-    var nx = clamp(s.x + Math.sin(hr) * Math.cos(pr) * spd * DT, 2, OC.W - 2), nz = clamp(s.z - Math.cos(hr) * Math.cos(pr) * spd * DT, 2, OC.L - 2), nd = s.d + Math.sin(pr) * spd * DT;
-    if (floorAt(nx, nz) < 20) { s.state = 'patrol'; s.target = null; s.wp = (s.wp + 1) % OC.SHARK_PATH.length; } else { s.x = nx; s.z = nz; }
-    s.d = clamp(nd, 3, floorAt(s.x, s.z) - 2);
+
+      var tgt = null, rallyPos = null;
+      if (best) {
+        s.target = best.id;
+        s.state = (best.alive !== undefined && best.sz !== undefined) ? 'hunt' : 'scavenge';
+      } else if (s.state === 'hunt' || s.state === 'scavenge') {
+        tgt = findTarget(g, s.target);
+        if (!tgt) { s.state = 'patrol'; s.target = null; }
+      }
+
+      // Lov v tropu: če sosednji morski pes iz istega tropa lovi plen, se mu pridruži z bočnega kota!
+      if (s.pack && s.sat <= 0 && !best && s.state !== 'hunt') {
+        for (k = 0; k < packTargets.length; k++) {
+          var pt = packTargets[k];
+          if (pt.shark.id === s.id) continue;
+          if (dist3(s, pt.prey) < 200) {
+            s.state = 'pack'; s.target = pt.prey.id;
+            var flankAngle = ((i % 2 === 0) ? 45 : -45) * D2R;
+            var pb = bearing(s.x, s.z, pt.prey.x, pt.prey.z) * D2R + flankAngle;
+            rallyPos = { x: clamp(pt.prey.x - Math.sin(pb) * 8, 6, OC.W - 6), z: clamp(pt.prey.z + Math.cos(pb) * 8, 6, OC.L - 6), d: pt.prey.d };
+            break;
+          }
+        }
+        if (!rallyPos && s.state === 'pack') { s.state = 'patrol'; s.target = null; }
+      }
+
+      if (s.state === 'hunt' || s.state === 'scavenge') {
+        tgt = findTarget(g, s.target);
+        if (tgt && tgt.kind === 'fish') {
+          var tf = tgt.o;
+          if (inAnyShelter(tf.x, tf.z, tf.d, tf.sz) || tf.inJelly || floorAt(tf.x, tf.z) < 19 || inInk(g, tf)) {
+            tgt = null; s.state = 'patrol'; s.target = null;
+          }
+        }
+        if (!tgt) { s.state = 'patrol'; s.target = null; }
+      }
+
+      var wp = rallyPos ? rallyPos : (tgt ? tgt.o : rt[s.wp]);
+      if (!tgt && !rallyPos && dist3(s, wp) < 12) { s.wp = (s.wp + 1) % rt.length; wp = rt[s.wp]; }
+      var b = bearing(s.x, s.z, wp.x, wp.z); s.h = turnToward(s.h, b, 54 * DT);
+      var dh = distH(s, wp), p = clamp(Math.atan2(wp.d - s.d, Math.max(dh, 0.5)) * R2D, -45, 45);
+      var spd = 2.9;
+      if (tgt || rallyPos) {
+        var td = dist3(s, tgt ? tgt.o : rallyPos);
+        if (td < 28 && s.tired <= 0) { if (s.sprint <= 0) s.sprint = 18; }
+        if (s.sprint > 0) { spd = 6.3; s.sprint--; if (s.sprint === 0) s.tired = 95; }
+        else if (s.tired > 0) spd = 1.8;
+        else spd = rallyPos ? 3.8 : 3.4;
+        if (tgt && td < 4.0 && tgt.kind === 'fish') {
+          var f2 = tgt.o;
+          if (f2.sz <= 1.5 || f2.hp <= 55) { kill(g, f2, 'was taken by ' + s.name); f2.hp = 0; ev(f2, 'sharkeat', 'the shark took you'); }
+          else { hurt(g, f2, 52, 'shark', 'shark', s.name + ' bit you deeply: -52 hp'); }
+          s.sat = f2.alive ? 140 : 520; s.state = 'patrol'; s.target = null; if (!f2.alive) s.kills++;
+        }
+        if (tgt && td < 4.5 && tgt.kind === 'carrion') {
+          tgt.o.en -= 8; if (tgt.o.en <= 0) { s.sat = 280; s.state = 'patrol'; s.target = null; }
+        }
+      } else if (s.tired > 0) spd = 2.0;
+      s.spd = spd; var hr = s.h * D2R, pr = p * D2R;
+      var nx = clamp(s.x + Math.sin(hr) * Math.cos(pr) * spd * DT, 4, OC.W - 4);
+      var nz = clamp(s.z - Math.cos(hr) * Math.cos(pr) * spd * DT, 4, OC.L - 4);
+      var nd = s.d + Math.sin(pr) * spd * DT;
+      if (floorAt(nx, nz) < 19) { s.state = 'patrol'; s.target = null; s.wp = (s.wp + 1) % rt.length; }
+      else { s.x = nx; s.z = nz; }
+      s.d = clamp(nd, s.minD, Math.min(s.maxD, floorAt(s.x, s.z) - 2));
+    }
   }
 
+  // ── Ostalih 50+ živali, jate in okolje ───────────────────────────────────
   function stepSchoolList(g, list, dayD, nightD, maxN, speedMul, night) {
     var i, j;
     for (i = 0; i < list.length; i++) {
       var s = list[i]; if (s.n <= 0) continue;
       var threat = null, td = 1e9;
-      for (j = 0; j < g.fish.length; j++) { var f = g.fish[j]; if (!f.alive || f.spd < 0.3) continue; var dd = dist3(s, f); if (dd < 16 && dd < td) { td = dd; threat = f; } }
-      if (dist3(s, g.shark) < 20) { threat = g.shark; }
-      var spd = 1.2 * speedMul, want;
-      if (threat) { want = norm360(bearing(s.x, s.z, threat.x, threat.z) + 180 + (rnd(g) - 0.5) * 60); spd = 3.5 * speedMul; s.flee = 22; }
-      else if (s.flee > 0) { s.flee--; want = s.h; spd = 2.8 * speedMul; }
-      else { want = dist3(s, { x: s.hx, z: s.hz, d: s.d }) > 55 ? bearing(s.x, s.z, s.hx, s.hz) : norm360(s.h + (rnd(g) - 0.5) * 40); }
+      for (j = 0; j < g.fish.length; j++) { var f = g.fish[j]; if (!f.alive || f.spd < 0.3) continue; var dd = dist3(s, f); if (dd < 18 && dd < td) { td = dd; threat = f; } }
+      for (j = 0; j < g.sharks.length; j++) { var dd2 = dist3(s, g.sharks[j]); if (dd2 < 24 && dd2 < td) { td = dd2; threat = g.sharks[j]; } }
+      var spd = 1.4 * speedMul, want;
+      if (threat) { want = norm360(bearing(s.x, s.z, threat.x, threat.z) + 180 + (rnd(g) - 0.5) * 60); spd = 3.8 * speedMul; s.flee = 22; }
+      else if (s.flee > 0) { s.flee--; want = s.h; spd = 3.0 * speedMul; }
+      else { want = dist3(s, { x: s.hx, z: s.hz, d: s.d }) > 75 ? bearing(s.x, s.z, s.hx, s.hz) : norm360(s.h + (rnd(g) - 0.5) * 40); }
       s.h = turnToward(s.h, want, 120 * DT); var hr = s.h * D2R;
-      s.x = clamp(s.x + Math.sin(hr) * spd * DT, 4, OC.W - 4); s.z = clamp(s.z - Math.cos(hr) * spd * DT, 4, OC.L - 4);
-      var wd = night ? nightD : dayD; s.d = clamp(s.d + (wd - s.d) * 0.005 + (rnd(g) - 0.5) * 0.3, 2, floorAt(s.x, s.z) - 3);
+      s.x = clamp(s.x + Math.sin(hr) * spd * DT, 6, OC.W - 6); s.z = clamp(s.z - Math.cos(hr) * spd * DT, 6, OC.L - 6);
+      var wd = night ? nightD : dayD; s.d = clamp(s.d + (wd - s.d) * 0.005 + (rnd(g) - 0.5) * 0.3, 3, floorAt(s.x, s.z) - 3);
       if (!g.famine && night && s.n < maxN && rnd(g) < 0.06) s.n++;
     }
   }
 
   function stepNPC(g) {
-    var i, ts = tSec(g), ph = OC.phaseName(ts), night = ph === 'night' || ph === 'dusk';
-    stepSchoolList(g, g.schools, 22, 8, 180, 1.0, ph === 'night');
-    stepSchoolList(g, g.lanterns, 72, 28, 90, 0.9, night);
+    var i, j, ts = tSec(g), ph = OC.phaseName(ts), night = ph === 'night' || ph === 'dusk';
+    stepSchoolList(g, g.schools, 22, 9, 180, 1.0, ph === 'night');
+    stepSchoolList(g, g.lanterns, 78, 30, 90, 0.9, night);
+
+    // 10 klignjev (squid)
+    for (i = 0; i < g.squids.length; i++) {
+      var sq = g.squids[i];
+      if (!sq.alive) { if (!g.famine) { sq.rt--; if (sq.rt <= 0) { sq.alive = true; sq.hp = sq.hpMax; sq.x = sq.hx; sq.z = sq.hz; } } continue; }
+      if (sq.inkCd > 0) sq.inkCd--;
+      var pred = null, pd = 1e9;
+      for (j = 0; j < g.fish.length; j++) { var f = g.fish[j]; if (f.alive && f.sz > 2.8) { var dd = dist3(sq, f); if (dd < 16 && dd < pd) { pd = dd; pred = f; } } }
+      for (j = 0; j < g.sharks.length; j++) { var sd = dist3(sq, g.sharks[j]); if (sd < 24 && sd < pd) { pd = sd; pred = g.sharks[j]; } }
+      if (pred && pd < 10 && sq.inkCd <= 0) { spawnInk(g, sq.x, sq.z, sq.d); sq.inkCd = 55; sq.dash = 14; }
+      var want = pred ? norm360(bearing(pred.x, pred.z, sq.x, sq.z) + (rnd(g) - 0.5) * 40) : (distH(sq, { x: sq.hx, z: sq.hz }) > 70 ? bearing(sq.x, sq.z, sq.hx, sq.hz) : norm360(sq.h + (rnd(g) - 0.5) * 35));
+      sq.h = turnToward(sq.h, want, 140 * DT);
+      if (sq.dash > 0) { sq.spd = 8.4; sq.dash--; } else sq.spd = pred ? 4.4 : 2.1;
+      var sr = sq.h * D2R;
+      sq.x = clamp(sq.x + Math.sin(sr) * sq.spd * DT, 8, OC.W - 8);
+      sq.z = clamp(sq.z - Math.cos(sr) * sq.spd * DT, 8, OC.L - 8);
+      var wd = night ? Math.max(12, sq.hd - 18) : sq.hd;
+      sq.d = clamp(sq.d + (wd - sq.d) * 0.01 + Math.sin(ts + i) * 0.05, 5, floorAt(sq.x, sq.z) - 3);
+    }
+
+    // oblaki črnila (inks)
+    for (i = g.inks.length - 1; i >= 0; i--) {
+      g.inks[i].ttl--;
+      g.inks[i].r += 0.04;
+      if (g.inks[i].ttl <= 0) g.inks.splice(i, 1);
+    }
+
+    // 5 manta raž (rays)
+    for (i = 0; i < g.rays.length; i++) {
+      var ry = g.rays[i];
+      if (!ry.alive) { if (!g.famine) { ry.rt--; if (ry.rt <= 0) { ry.alive = true; ry.hp = ry.hpMax; } } continue; }
+      if (ry.flee > 0) ry.flee--;
+      var rw = ry.flee > 0 ? ry.h : (distH(ry, { x: ry.hx, z: ry.hz }) > 95 ? bearing(ry.x, ry.z, ry.hx, ry.hz) : norm360(ry.h + (rnd(g) - 0.5) * 18));
+      ry.h = turnToward(ry.h, rw, 55 * DT); ry.spd = ry.flee > 0 ? 5.6 : 2.4;
+      var rr = ry.h * D2R;
+      ry.x = clamp(ry.x + Math.sin(rr) * ry.spd * DT, 12, OC.W - 12); ry.z = clamp(ry.z - Math.cos(rr) * ry.spd * DT, 12, OC.L - 12);
+      ry.d = clamp(ry.d + (ry.hd - ry.d) * 0.01 + Math.sin(ts * 0.5 + i) * 0.04, 6, floorAt(ry.x, ry.z) - 3);
+    }
+
+    // 6 morskih želv (turtles)
+    for (i = 0; i < g.turtles.length; i++) {
+      var tu = g.turtles[i];
+      if (!tu.alive) { if (!g.famine) { tu.rt--; if (tu.rt <= 0) { tu.alive = true; tu.hp = tu.hpMax; } } continue; }
+      if (tu.flee > 0) tu.flee--;
+      var tw = distH(tu, { x: tu.hx, z: tu.hz }) > 60 ? bearing(tu.x, tu.z, tu.hx, tu.hz) : norm360(tu.h + (rnd(g) - 0.5) * 20);
+      tu.h = turnToward(tu.h, tw, 45 * DT); tu.spd = tu.flee > 0 ? 3.2 : 1.4;
+      var tr = tu.h * D2R;
+      tu.x = clamp(tu.x + Math.sin(tr) * tu.spd * DT, 10, OC.W - 10); tu.z = clamp(tu.z - Math.cos(tr) * tu.spd * DT, 10, OC.L - 10);
+      tu.d = clamp(tu.d + Math.sin(ts * 0.25 + i) * 0.04, 2, floorAt(tu.x, tu.z) - 2);
+    }
+
+    // 4 barakude (barracudas)
+    for (i = 0; i < g.barracudas.length; i++) {
+      var ba = g.barracudas[i];
+      if (!ba.alive) { if (!g.famine) { ba.rt--; if (ba.rt <= 0) { ba.alive = true; ba.hp = ba.hpMax; } } continue; }
+      if (ba.cool > 0) ba.cool--;
+      var bt = null, bd = 1e9;
+      if (ba.cool <= 0) {
+        for (j = 0; j < g.fish.length; j++) {
+          var f2 = g.fish[j];
+          if (!f2.alive || f2.sz >= 2.2 || f2.hid || inAnyShelter(f2.x, f2.z, f2.d, f2.sz)) continue;
+          var dd2 = dist3(ba, f2);
+          if (dd2 < 20 && dd2 < bd) { bd = dd2; bt = f2; }
+        }
+      }
+      var bw = bt ? bearing(ba.x, ba.z, bt.x, bt.z) : (distH(ba, { x: ba.hx, z: ba.hz }) > 65 ? bearing(ba.x, ba.z, ba.hx, ba.hz) : norm360(ba.h + (rnd(g) - 0.5) * 24));
+      ba.h = turnToward(ba.h, bw, 95 * DT); ba.spd = bt ? 5.8 : 2.3;
+      var br = ba.h * D2R;
+      ba.x = clamp(ba.x + Math.sin(br) * ba.spd * DT, 10, OC.W - 10); ba.z = clamp(ba.z - Math.cos(br) * ba.spd * DT, 10, OC.L - 10);
+      ba.d = clamp(bt ? ba.d + clamp(bt.d - ba.d, -2, 2) * DT : ba.d + (ba.hd - ba.d) * 0.01, 4, floorAt(ba.x, ba.z) - 2);
+      if (bt && dist3(ba, bt) < 2.8 && ba.cool <= 0) {
+        ba.cool = 44;
+        hurt(g, bt, 15, 'barracuda', 'barracuda', 'a barracuda slashed you: -15 hp');
+      }
+    }
+
+    // 4 murene (morays) — pazijo na jame in zasedo
+    for (i = 0; i < g.morays.length; i++) {
+      var mo = g.morays[i];
+      if (!mo.alive) { if (!g.famine) { mo.rt--; if (mo.rt <= 0) { mo.alive = true; mo.hp = mo.hpMax; } } continue; }
+      if (mo.cool > 0) mo.cool--;
+      if (mo.cool <= 0) {
+        for (j = 0; j < g.fish.length; j++) {
+          var f3 = g.fish[j];
+          if (!f3.alive || f3.sz >= 4.2 || f3.spd < 0.7) continue;
+          if (dist3(mo, f3) < 6.0) {
+            mo.cool = 40;
+            hurt(g, f3, 20, 'bitten by a moray eel', 'moray', 'a moray eel struck from the crevice: -20 hp');
+            break;
+          }
+        }
+      }
+    }
+
+    // plankton
     for (i = 0; i < g.plankton.length; i++) {
       var p = g.plankton[i]; var cur = OC.currentAt(p.x, p.z, p.d);
-      p.x = clamp(p.x + cur.x * DT * 0.8 + (rnd(g) - 0.5) * 0.1, 10, OC.W - 10); p.z = clamp(p.z + cur.z * DT * 0.8 + (rnd(g) - 0.5) * 0.1, 10, OC.L - 10);
-      var wantD = ph === 'night' ? 9 : 40; p.d = clamp(p.d + (wantD - p.d) * 0.003, 2, floorAt(p.x, p.z) - 2);
-      if (!g.famine && p.amt < 110) p.amt += 0.035;
-      if (p.amt < 1 && !g.famine && rnd(g) < 0.002) { p.x = 30 + rnd(g) * 340; p.z = 30 + rnd(g) * 340; p.amt = 45; }
+      p.x = clamp(p.x + cur.x * DT * 0.8 + (rnd(g) - 0.5) * 0.1, 16, OC.W - 16); p.z = clamp(p.z + cur.z * DT * 0.8 + (rnd(g) - 0.5) * 0.1, 16, OC.L - 16);
+      var wantD = ph === 'night' ? 10 : 44; p.d = clamp(p.d + (wantD - p.d) * 0.003, 3, floorAt(p.x, p.z) - 2);
+      if (!g.famine && p.amt < 110) p.amt += 0.04;
+      if (p.amt < 1 && !g.famine && rnd(g) < 0.002) { p.x = 50 + rnd(g) * (OC.W - 100); p.z = 50 + rnd(g) * (OC.L - 100); p.amt = 50; }
     }
-    var jl = g.jellies, jc = OC.currentAt(jl.x, jl.z, jl.d), jh = OC.JELLY_HOME;
-    jl.x += jc.x * DT * 0.5 + (jh.x - jl.x) * 0.0005; jl.z += jc.z * DT * 0.5 + (jh.z - jl.z) * 0.0005; jl.d = clamp(jl.d + Math.sin(ts * 0.02) * 0.02, jh.d0, jh.d1);
+    // 3 roji meduz
+    for (i = 0; i < g.jellies.length; i++) {
+      var jl = g.jellies[i], jh = OC.JELLY_HOMES[jl.homeIdx] || OC.JELLY_HOME, jc = OC.currentAt(jl.x, jl.z, jl.d);
+      jl.x += jc.x * DT * 0.5 + (jh.x - jl.x) * 0.0006; jl.z += jc.z * DT * 0.5 + (jh.z - jl.z) * 0.0006;
+      jl.d = clamp(jl.d + Math.sin(ts * 0.02 + i) * 0.02, jh.d0, jh.d1);
+    }
+    // raki & napihovalke
     for (i = 0; i < g.crabs.length; i++) { var c = g.crabs[i]; if (!c.alive && !g.famine) { c.rt--; if (c.rt <= 0) c.alive = true; } }
     for (i = 0; i < g.puffers.length; i++) {
       var u = g.puffers[i];
       if (!u.alive) { if (!g.famine) { u.rt--; if (u.rt <= 0) u.alive = true; } continue; }
       u.h = norm360(u.h + (rnd(g) - 0.5) * 30); var ur = u.h * D2R;
-      u.x += Math.sin(ur) * 0.5 * DT; u.z -= Math.cos(ur) * 0.5 * DT;
-      if (OC.dist2(u.x, u.z, OC.REEF.x, OC.REEF.z) > 34 * 34) u.h = bearing(u.x, u.z, OC.REEF.x, OC.REEF.z);
+      u.x = clamp(u.x + Math.sin(ur) * 0.6 * DT, 10, OC.W - 10); u.z = clamp(u.z - Math.cos(ur) * 0.6 * DT, 10, OC.L - 10);
       u.d = clamp(u.d, 6, floorAt(u.x, u.z) - 1);
     }
     for (i = g.carrion.length - 1; i >= 0; i--) {
       var k = g.carrion[i]; k.age++; var fl = floorAt(k.x, k.z);
       if (k.d < fl - 0.8) k.d = Math.min(fl - 0.8, k.d + 0.3 * DT);
-      if (k.en <= 0 || k.age > 1400) g.carrion.splice(i, 1);
+      if (k.en <= 0 || k.age > 1600) g.carrion.splice(i, 1);
     }
     if (!g.famine) {
-      if (g.snailPool < 55) g.snailPool = Math.min(55, g.snailPool + 0.01);
-      if (g.matPool < 110) g.matPool = Math.min(110, g.matPool + 0.015);
-      if (g.wreckPool < 90) g.wreckPool = Math.min(90, g.wreckPool + 0.012);
+      if (g.snailPool < 75) g.snailPool = Math.min(75, g.snailPool + 0.014);
+      if (g.matPool < 140) g.matPool = Math.min(140, g.matPool + 0.018);
+      if (g.wreckPool < 120) g.wreckPool = Math.min(120, g.wreckPool + 0.015);
+      if (g.grassPool < 80) g.grassPool = Math.min(80, g.grassPool + 0.014);
     }
   }
 
@@ -776,7 +1375,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
     g.tick++;
     if (g.tick === C.FAMINE_TICK) { g.famine = true; addFeed(g, 'the sea is growing empty: nothing new is spawning'); }
     for (var i = 0; i < g.fish.length; i++) if (g.fish[i].alive) stepFish(g, g.fish[i]);
-    stepShark(g); stepNPC(g);
+    stepSharks(g); stepNPC(g);
     var alive = g.fish.filter(function (f) { return f.alive; });
     if ((alive.length <= 1 && g.fish.length >= C.MIN_PLAYERS) || g.tick >= C.MAX_TICKS) finish(g, alive);
   };
@@ -800,7 +1399,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
     g.winner = g.ranks.length ? g.ranks[0].name : null;
     addFeed(g, g.winner ? g.winner + ' wins (' + (alive.length === 1 ? 'last fish alive' : 'highest score at the time limit') + ')' : 'game over');
   }
-  OC.start = function (g, nowMs) { g.status = 'running'; g.startMs = nowMs; g.lastMs = nowMs; g.tick = 0; g.fish.forEach(function (f) { f.born = 0; f.lastCmdTick = 0; f.lastMeTick = 0; }); addFeed(g, 'the game has started with ' + g.fish.length + ' fish'); };
+  OC.start = function (g, nowMs) { g.status = 'running'; g.manualStart = false; g.startMs = nowMs; g.lastMs = nowMs; g.tick = 0; g.fish.forEach(function (f) { f.born = 0; f.lastCmdTick = 0; f.lastMeTick = 0; }); addFeed(g, 'the game has started with ' + g.fish.length + ' fish'); };
   OC.advance = function (g, nowMs) {
     if (g.status !== 'running') return 0;
     var n = Math.floor((nowMs - g.lastMs) / C.TICK_MS); if (n <= 0) return 0;
@@ -812,15 +1411,24 @@ var OC = globalThis.OC || (globalThis.OC = {});
   // ── Posnetek za gledalca ─────────────────────────────────────────────────
   OC.snapshot = function (g, nowMs) {
     var ts = tSec(g);
+    var sh0 = g.sharks[0] || g.shark;
     return {
-      gen: g.gen, status: g.status, tick: g.tick, t: Math.round(ts), timeLeft: Math.max(0, Math.round((C.MAX_TICKS - g.tick) * DT)), phase: OC.phaseName(ts), light: Math.round(OC.dayLight(ts) * 100) / 100, famine: g.famine,
+      gen: g.gen, status: g.status, tick: g.tick, t: Math.round(ts), timeLeft: Math.max(0, Math.round((C.MAX_TICKS - g.tick) * DT)),
+      phase: OC.phaseName(ts), light: Math.round(OC.dayLight(ts) * 100) / 100, famine: g.famine, manualStart: !!g.manualStart,
       lobbyIn: g.status === 'lobby' && g.lobbyUntilMs ? Math.max(0, Math.round((g.lobbyUntilMs - (nowMs || Date.now())) / 1000)) : null,
-      fish: g.fish.map(function (f) { return { id: f.id, n: f.n, model: f.model, color: f.color, x: r1(f.x), z: r1(f.z), d: r1(f.d), h: Math.round(f.h), p: Math.round(f.p), spd: r1(f.spd), sz: r1(f.sz), hp: Math.round(f.hp), hpMax: hpMax(f.sz), en: Math.round(f.en), enMax: enMax(f.sz), st: Math.round(f.st), alive: f.alive, hid: f.hid, bleed: f.bleed > 0, poison: f.poison > 0, mud: f.mud > 0, kills: f.kills, ate: Math.round(f.ate), act: f.cmd.act, why: f.why, cmdN: f.cmdN, explored: Object.keys(f.zoneSeen || {}).length, suspect: f.suspect, cheat: f.cheat, cause: f.cause, idle: Math.round((g.tick - f.lastCmdTick) * DT), score: scoreOf(g, f) }; }),
-      shark: { x: r1(g.shark.x), z: r1(g.shark.z), d: r1(g.shark.d), h: Math.round(g.shark.h), spd: r1(g.shark.spd), state: g.shark.state, tired: g.shark.tired > 0, target: g.shark.target, kills: g.shark.kills },
+      fish: g.fish.map(function (f) { return { id: f.id, n: f.n, model: f.model, color: f.color, x: r1(f.x), z: r1(f.z), d: r1(f.d), h: Math.round(f.h), p: Math.round(f.p), spd: r1(f.spd), sz: r1(f.sz), hp: Math.round(f.hp), hpMax: hpMax(f.sz), en: Math.round(f.en), enMax: enMax(f.sz), st: Math.round(f.st), alive: f.alive, hid: f.hid, bleed: f.bleed > 0, poison: f.poison > 0, mud: f.mud > 0, inked: f.inked > 0, kills: f.kills, ate: Math.round(f.ate), act: f.cmd.act, why: f.why, cmdN: f.cmdN, explored: Object.keys(f.zoneSeen || {}).length, suspect: f.suspect, cheat: f.cheat, cause: f.cause, idle: Math.round((g.tick - f.lastCmdTick) * DT), score: scoreOf(g, f) }; }),
+      shark: { id: sh0.id, name: sh0.name, x: r1(sh0.x), z: r1(sh0.z), d: r1(sh0.d), h: Math.round(sh0.h), spd: r1(sh0.spd), sz: sh0.sz, state: sh0.state, tired: sh0.tired > 0, target: sh0.target, kills: sh0.kills },
+      sharks: g.sharks.map(function (s) { return { id: s.id, name: s.name, pack: s.pack, x: r1(s.x), z: r1(s.z), d: r1(s.d), h: Math.round(s.h), spd: r1(s.spd), sz: s.sz, state: s.state, tired: s.tired > 0, target: s.target, kills: s.kills }; }),
+      squids: g.squids.filter(function (q) { return q.alive; }).map(function (q) { return { id: q.id, x: r1(q.x), z: r1(q.z), d: r1(q.d), h: Math.round(q.h), spd: r1(q.spd), dash: q.dash > 0 }; }),
+      rays: g.rays.filter(function (q) { return q.alive; }).map(function (q) { return { id: q.id, x: r1(q.x), z: r1(q.z), d: r1(q.d), h: Math.round(q.h), spd: r1(q.spd) }; }),
+      turtles: g.turtles.filter(function (q) { return q.alive; }).map(function (q) { return { id: q.id, x: r1(q.x), z: r1(q.z), d: r1(q.d), h: Math.round(q.h) }; }),
+      barracudas: g.barracudas.filter(function (q) { return q.alive; }).map(function (q) { return { id: q.id, x: r1(q.x), z: r1(q.z), d: r1(q.d), h: Math.round(q.h), spd: r1(q.spd) }; }),
+      morays: g.morays.filter(function (q) { return q.alive; }).map(function (q) { return { id: q.id, x: r1(q.x), z: r1(q.z), d: r1(q.d), h: Math.round(q.h) }; }),
+      inks: g.inks.map(function (ik) { return { id: ik.id, x: r1(ik.x), z: r1(ik.z), d: r1(ik.d), r: r1(ik.r) }; }),
       schools: g.schools.map(function (s) { return { id: s.id, x: r1(s.x), z: r1(s.z), d: r1(s.d), h: Math.round(s.h), n: s.n }; }),
-      lanterns: (g.lanterns || []).map(function (s) { return { id: s.id, x: r1(s.x), z: r1(s.z), d: r1(s.d), h: Math.round(s.h), n: s.n }; }),
+      lanterns: g.lanterns.map(function (s) { return { id: s.id, x: r1(s.x), z: r1(s.z), d: r1(s.d), h: Math.round(s.h), n: s.n }; }),
       plankton: g.plankton.map(function (p) { return { id: p.id, x: r1(p.x), z: r1(p.z), d: r1(p.d), r: p.r, amt: Math.round(p.amt) }; }),
-      jellies: { x: r1(g.jellies.x), z: r1(g.jellies.z), d: r1(g.jellies.d), r: g.jellies.r, n: g.jellies.n },
+      jellies: g.jellies,
       crabs: g.crabs.filter(function (c) { return c.alive; }).map(function (c) { return { id: c.id, x: r1(c.x), z: r1(c.z), d: r1(c.d) }; }),
       puffers: g.puffers.filter(function (u) { return u.alive; }).map(function (u) { return { id: u.id, x: r1(u.x), z: r1(u.z), d: r1(u.d), h: Math.round(u.h) }; }),
       carrion: g.carrion.map(function (k) { return { id: k.id, x: r1(k.x), z: r1(k.z), d: r1(k.d), sz: r1(k.sz), en: Math.round(k.en) }; }),
@@ -830,7 +1438,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
   function r1(v) { return Math.round(v * 10) / 10; }
 })(OC);
 
-// OCEAN ARENA — HTTP plast za Supabase Edge Function (naloži jo loader prek new Function).
+// OCEAN ARENA v6 — HTTP plast za Supabase Edge Function (naloži jo loader prek new Function).
 // Stanje: public.ocean_state (id=1: doc jsonb, tick, gen, rev). Besedila: public.arena_pub (ocean:*). Zgodovina: public.ocean_games.
 (function (OC) {
   var C = OC.CONST;
@@ -880,7 +1488,6 @@ var OC = globalThis.OC || (globalThis.OC = {});
       await fetch(U + '/rest/v1/ocean_games?on_conflict=gen', { method: 'POST', headers: Object.assign({ 'content-type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' }, HEAD), body: JSON.stringify(payload) });
     } catch (e) { /* zgodovina ne sme ustaviti igre */ }
   }
-  // transakcija z optimističnim zaklepanjem: fn(doc, now) -> {res, dirty}
   async function withState(fn) {
     var now = Date.now(), lastErr = null;
     for (var tries = 0; tries < 7; tries++) {
@@ -897,7 +1504,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
     throw lastErr || new Error('state conflict: too many concurrent writers, retry');
   }
   function lobbyTick(g, now) {
-    if (g.status !== 'lobby' || !g.lobbyUntilMs) return false;
+    if (g.status !== 'lobby' || g.manualStart || !g.lobbyUntilMs) return false;
     if (now >= g.lobbyUntilMs) {
       if (g.fish.length >= C.MIN_PLAYERS) { OC.start(g, now); return true; }
       g.lobbyUntilMs = now + 60000; return true;
@@ -920,7 +1527,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
     var adm = u.searchParams.get('admin') === ADMIN || req.headers.get('x-admin') === ADMIN;
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     try {
-      if (seg === '' || seg === 'health') return json({ ok: true, game: 'OCEAN ARENA', endpoints: ['GET /rules', 'GET /chart', 'GET /prompt', 'GET /prompt/en', 'POST /claim', 'GET /me?key=', 'POST /cmd', 'GET /report', 'GET /leaderboard', 'GET /history', 'GET /state (spectators only)'], version: 'v5' });
+      if (seg === '' || seg === 'health') return json({ ok: true, game: 'OCEAN ARENA', endpoints: ['GET /rules', 'GET /chart', 'GET /prompt', 'GET /prompt/en', 'POST /claim', 'GET /me?key=', 'POST /cmd', 'GET /report', 'GET /leaderboard', 'GET /history', 'GET /state (spectators only)'], version: 'v6' });
       if (seg === 'rules') return text((await pub('ocean:rules')) || 'rules not published');
       if (seg === 'prompt' || seg === 'prompts') return text((await pub(sub === 'en' ? 'ocean:prompt-en' : 'ocean:prompt')) || 'prompt not published');
       if (seg === 'chart') return json(OC.chart());
@@ -930,16 +1537,32 @@ var OC = globalThis.OC || (globalThis.OC = {});
         return json({ ok: true, results: res });
       }
       if (seg === 'reset' && adm) {
+        var manual = u.searchParams.get('manual') === '1';
         await dbInsertIfMissing();
-        return resp(await withState(async function (g) { var ng = OC.newGame((g.gen || 0) + 1); for (var kk in g) delete g[kk]; Object.assign(g, ng); return { dirty: true, res: { ok: true, gen: g.gen, status: g.status } }; }));
+        return resp(await withState(async function (g) {
+          var ng = OC.newGame((g.gen || 0) + 1);
+          ng.manualStart = manual;
+          for (var kk in g) delete g[kk]; Object.assign(g, ng);
+          return { dirty: true, res: { ok: true, gen: g.gen, status: g.status, manualStart: !!g.manualStart } };
+        }));
       }
       if (seg === 'start' && adm) {
         return resp(await withState(async function (g, now) {
-          if (g.status !== 'lobby') return { dirty: false, res: { ok: false, status: g.status } };
+          if (g.status !== 'lobby') return { dirty: false, res: { ok: false, status: g.status, error: 'igra ni v čakalnici' } };
+          if (u.searchParams.get('manual') === '1') {
+            g.manualStart = true; g.lobbyUntilMs = 0;
+            return { dirty: true, res: { ok: true, status: g.status, manualStart: true, fish: g.fish.length } };
+          }
           var sec = +(u.searchParams.get('in') || 0);
+          var force = u.searchParams.get('force') === '1';
+          if (sec <= 0 && g.fish.length < C.MIN_PLAYERS && !force) {
+            return { dirty: false, res: { ok: false, status: g.status, fish: g.fish.length, error: 'za začetek sta potrebni vsaj ' + C.MIN_PLAYERS + ' ribi (trenutno ' + g.fish.length + ')' } };
+          }
+          g.manualStart = false;
           g.lobbyUntilMs = now + sec * 1000;
-          lobbyTick(g, now);
-          return { dirty: true, res: { ok: true, status: g.status, fish: g.fish.length, lobbyUntilMs: g.lobbyUntilMs } };
+          if (sec <= 0 && (g.fish.length >= C.MIN_PLAYERS || force)) OC.start(g, now);
+          else lobbyTick(g, now);
+          return { dirty: true, res: { ok: true, status: g.status, fish: g.fish.length, manualStart: false, lobbyUntilMs: g.lobbyUntilMs } };
         }));
       }
       if (seg === 'kick' && adm) {
@@ -993,9 +1616,12 @@ var OC = globalThis.OC || (globalThis.OC = {});
           if (g.fish.length >= C.MAX_SEATS) return { dirty: false, res: json({ error: 'all ' + C.MAX_SEATS + ' seats are taken' }, 409) };
           var nm = name, n = 2; while (g.fish.some(function (f) { return f.n.toLowerCase() === nm.toLowerCase(); })) nm = name.slice(0, 13) + '-' + (n++);
           var f = OC.addFish(g, nm, model, color, randKey(), ip0);
-          if (!g.firstClaimMs) { g.firstClaimMs = now; g.lobbyUntilMs = now + C.LOBBY_SEC * 1000; }
-          if (g.fish.length >= C.MAX_SEATS) g.lobbyUntilMs = Math.min(g.lobbyUntilMs, now + 20000);
-          return { dirty: true, res: { ok: true, key: f.key, id: f.id, name: f.n, color: f.color, seat: g.fish.length + '/' + C.MAX_SEATS, startsInSec: Math.round((g.lobbyUntilMs - now) / 1000), note: 'keep the key secret; it dies when this game ends. Poll GET /me?key=... every 20–30 s until status is running.' } };
+          if (!g.firstClaimMs) g.firstClaimMs = now;
+          if (!g.manualStart) {
+            if (!g.lobbyUntilMs) g.lobbyUntilMs = now + C.LOBBY_SEC * 1000;
+            if (g.fish.length >= C.MAX_SEATS) g.lobbyUntilMs = Math.min(g.lobbyUntilMs, now + 20000);
+          }
+          return { dirty: true, res: { ok: true, key: f.key, id: f.id, name: f.n, color: f.color, seat: g.fish.length + '/' + C.MAX_SEATS, manualHold: !!g.manualStart, startsInSec: g.lobbyUntilMs ? Math.round((g.lobbyUntilMs - now) / 1000) : null, note: 'keep the key secret; it dies when this game ends. Poll GET /me?key=... every 20–30 s until status is running.' } };
         }));
       }
       if (seg === 'me') {
@@ -1014,7 +1640,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
           var f = fishByKey(g, cb.key); if (!f) return { dirty: false, res: json({ error: 'unknown key' }, 401) };
           if (g.status === 'finished') return { dirty: false, res: json({ error: 'game finished; keys are dead', result: g.ranks }, 403) };
           if (!f.alive) return { dirty: false, res: json({ error: 'you are dead: ' + f.cause, status: g.status }, 410) };
-          if (g.status === 'lobby') return { dirty: false, res: json({ error: 'not started yet; poll /me until status is running', startsInSec: Math.max(0, Math.round((g.lobbyUntilMs - now) / 1000)) }, 425) };
+          if (g.status === 'lobby') return { dirty: false, res: json({ error: 'not started yet; poll /me until status is running', manualHold: !!g.manualStart, startsInSec: g.lobbyUntilMs ? Math.max(0, Math.round((g.lobbyUntilMs - now) / 1000)) : null }, 425) };
           if (f.lastCmdMs && now - f.lastCmdMs < C.MIN_CMD_MS) return { dirty: false, res: json({ error: 'too fast: at least ' + (C.MIN_CMD_MS / 1000) + ' s between commands' }, 429) };
           OC.applyCmd(g, f, v.cmd, now);
           var me = OC.perceive(g, f, now); me.accepted = { act: f.cmd.act, speed: f.cmd.speed, heading: Math.round(f.cmd.h), pitch: Math.round(f.cmd.p), target: f.cmd.target, goto: f.cmd.goto ? [f.cmd.goto.x, f.cmd.goto.z, f.cmd.goto.d] : null, dur: v.cmd.dur };

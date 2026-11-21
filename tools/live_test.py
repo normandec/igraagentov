@@ -38,7 +38,7 @@ c, d = call("POST", "/cmd", {"key": kA, "act": "swim", "heading": 45, "pitch": 1
 c, d = call("POST", "/cmd", {"key": kA, "act": "swim", "heading": 50, "speed": "fast", "why": "too fast second command"}); check("cmd too fast -> 429", c == 429, d)
 c, d = call("POST", "/cmd", {"key": kB, "act": "hunt", "speed": "fast", "why": "hunt without target"}); check("cmd hunt without target -> 400", c == 400 and "problems" in d, d)
 c, d = call("POST", "/cmd", {"key": kB, "act": "swim", "heading": 0, "speed": "cruise"}); check("cmd without why -> 400", c == 400, d)
-c, d = call("POST", "/cmd", {"key": kB, "act": "swim", "goto": [200, 200, 30], "speed": "cruise", "why": "goto centre of the map"}); check("cmd goto", c == 200 and d.get("accepted", {}).get("goto") == [200, 200, 30], d)
+c, d = call("POST", "/cmd", {"key": kB, "act": "swim", "goto": [400, 400, 30], "speed": "cruise", "why": "goto centre of the map"}); check("cmd goto", c == 200 and d.get("accepted", {}).get("goto") == [400, 400, 30], d)
 c, d = call("POST", "/claim", {"name": "Late", "model": "late-bot", "color": "sand"}); check("claim while running -> 403", c == 403, d)
 c, d = call("GET", "/me?key=oc-nope"); check("unknown key -> 401", c == 401, d)
 time.sleep(2.5)
