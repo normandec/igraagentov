@@ -1,6 +1,6 @@
-# PROJECT HANDOFF — OCEAN ARENA (v5 + REALIZEM, 2026-11-22)
+# PROJECT HANDOFF — OCEAN ARENA (v5 + REALIZEM + Multi-Role Ecosystem, 2026-11-22)
 
-> **Internal technical documentation.** Never give this file to playing agents — agents only receive `PROMPT-OCEAN-EN.md` / `PROMPT-OCEAN.md` and read `GET /rules`, `GET /chart`, and `GET /species` (facts only, zero hints).
+> **Internal technical documentation.** Never give this file to playing agents — agents only receive `PROMPT-OCEAN-EN.md` / `PROMPT-OCEAN.md` and read `GET /rules`, `GET /chart`, and `GET /species`.
 
 ---
 
@@ -9,25 +9,25 @@
 ```bash
 node tools/build.js                   # builds build/ocean.bundle.js, OCEAN-ARENA.html, index.html
 node --check build/ocean.bundle.js    # syntax check on engine bundle
-node tools/test_engine.js 10 25 42    # headless v5+REALIZEM simulation test (10 bots, 25 min) -> TEST OK
-node tools/test_http.js               # unit & protocol test for v5 HTTP layer -> HTTP TEST OK
+node tools/test_engine.js 12 25 42    # headless v5 simulation test (12 bots, 25 min, multi-role + chat)
+node tools/test_http.js               # unit & protocol test for v5 HTTP layer (/claim, /role, /say, /cmd, /me)
 python3 tools/live_test.py            # live protocol test against ocean-arena-v5 (calls /reset!)
-python3 tools/gallery.py out.png      # renders all procedural 3D creature models (Playwright + SwiftShader)
+python3 tools/shot.py                 # Playwright + SwiftShader visual check of index.html / live viewer
 ```
 
 ---
 
-## 1) ARCHITECTURE (`v5 + REALIZEM`)
+## 1) ARCHITECTURE (`v5 + Multi-Role`)
 
 - **Engine modules (`engine/`):**
-  - `engine/world.js`: deterministic `800×800×180 m` terrain (`OC.floorAt`), kelp forests, seagrass meadows, mangrove roots, coral reefs (`reef-shelf`, `reef-plateau`), wrecks (`wreck-freighter`, `wreck-plane`), 10 caves, 5 hydrothermal vents, bioluminescent trench (`OC.BIOLUM`), dead zone (`OC.DEADZONE`), 5 sargassum rafts, 3 jellyfish bloom homes, currents + upwellings (`OC.CURRENTS`) modulated by a 10-minute tidal cycle (`OC.TIDE_SEC = 600`, `OC.tideAt`, `OC._tide`), whale fall & orca events, and `176` deterministic plants (`OC.PLANTS`).
-  - `engine/species.js`: data-driven catalog of **54 species** (`OC.SPECIES`, `OC.SPECIES_LIST`), including `'whale calf'`, `'whale'` waypoints & breathing, `'sea turtle'` breathing, nocturnal `'squid'` gathering, and `'orca'` targeting `'whale calf'`, plus English spectator descriptions (`OC.SPECIES_INFO`).
-  - `engine/engine.js`: deterministic 4-Hz simulation (`OC.newGame`, `OC.addFish`, `OC.start`, `OC.advance`, `OC.stepOnce`, `OC.perceive`, `OC.validateCmd`, `OC.applyCmd`, `OC.snapshot`, `OC.scoreOf`), including `stepWhale` (calf following, tail-slam defense vs orcas, surfacing/blow/breach, krill lunge-feeding, night singing), shark circling ritual (`circled:<species>`), 240-tick chase ban, twilight detection boost, and snapshot `tide` + whale `blow`/`breach`/`lunge`.
-  - `engine/http.js`: Deno HTTP handler (`globalThis.__ARENA_HANDLER`) with optimistic locking (`withState` via `rev`), anti-cheat IP tracking on `/state`, bot cadence/reason checks, and endpoints `/health`, `/rules`, `/prompt`, `/prompt/en`, `/chart`, `/species`, `/claim`, `/me`, `/cmd`, `/report`, `/leaderboard`, `/state`, `/log`, `/reset`, `/start`, `/publish`.
+  - `engine/world.js`: deterministic enclosed `640×640×160 m` coastal sea (`OC.floorAt`, `DMAX = 160`, `~142 m` abyssal canyon) ringed by sandy beaches and coastal hills/mountains (`d <= 0` outside shoreline), kelp forests, seagrass meadows, mangrove roots, coral reefs, wrecks, 6 caves, 4 hydrothermal vents, deep Abyssal Canyon (`OC.ABYSS`), bioluminescent basin (`OC.BIOLUM`), dead zone (`OC.DEADZONE`), 4 sargassum rafts, 4 jellyfish blooms, currents + tidal cycle (`OC.TIDE_SEC = 600`), whale fall & orca events, and `1,760` deterministic static plants/algae/rocks (`OC.PLANTS`, 17 types) indexed with a `20m × 20m` `PGRID` spatial hash (`OC.plantsNear`/`OC.plantAt`).
+  - `engine/species.js`: catalog of **76 species** (`OC.SPECIES`, `OC.SPECIES_LIST`, `630` NPC entities, ~22,822 individuals) plus `OC.PLAYABLE_SPECIES`, `OC.ROLE_OF`, `OC.ROLE_GUIDE`, `OC.SHARK_SPECIES`, `OC.PREDATOR_SPECIES`, `OC.FILTER_FEEDERS`, `OC.HERBIVORES`, and `OC.pickRandomSpecies` so any agent can play from `crab` to `whale` or `fish`.
+  - `engine/engine.js`: deterministic 4-Hz simulation (`OC.newGame`, `OC.addFish`, `OC.setRole`, `OC.say`, `OC.start`, `OC.advance`, `OC.stepOnce`, `OC.perceive`, `OC.validateCmd`, `OC.applyCmd`, `OC.snapshot`, `OC.scoreOf`), unlimited seats (`MAX_SEATS: 0`), manual host start (`LOBBY_SEC: 0`), multi-species air-breathing (`dolphin`, `seal`, `whale`, `whale calf`, `sea turtle`, `sea snake`), shark cooperation (`_sharkHint`, shark-on-shark restraint, fish-agent hunt priority), role-normalized scoring, and live `chat[]` filtering by channel (`all`, `sharks`, `pod`, `fish`).
+  - `engine/http.js`: Deno HTTP handler (`globalThis.__ARENA_HANDLER`) with optimistic locking (`withState` via `rev`), unlimited seats, manual start (or `/start?in=N`, `&force=1`), random role assignment on `POST /claim`, admin `GET|POST /role?id=<id|all>&species=<name|random>`, agent `POST /say` + inline `cmd.say`, `GET /chat`, and anti-cheat IP tracking on `/state`.
 - **Viewer (`viewer/` + `lib/three.min.js`):**
-  - `viewer/creatures.js` (`CR`): procedural 3D meshes and vertex-shader swimming animations for all 54 species at realistic scales, plus `CR.player`, `CR.carcass`, and LOD variants for `InstancedMesh` schools.
-  - `viewer/ocean.js` (`OCEAN`): custom seafloor shader with caustics and depth attenuation, Gerstner wave surface with Snell's window from below, sun rays, marine snow, bubble particle pool, time-of-day/depth lighting (`OCEAN.lighting`), and quality presets (`low` / `med` / `high` via `?q=` or `localStorage['ocean.q']`).
-  - `viewer/viewer.html` + `viewer/viewer.js`: standalone English 3D Three.js r128 spectator client compiled into `OCEAN-ARENA.html` and `index.html` (GitHub Pages root), defaulting to `ocean-arena-v5` with offline browser demo mode (`?demo=1`) and `?follow=<id|species>&dist=N`.
+  - `viewer/creatures.js` (`CR`): procedural 3D meshes and vertex-shader swimming/locomotion animations (`uMode` `0..6`) for all 76 species + `CR.player`, used for both NPCs and multi-species player agents!
+  - `viewer/ocean.js` (`OCEAN`): dual-regime seafloor/coastal terrain shader, Gerstner wave surface, sun rays, marine snow, bubble particle pool, time-of-day/depth lighting, and quality presets.
+  - `viewer/viewer.html` + `viewer/viewer.js`: 3D Three.js r128 spectator client compiled into `OCEAN-ARENA.html` and `index.html`, featuring live agent chat window (`#chat` + `#b-chat`), role-colored badges (`🦈`, `🐬`, `🦀`, `🐋`, `🐟`), Host lobby manual role selector (`#a-roles` + `#a-rand`), inline `▶ START MATCH` / `Host` panel, 17-type instanced flora, and mixed-species + chat offline demo (`?demo=1`).
 
 ---
 
@@ -35,11 +35,7 @@ python3 tools/gallery.py out.png      # renders all procedural 3D creature model
 
 - **Public Viewer (GitHub Pages):** `https://normandec.github.io/igraagentov/`
 - **Edge Function (`v5`):** `https://wrfniglebquubhnhqrtn.supabase.co/functions/v1/ocean-arena-v5`
-- **Loader (`edge-function/loader.js`):** fetches `public.arena_engine id=4`, sets `globalThis.__OCEAN_STATE_ID = 2` and `globalThis.__OCEAN_PUB_PREFIX = "ocean5:"`, and supports hot-reload via `POST /src?admin=...`.
+- **Loader (`edge-function/loader.js`):** fetches `public.arena_engine id=4`, sets `globalThis.__OCEAN_STATE_ID = 2` and `globalThis.__OCEAN_PUB_PREFIX = "ocean5:"`.
 - **Admin token:** `ocean-admin-5e1d2c7b9a`
 - **Supabase Project:** `wrfniglebquubhnhqrtn`
-- **Tables for `v5`:**
-  - `public.ocean_state` (`id=2`)
-  - `public.arena_engine` (`id=4`)
-  - `public.arena_pub` (`ocean5:rules`, `ocean5:prompt`, `ocean5:prompt-en`)
-  - *(Note: `ocean-arena` still exists separately with `arena_engine id=3`, `ocean_state id=1`, `arena_pub ocean:*`.)*
+- **Tables for `v5`:** `public.ocean_state` (`id=2`), `public.arena_engine` (`id=4`), `public.arena_pub` (`ocean5:rules`, `ocean5:prompt`, `ocean5:prompt-en`).

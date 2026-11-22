@@ -7,7 +7,7 @@ var CR = (function () {
 
   // ── Shader za plavanje ───────────────────────────────────────────────────
   // uMode: 0 bočno valovanje (ribe, morski psi, jegulje), 1 navpično (kiti, delfini, tjulnji), 2 zamah kril (skati),
-  //        3 utrip zvona (meduze), 4 valovanje lovk (glavonožci), 5 nič
+  //        3 utrip zvona (meduze), 4 utrip plašča + valovanje lovk (glavonožci), 5 statično, 6 rak/jastog (noge + telo)
   var SWIM_PARS = [
     'uniform float uTime, uAmp, uFreq, uLen, uMode, uPhase, uBend;',
     '#ifdef USE_INSTANCING', 'attribute float aPhase;', '#else', 'const float aPhase = 0.0;', '#endif'
@@ -19,7 +19,8 @@ var CR = (function () {
     'else if (uMode < 1.5) { float w = t_ * t_; transformed.y += uAmp * uLen * w * sin(ph_ - t_ * 2.6); transformed.x += uBend * uLen * w; }',
     'else if (uMode < 2.5) { float wx = abs(transformed.x) / (uLen * 0.5); transformed.y += uAmp * uLen * wx * wx * sin(ph_ - wx * 1.6); }',
     'else if (uMode < 3.5) { float s = 1.0 + 0.14 * sin(ph_); if (transformed.y > -0.05 * uLen) { transformed.x *= s; transformed.z *= s; transformed.y *= (2.0 - s); } else { float k = -transformed.y / uLen; transformed.x += 0.08 * uLen * k * sin(ph_ * 0.6 + k * 4.0); transformed.z += 0.08 * uLen * k * cos(ph_ * 0.5 + k * 3.0); } }',
-    'else if (uMode < 4.5) { if (t_ > 0.5) { float k = (t_ - 0.5) * 2.0; transformed.x += uAmp * uLen * k * k * sin(ph_ + transformed.x * 3.0 - k * 5.0); transformed.y += uAmp * uLen * k * k * cos(ph_ * 0.8 + transformed.y * 3.0 - k * 4.0); } }'
+    'else if (uMode < 4.5) { if (t_ < 0.52) { float mc = 1.0 - min(0.16, uAmp * 1.4) * sin(ph_ * 1.25); transformed.x *= mc; transformed.y *= mc; } else { float k = (t_ - 0.5) * 2.0; transformed.x += uAmp * uLen * k * k * sin(ph_ + transformed.x * 2.8 - k * 5.0); transformed.y += uAmp * uLen * k * k * cos(ph_ * 0.8 + transformed.y * 2.8 - k * 4.0); } }',
+    'else if (uMode > 5.5) { float mv = clamp(uAmp * 10.0, 0.0, 1.0); float legs = smoothstep(0.12 * uLen, 0.35 * uLen, abs(transformed.x)); transformed.y += mv * legs * 0.055 * uLen * sin(ph_ * 2.4 + transformed.z * 9.0 + sign(transformed.x) * 1.6); transformed.y += mv * 0.015 * uLen * abs(sin(ph_ * 1.2)); }'
   ].join('\n');
   function swimMaterial(opts) {
     opts = opts || {};
@@ -103,7 +104,12 @@ var CR = (function () {
     var pat = opts.pattern || null, col = shade(D, Vt, pat);
     switch (opts.shape) {
       case 'shark': {
-        parts.push(tube(L, 28, 16, rel(sharkProf, L), col)); parts.push(caudalShark(L, F));
+        parts.push(tube(L, 28, 16, rel(sharkProf, L), col));
+        if (opts.thresher) {
+          parts.push(fin([[-L * 0.46, 0.02 * L], [-L * 0.62, 0.16 * L], [-L * 0.98, 0.34 * L], [-L * 1.02, 0.30 * L], [-L * 0.64, 0.03 * L], [-L * 0.64, -0.06 * L], [-L * 0.56, -0.06 * L], [-L * 0.49, -0.01 * L]], F, 'yz'));
+        } else {
+          parts.push(caudalShark(L, F));
+        }
         parts.push(dorsal(L, F, L * 0.05, L * 0.16, L * 0.16, true)); parts.push(dorsal(L, F, -L * 0.3, L * 0.05, L * 0.06, true));
         parts.push.apply(parts, pectoral(L, F, L * 0.15, L * 0.22, L * 0.06, -L * 0.02, 0.15)); parts.push(anal(L, F, -L * 0.3, L * 0.04, L * 0.05));
         if (opts.hammer) { var hm = tube(L * 0.08, 4, 10, function (t) { return { rx: L * 0.21 * Math.sin(t * Math.PI) + 0.01, ry: L * 0.022, dy: 0 }; }, col); hm.rotateY(Math.PI / 2); hm.translate(0, 0, L * 0.47); parts.push(hm); parts.push.apply(parts, eye(L, L * 0.2, 0, L * 0.47, L * 0.014)); parts.push.apply(parts, eye(L, -L * 0.2, 0, L * 0.47, L * 0.014)); }
@@ -156,15 +162,16 @@ var CR = (function () {
         break;
       }
       case 'squid': {
-        mode = 4; shin = 60; spec = 0x8899aa;
-        var Sq = rgb(c.dorsal || 0xd9a8a0), Sw = rgb(c.ventral || 0xf2e2dc);
-        parts.push(tube(L * 0.55, 16, 12, function (t) { var r = t < 0.9 ? Math.sin(Math.pow(t, 0.6) * Math.PI * 0.5) : 1 - (t - 0.9) * 4; return { rx: Math.max(0.004, r) * L * 0.075, ry: Math.max(0.004, r) * L * 0.08, dy: 0 }; }, function (t, ang, sx) { var cc = mix(Sq, Sw, ang / Math.PI); var h = Math.sin(t * 60 + ang * 30) * Math.cos(t * 37 - ang * 17); return h > 0.6 ? mix(cc, [0.55, 0.2, 0.25], 0.7) : cc; }).translate(0, 0, L * 0.225));
-        parts.push(fin([[0, L * 0.5], [L * 0.11, L * 0.3], [L * 0.07, L * 0.1], [0, L * 0.1]], c.dorsal || 0xd9a8a0, 'xz'));
-        parts.push(fin([[0, L * 0.5], [-L * 0.11, L * 0.3], [-L * 0.07, L * 0.1], [0, L * 0.1]], c.dorsal || 0xd9a8a0, 'xz'));
-        parts.push(sphere(L * 0.07, 0xe8d8d0, 0, 0, -L * 0.07, 1.15, 1, 1.1));
-        parts.push.apply(parts, eye(L, L * 0.065, 0, -L * 0.06, L * 0.03)); parts.push.apply(parts, eye(L, -L * 0.065, 0, -L * 0.06, L * 0.03));
-        for (i = 0; i < 8; i++) { var aa = i / 8 * Math.PI * 2, ar = tube(L * 0.32, 10, 5, function (t) { var r = 0.016 * (1 - t * 0.8); return { rx: r * L, ry: r * L, dy: 0 }; }, function () { return Sq; }); ar.translate(0, 0, -L * 0.16); ar.applyMatrix4(mat4(Math.cos(aa) * L * 0.035, Math.sin(aa) * L * 0.035, -L * 0.1, Math.sin(aa) * 0.12, -Math.cos(aa) * 0.12, 0)); parts.push(ar); }
-        for (i = 0; i < 2; i++) { var tn = tube(L * 0.5, 8, 4, function (t) { var r = 0.01 * (t > 0.85 ? 2.2 : 1); return { rx: r * L, ry: r * L, dy: 0 }; }, function () { return Sw; }); tn.translate(0, 0, -L * 0.25); tn.applyMatrix4(mat4((i ? 1 : -1) * L * 0.02, 0, -L * 0.1)); parts.push(tn); }
+        mode = 4; shin = opts.giant ? 35 : 60; spec = 0x8899aa;
+        var Sq = rgb(c.dorsal || 0xd9a8a0), Sw = rgb(c.ventral || 0xf2e2dc), gMul = opts.giant ? 1.15 : 1.0;
+        parts.push(tube(L * 0.52, opts.giant ? 24 : 16, 12, function (t) { var r = t < 0.88 ? Math.sin(Math.pow(t, 0.58) * Math.PI * 0.5) : 1 - (t - 0.88) * 3.5; return { rx: Math.max(0.004, r) * L * 0.08 * gMul, ry: Math.max(0.004, r) * L * 0.085 * gMul, dy: 0 }; }, function (t, ang) { var cc = mix(Sq, Sw, ang / Math.PI * 0.75); var h = Math.sin(t * 60 + ang * 30) * Math.cos(t * 37 - ang * 17); return h > 0.55 ? mix(cc, [0.45, 0.1, 0.14], 0.7) : cc; }).translate(0, 0, L * 0.24));
+        parts.push(fin([[0, L * 0.5], [L * 0.13 * gMul, L * 0.28], [L * 0.07 * gMul, L * 0.08], [0, L * 0.08]], c.dorsal || 0xd9a8a0, 'xz'));
+        parts.push(fin([[0, L * 0.5], [-L * 0.13 * gMul, L * 0.28], [-L * 0.07 * gMul, L * 0.08], [0, L * 0.08]], c.dorsal || 0xd9a8a0, 'xz'));
+        parts.push(sphere(L * 0.075 * gMul, c.dorsal || 0xe8d8d0, 0, 0, -L * 0.06, 1.15, 1, 1.1));
+        parts.push.apply(parts, eye(L, L * 0.07 * gMul, 0, -L * 0.05, L * (opts.giant ? 0.042 : 0.03)));
+        parts.push.apply(parts, eye(L, -L * 0.07 * gMul, 0, -L * 0.05, L * (opts.giant ? 0.042 : 0.03)));
+        for (i = 0; i < 8; i++) { var aa = i / 8 * Math.PI * 2, armL = L * (opts.giant ? 0.42 : 0.32), ar = tube(armL, 12, 5, function (t) { var r = (opts.giant ? 0.022 : 0.016) * (1 - t * 0.8); return { rx: r * L, ry: r * L, dy: 0 }; }, function () { return Sq; }); ar.translate(0, 0, -armL * 0.5); ar.applyMatrix4(mat4(Math.cos(aa) * L * 0.04, Math.sin(aa) * L * 0.04, -L * 0.09, Math.sin(aa) * 0.14, -Math.cos(aa) * 0.14, 0)); parts.push(ar); }
+        for (i = 0; i < 2; i++) { var tLen = L * (opts.giant ? 0.82 : 0.5), tn = tube(tLen, 12, 4, function (t) { var r = (opts.giant ? 0.014 : 0.01) * (t > 0.82 ? 2.5 : 1); return { rx: r * L, ry: r * L, dy: 0 }; }, function () { return Sw; }); tn.translate(0, 0, -tLen * 0.5); tn.applyMatrix4(mat4((i ? 1 : -1) * L * 0.028, 0, -L * 0.09)); parts.push(tn); }
         break;
       }
       case 'octopus': {
@@ -204,13 +211,24 @@ var CR = (function () {
         break;
       }
       case 'crab': {
-        mode = 5; shin = 20; var Cr = rgb(D), isLob = opts.lobster;
+        mode = 6; shin = 20; var Cr = rgb(D), Cf = rgb(c.fin || D), isLob = opts.lobster;
         if (isLob) { parts.push(tube(L, 14, 10, function (t) { var r = t < 0.45 ? 1 : 1 - (t - 0.45) * 1.1; return { rx: r * L * 0.1, ry: r * L * 0.09, dy: 0 }; }, col)); parts.push(fin([[-L * 0.5, 0], [-L * 0.62, L * 0.09], [-L * 0.66, 0], [-L * 0.62, -L * 0.09]], D, 'xz')); }
         else { var car = new T.SphereGeometry(L * 0.5, 12, 8); car.scale(1, 0.35, 0.7); paint(car, D); parts.push(car); }
-        for (i = 0; i < 4; i++) { [-1, 1].forEach(function (sg) { var leg = tube(L * 0.55, 4, 4, function (t) { return { rx: L * 0.025 * (1 - t * 0.7), ry: L * 0.025 * (1 - t * 0.7), dy: 0 }; }, function () { return Cr; }); leg.translate(0, 0, L * 0.27); leg.applyMatrix4(mat4(sg * L * 0.3, -L * 0.02, (isLob ? L * 0.25 : L * 0.2) - i * L * 0.14, -0.5, sg * (1.3 + i * 0.25), 0)); parts.push(leg); }); }
-        [-1, 1].forEach(function (sg) { var cl = tube(L * 0.5, 6, 6, function (t) { var r = t < 0.5 ? 0.04 : 0.08 * (1 - (t - 0.5)); return { rx: r * L, ry: r * L * 0.7, dy: 0 }; }, function () { return Cr; }); cl.translate(0, 0, -L * 0.1); cl.applyMatrix4(mat4(sg * L * 0.3, 0, L * 0.3, 0, sg * 0.5, 0)); parts.push(cl); });
+        for (i = 0; i < 4; i++) { [-1, 1].forEach(function (sg) { var leg = tube(L * 0.58, 4, 4, function (t) { return { rx: L * 0.025 * (1 - t * 0.7), ry: L * 0.025 * (1 - t * 0.7), dy: 0 }; }, function () { return Cr; }); leg.translate(0, 0, L * 0.27); leg.applyMatrix4(mat4(sg * L * 0.3, -L * 0.02, (isLob ? L * 0.25 : L * 0.2) - i * L * 0.14, -0.5, sg * (1.3 + i * 0.25), 0)); parts.push(leg); }); }
+        [-1, 1].forEach(function (sg) { var cl = tube(L * 0.5, 6, 6, function (t) { var r = t < 0.5 ? 0.04 : 0.08 * (1 - (t - 0.5)); return { rx: r * L, ry: r * L * 0.7, dy: 0 }; }, function () { return Cf; }); cl.translate(0, 0, -L * 0.1); cl.applyMatrix4(mat4(sg * L * 0.3, 0, L * 0.3, 0, sg * 0.5, 0)); parts.push(cl); });
         parts.push.apply(parts, eye(L, L * 0.12, L * 0.08, L * 0.32, L * 0.03)); parts.push.apply(parts, eye(L, -L * 0.12, L * 0.08, L * 0.32, L * 0.03));
         for (i = 0; i < 2; i++) { var ant = tube(L * 0.9, 4, 3, function () { return { rx: L * 0.006, ry: L * 0.006, dy: 0 }; }, function () { return Cr; }); ant.applyMatrix4(mat4((i ? 1 : -1) * L * 0.08, L * 0.05, L * 0.75, -0.3, (i ? 1 : -1) * 0.5, 0)); parts.push(ant); }
+        break;
+      }
+      case 'nautilus': {
+        mode = 4; shin = 45; var Nt = rgb(c.dorsal || 0xe8d0b0), Ns = rgb(c.fin || 0xa04a2a);
+        var coil = new T.TorusGeometry(L * 0.28, L * 0.18, 10, 18); coil.rotateY(Math.PI / 2); coil.translate(0, L * 0.08, 0);
+        var cp = coil.attributes.position, cc3 = new Float32Array(cp.count * 3);
+        for (i = 0; i < cp.count; i++) { var ang3 = Math.atan2(cp.getY(i), cp.getZ(i)); var st3 = Math.sin(ang3 * 12) > 0.2 ? 1 : 0; var mc3 = mix(Nt, Ns, st3 * 0.75); cc3[i * 3] = mc3[0]; cc3[i * 3 + 1] = mc3[1]; cc3[i * 3 + 2] = mc3[2]; }
+        coil.setAttribute('color', new T.BufferAttribute(cc3, 3)); coil.computeVertexNormals(); parts.push(coil);
+        for (i = 0; i < 10; i++) { var na = (i / 10) * Math.PI * 2, nar = tube(L * 0.35, 6, 4, function (t) { return { rx: L * 0.014 * (1 - t * 0.7), ry: L * 0.014 * (1 - t * 0.7), dy: 0 }; }, function () { return Nt; }); nar.translate(0, 0, -L * 0.18); nar.applyMatrix4(mat4(Math.cos(na) * L * 0.08, Math.sin(na) * L * 0.08, -L * 0.24)); parts.push(nar); }
+        parts.push.apply(parts, eye(L, L * 0.16, -L * 0.04, -L * 0.24, L * 0.032));
+        parts.push.apply(parts, eye(L, -L * 0.16, -L * 0.04, -L * 0.24, L * 0.032));
         break;
       }
       case 'seahorse': {
@@ -258,16 +276,27 @@ var CR = (function () {
   var SPEC = {
     'sardine': { L: 0.22, colors: { dorsal: 0x3a6a8a, ventral: 0xe8f0f4, fin: 0xa8c0d0 }, slim: true, shiny: true, bigEye: true },
     'anchovy': { L: 0.16, colors: { dorsal: 0x4a7a90, ventral: 0xf0f4f6, fin: 0xb8c8d0 }, slim: true, shiny: true, bigEye: true },
+    'herring': { L: 0.28, colors: { dorsal: 0x2d5878, ventral: 0xe6eff5, fin: 0x9ab4c6 }, slim: true, shiny: true, bigEye: true },
+    'mullet': { L: 0.42, colors: { dorsal: 0x526b6e, ventral: 0xdce4e6, fin: 0x8ea0a4 }, pattern: stripes(0x3a4d50, 10, 0.25, 'top'), shiny: true },
     'mackerel': { L: 0.45, colors: { dorsal: 0x1f6a8a, ventral: 0xe8eef2, fin: 0x6a8a9a }, pattern: stripes(0x0a2a3a, 14, 0.5, 'top'), fast: true, shiny: true },
     'snapper': { L: 0.7, colors: { dorsal: 0xd05040, ventral: 0xf4d8c8, fin: 0xe07060 }, mouth: true },
     'tuna': { L: 2.2, colors: { dorsal: 0x1a2f5a, ventral: 0xd8dde4, fin: 0xe0c040 }, fast: true, shiny: true },
+    'tarpon': { L: 2.0, colors: { dorsal: 0x42667a, ventral: 0xf0f4f8, fin: 0xaabac4 }, fast: true, shiny: true },
+    'mahimahi': { L: 1.4, colors: { dorsal: 0x20a868, ventral: 0xf2dc38, fin: 0x2890e8 }, tall: true, blunt: true, fast: true, shiny: true },
+    'wahoo': { L: 1.7, colors: { dorsal: 0x1f567a, ventral: 0xe0ecf4, fin: 0x387498 }, pattern: stripes(0x102840, 14, 0.35, 'top'), slim: true, fast: true, shiny: true },
+    'kingfish': { L: 1.5, colors: { dorsal: 0x355c78, ventral: 0xe8eef4, fin: 0xc8c050 }, fast: true, shiny: true },
     'squid': { L: 0.6, shape: 'squid', colors: { dorsal: 0xd9a8a0, ventral: 0xf4e6e0 }, transparent: true, opacity: 0.92 },
+    'humboldt squid': { L: 2.0, shape: 'squid', colors: { dorsal: 0xb8382e, ventral: 0xeed4cc }, transparent: true, opacity: 0.94 },
+    'giant squid': { L: 16.0, shape: 'squid', giant: true, colors: { dorsal: 0x9e2420, ventral: 0xe6b8aa } },
+    'nautilus': { L: 0.32, shape: 'nautilus', colors: { dorsal: 0xe8d0b0, ventral: 0xfaf0e2, fin: 0xa04a2a } },
     'shrimp': { L: 0.08, shape: 'crab', lobster: true, colors: { dorsal: 0xf0b8a8, ventral: 0xf8e0d8 } },
     'krill': { L: 0.04, shape: 'crab', lobster: true, colors: { dorsal: 0xf0a0a0, ventral: 0xffd0d0 } },
     'flying fish': { L: 0.35, colors: { dorsal: 0x2a5a9a, ventral: 0xe8eef4, fin: 0x9ab8e0 }, wings: true, shiny: true },
     'salp chain': { L: 1.0, shape: 'salp', transparent: true, opacity: 0.45 },
     'crab': { L: 0.3, shape: 'crab', colors: { dorsal: 0xc8502a } },
+    'blue crab': { L: 0.28, shape: 'crab', colors: { dorsal: 0x3b6e68, fin: 0x2e78b8 } },
     'hermit crab': { L: 0.12, shape: 'crab', colors: { dorsal: 0xb08050 } },
+    'spider crab': { L: 1.4, shape: 'crab', colors: { dorsal: 0x9e5032 } },
     'lobster': { L: 0.55, shape: 'crab', lobster: true, colors: { dorsal: 0x7a2a1a, ventral: 0xb0604a } },
     'sea urchin': { L: 0.22, shape: 'urchin', colors: { dorsal: 0x2a1a3a, fin: 0x1a1024 } },
     'clam': { L: 0.2, shape: 'shell', colors: { dorsal: 0xd8d0c0, ventral: 0xf0ece0 } },
@@ -282,11 +311,17 @@ var CR = (function () {
     'wrasse': { L: 0.35, colors: { dorsal: 0x50c060, ventral: 0xb0f0c0, fin: 0xf08040 }, pattern: stripes(0xf08040, 1.5, 0.3), roundTail: true },
     'goatfish': { L: 0.4, colors: { dorsal: 0xf0d080, ventral: 0xfcf4e0, fin: 0xf0c060 }, barbels: true },
     'triggerfish': { L: 0.5, colors: { dorsal: 0x5a6a30, ventral: 0xb0b080, fin: 0x2a3a20 }, tall: true, pattern: spots(0xe0e0a0, 2, 7) },
+    'butterflyfish': { L: 0.24, colors: { dorsal: 0xf4d840, ventral: 0xfaf2b8, fin: 0xe8b820 }, pattern: stripes(0x1e2028, 3, 0.35), tall: true },
+    'damselfish': { L: 0.16, colors: { dorsal: 0x1a78ff, ventral: 0x4aa8ff, fin: 0xf0d828 }, tall: true },
+    'angelfish': { L: 0.42, colors: { dorsal: 0x1e265a, ventral: 0xf4c830, fin: 0x2a7fff }, pattern: stripes(0xf4d840, 6, 0.35), tall: true },
+    'boxfish': { L: 0.35, shape: 'puffer', colors: { dorsal: 0xf2c828, ventral: 0xe0a818, fin: 0x302410 }, pattern: spots(0x1a1408, 2.2, 5) },
+    'gobies': { L: 0.14, colors: { dorsal: 0x9c8868, ventral: 0xdcd0b8, fin: 0xb8a482 }, roundTail: true },
     'cuttlefish': { L: 0.5, shape: 'cuttlefish', colors: { dorsal: 0x8f7a60, ventral: 0xe0d4c0 } },
     'pufferfish': { L: 0.5, shape: 'puffer', colors: { dorsal: 0xd8c050, ventral: 0xf8f0d0, fin: 0xe8d890 }, pattern: spots(0x3a3a20, 2, 11), spiky: true },
     'lionfish': { L: 0.4, colors: { dorsal: 0xc83020, ventral: 0xf0d8c8, fin: 0xf0e0d0 }, pattern: stripes(0xf8f0e8, 11, 0.45), spiky: true },
     'sea snake': { L: 1.2, shape: 'eel', colors: { dorsal: 0x202830, ventral: 0xe0e0c0, fin: 0x202830 }, pattern: stripes(0xe8e8d0, 18, 0.5) },
     'stingray': { L: 1.4, shape: 'ray', colors: { dorsal: 0x7a7060, ventral: 0xf0ece0 }, pattern: spots(0x4a4030, 1.5, 5) },
+    'electric ray': { L: 1.3, shape: 'ray', colors: { dorsal: 0x4a3d5a, ventral: 0xd8d0dc }, pattern: spots(0x6088ff, 1.8, 12) },
     'eagle ray': { L: 2.4, shape: 'ray', colors: { dorsal: 0x2a2a36, ventral: 0xf0f0f4 }, pattern: spots(0xe8e8f0, 2.5, 9) },
     'conger eel': { L: 2.0, shape: 'eel', colors: { dorsal: 0x6a7470, ventral: 0xd0d4d0, fin: 0x4a5450 } },
     'moray': { L: 2.0, shape: 'eel', colors: { dorsal: 0x5a7a40, ventral: 0xc8d090, fin: 0x4a6a30 }, pattern: spots(0xe8e8a0, 2, 13), mouth: true },
@@ -298,15 +333,20 @@ var CR = (function () {
     'sea turtle': { L: 1.2, shape: 'turtle', colors: { dorsal: 0x5a6b3a, ventral: 0xd8c89a, fin: 0x7a8a50 } },
     'manta ray': { L: 5.0, shape: 'ray', manta: true, colors: { dorsal: 0x1a1a22, ventral: 0xf4f4f8 } },
     'sunfish': { L: 2.5, shape: 'sunfish', colors: { dorsal: 0x8a8a92, ventral: 0xd0d0d4, fin: 0x7a7a82 } },
-    'whale': { L: 18, shape: 'whale', colors: { dorsal: 0x161c24, ventral: 0xd8e0e6, fin: 0x161c24 } },
-    'whale calf': { L: 6, shape: 'whale', colors: { dorsal: 0x1e262e, ventral: 0xe4eaee, fin: 0x3a4652 } },
+    'whale': { L: 22.0, shape: 'whale', colors: { dorsal: 0x161c24, ventral: 0xd8e0e6, fin: 0x161c24 } },
+    'whale calf': { L: 7.5, shape: 'whale', colors: { dorsal: 0x1e262e, ventral: 0xe4eaee, fin: 0x3a4652 } },
     'seal': { L: 1.8, shape: 'seal', colors: { dorsal: 0x5a5048, ventral: 0xb8a898, fin: 0x4a4038 }, pattern: spots(0x3a3028, 1.5, 19) },
     'dolphin': { L: 2.8, shape: 'dolphin', colors: { dorsal: 0x4a5a6a, ventral: 0xe8ecf0, fin: 0x3a4a5a } },
     'man-o-war': { L: 0.3, shape: 'manowar', colors: { dorsal: 0x7fb0ff, fin: 0xd070c0 }, transparent: true, opacity: 0.7 },
     'great white': { L: 6.0, shape: 'shark', colors: { dorsal: 0x4a5560, ventral: 0xeef0f2, fin: 0x3a4550 } },
     'tiger shark': { L: 5.0, shape: 'shark', colors: { dorsal: 0x5a6a60, ventral: 0xe0e4e0, fin: 0x4a5a50 }, pattern: stripes(0x2a3a30, 12, 0.5, 'top') },
+    'mako shark': { L: 3.6, shape: 'shark', colors: { dorsal: 0x1d4e89, ventral: 0xf0f4f8, fin: 0x173e6e } },
+    'thresher shark': { L: 4.5, shape: 'shark', thresher: true, colors: { dorsal: 0x3d4e5a, ventral: 0xe8ecef, fin: 0x2f3e48 } },
+    'blue shark': { L: 3.2, shape: 'shark', colors: { dorsal: 0x245ea8, ventral: 0xf0f4f8, fin: 0x1e4c8a } },
     'hammerhead': { L: 4.0, shape: 'shark', hammer: true, colors: { dorsal: 0x6a7060, ventral: 0xe8ece8, fin: 0x5a6050 } },
     'bull shark': { L: 3.2, shape: 'shark', colors: { dorsal: 0x6a7a80, ventral: 0xe0e8ea, fin: 0x5a6a70 } },
+    'nurse shark': { L: 2.8, shape: 'shark', colors: { dorsal: 0x8a7454, ventral: 0xd8ccb4, fin: 0x725e42 } },
+    'whale shark': { L: 11.0, shape: 'shark', colors: { dorsal: 0x2a3b4c, ventral: 0xe4eaee, fin: 0x22303e }, pattern: spots(0xeef6ff, 3.2, 7) },
     'reef shark': { L: 1.8, shape: 'shark', colors: { dorsal: 0x7a8a90, ventral: 0xe8eef0, fin: 0x3a3a3a } },
     'orca': { L: 8.0, shape: 'orca', colors: { dorsal: 0x0a0c10, ventral: 0xf4f4f6, fin: 0x0a0c10 } },
     'jellyfish bloom': { L: 0.5, shape: 'jelly', colors: { dorsal: 0xffb6d6, fin: 0xff8fc0 }, transparent: true, opacity: 0.5 }
@@ -316,7 +356,7 @@ var CR = (function () {
   var PLAYER_COLORS = { sand: { dorsal: 0xb89a62, ventral: 0xf0e6c8, fin: 0xa08850 }, kelp: { dorsal: 0x2f6a2a, ventral: 0xc8e0a0, fin: 0x3f8a3a }, blue: { dorsal: 0x1f5fb0, ventral: 0xd8e8f8, fin: 0x2f7fd0 }, dark: { dorsal: 0x1a1d2a, ventral: 0x6a6f85, fin: 0x2a2d3a }, silver: { dorsal: 0x8a98a8, ventral: 0xf4f6f8, fin: 0xa8b4c0 }, red: { dorsal: 0xa02020, ventral: 0xf0c8b8, fin: 0xc62f2f }, orange: { dorsal: 0xd07010, ventral: 0xf8e0b0, fin: 0xf08a24 } };
   function playerLen(size) { return 0.8 + 0.6 * size; }
   function player(color, size) { return build('player', playerLen(size || 1), { colors: PLAYER_COLORS[color] || PLAYER_COLORS.blue, shiny: color === 'silver', mouth: true }); }
-  function carcass(sz) { var g = sz > 15 ? build('carcass', 18, { shape: 'whale', colors: { dorsal: 0x6a6e70, ventral: 0xa8a8a0, fin: 0x5a5e60 }, mode: 5 }) : build('carcass', playerLen(sz), { colors: { dorsal: 0x8a8a80, ventral: 0xb8b8a8, fin: 0x7a7a70 }, mode: 5 }); g.userData.mesh.rotation.z = Math.PI; return g; }
+  function carcass(sz) { var g = sz > 15 ? build('carcass', 22, { shape: 'whale', colors: { dorsal: 0x6a6e70, ventral: 0xa8a8a0, fin: 0x5a5e60 }, mode: 5 }) : build('carcass', playerLen(sz), { colors: { dorsal: 0x8a8a80, ventral: 0xb8b8a8, fin: 0x7a7a70 }, mode: 5 }); g.userData.mesh.rotation.z = Math.PI; return g; }
 
   // animacija: hitrost (m/s) -> frekvenca/amplituda
   function animate(grp, time, spd, turnRate) {
@@ -326,7 +366,8 @@ var CR = (function () {
     else if (m === 1) { u.uFreq.value = (0.9 + Math.min(10, spd) * 0.8) * (L > 10 ? 0.45 : 1); u.uAmp.value = 0.02 + Math.min(0.05, spd * 0.012); }
     else if (m === 2) { u.uFreq.value = 1.2 + Math.min(6, spd) * 0.6; u.uAmp.value = 0.12 + Math.min(0.1, spd * 0.04); }
     else if (m === 3) { u.uFreq.value = 1.6; u.uAmp.value = 0.1; }
-    else if (m === 4) { u.uFreq.value = 1.5 + Math.min(5, spd); u.uAmp.value = 0.08; }
+    else if (m === 4) { u.uFreq.value = 1.4 + Math.min(5, spd * 1.1); u.uAmp.value = 0.06 + Math.min(0.08, spd * 0.025); }
+    else if (m === 6) { u.uFreq.value = 2.0 + Math.min(6, spd * 3.5); u.uAmp.value = spd > 0.04 ? Math.min(0.12, 0.04 + spd * 0.08) : 0.0; }
     u.uBend.value = turnRate ? Math.max(-0.12, Math.min(0.12, -turnRate * 0.004)) : 0;
   }
   return { build: build, creature: creature, player: player, carcass: carcass, animate: animate, lenOf: lenOf, SPEC: SPEC, swimMaterial: swimMaterial, merge: merge, paint: paint, playerLen: playerLen, PLAYER_COLORS: PLAYER_COLORS };

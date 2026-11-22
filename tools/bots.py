@@ -9,7 +9,7 @@ N = int(sys.argv[1]) if len(sys.argv) > 1 else 6
 SEC = int(sys.argv[2]) if len(sys.argv) > 2 else 300
 CAD = float(sys.argv[3]) if len(sys.argv) > 3 else 10
 POL = ['smart', 'hunter', 'feeder', 'random', 'camper', 'smart', 'feeder', 'hunter', 'random', 'smart']
-KELP = [(120, 140), (110, 420), (160, 560), (220, 760), (420, 770)]
+KELP = [(140, 160), (135, 360), (165, 455), (210, 560), (355, 560)]
 
 def call(method, path, body=None):
     req = urllib.request.Request(S + path, method=method, data=json.dumps(body).encode() if body is not None else None, headers={"content-type": "application/json"})
@@ -30,17 +30,17 @@ def decide(pol, me):
     fish = [s for s in see if s["kind"] == "fish"]
     bigger = [s for s in fish if s["size"] > you["size"] * 1.2]
     smaller = [s for s in fish if s["size"] < you["size"] / 1.6]
-    pred = next((s for s in see if any(k in s["kind"] for k in ("shark", "orca", "barracuda", "grouper", "dolphin", "seal")) and s["size"] > you["size"] * 1.4), None)
+    pred = next((s for s in see if any(k in s["kind"] for k in ("shark", "orca", "barracuda", "grouper", "dolphin", "seal", "giant squid")) and s["size"] > you["size"] * 1.4), None)
     food = next((s for s in see if any(k in s["kind"] for k in ("school", "plankton", "carcass", "crab", "shrimp", "urchin", "scallop", "clam", "salp"))
                  and not (s["kind"] == "plankton cloud" and you["size"] > 2.5)
-                 and not (any(k in s["kind"] for k in ("mackerel", "snapper", "tuna")) and you["size"] < 1.5)), None)
+                 and not (any(k in s["kind"] for k in ("mackerel", "snapper", "tuna", "tarpon", "kingfish")) and you["size"] < 1.5)), None)
     if pred and pred["dist"] < 45:
         return dict(act="flee", target=pred["id"], speed="sprint", dur=15, why=f"{pred['kind']} at {pred['dist']} m, sprinting away")
     if pol == "random":
         return dict(act="swim", heading=R() * 360, pitch=(R() - .5) * 40, speed="cruise", dur=20, why=f"random wander {random.randint(1, 999)}")
     if pol == "camper":
         if not any(z.startswith("reef-") for z in you["zone"]):
-            return dict(act="swim", goto=[200, 260, 14], speed="cruise", dur=60, why="heading to the reef to hide")
+            return dict(act="swim", goto=[184, 232, 13], speed="cruise", dur=60, why="heading to the reef to hide")
         return dict(act="feed" if you["energy"] < you["energyMax"] * .5 else "hide", dur=60, why="on the reef: " + ("feeding" if you["energy"] < you["energyMax"] * .5 else "hiding"))
     if bigger and bigger[0]["dist"] < 25:
         if pol == "smart":

@@ -9,15 +9,39 @@ new Function(
 )();
 var OC = globalThis.OC, C = OC.CONST;
 assert.strictEqual(OC.VERSION, 'v5', 'expected OC.VERSION === v5');
-assert.strictEqual(OC.SPECIES_LIST.length, 54, 'expected 54 species');
-assert.strictEqual(OC.PLANTS.length, 176, 'expected 176 plants');
+assert.strictEqual(OC.SPECIES_LIST.length, 76, 'expected 76 species');
+assert.strictEqual(OC.PLANTS.length, 1760, 'expected 1760 plants');
 assert.strictEqual(typeof OC.tideAt(0), 'number', 'expected OC.tideAt');
+assert.strictEqual(OC.SPECIES['whale'].size, 55, 'expected colossal whale size 55');
+assert(OC.SPECIES['giant squid'], 'expected giant squid species');
+assert(OC.floorAt(0, 0) < -20 && OC.floorAt(640, 640) < -20, 'expected surrounding mountains');
+assert.strictEqual(OC.PLAYABLE_SPECIES.length, 77, 'expected 77 playable species (fish + 76 NPC species)');
+assert(OC.PLAYABLE_SPECIES.indexOf('crab') >= 0 && OC.PLAYABLE_SPECIES.indexOf('whale') >= 0, 'expected crab..whale playable');
 
-var N = +(process.argv[2] || 10), MIN = +(process.argv[3] || 25), SEED = +(process.argv[4] || 42);
+var N = +(process.argv[2] || 12), MIN = +(process.argv[3] || 25), SEED = +(process.argv[4] || 42);
 var POL = ['random', 'random', 'feeder', 'feeder', 'feeder', 'hunter', 'hunter', 'camper', 'smart', 'smart'];
 var g = OC.newGame(1, SEED);
-assert.strictEqual(g.npcs.length, 359, 'expected 359 initial NPCs');
+assert.strictEqual(g.npcs.length, 630, 'expected 630 initial NPCs');
 for (var i = 0; i < N; i++) OC.addFish(g, 'bot' + (i + 1), POL[i % POL.length], ['sand', 'kelp', 'blue', 'dark', 'silver', 'red', 'orange'][i % 7], 'k' + i);
+assert.strictEqual(g.fish.length, N, 'expected unlimited seats');
+// Verify Host lobby setRole works across fish, crab, dolphin, shark, whale & restores smart bots for simulation
+assert.strictEqual(OC.setRole(g, g.fish[0].id, 'crab').fish.role, 'crab');
+assert.strictEqual(OC.setRole(g, g.fish[1].id, 'dolphin').fish.role, 'dolphin');
+assert.strictEqual(OC.setRole(g, g.fish[2].id, 'great white').fish.role, 'shark');
+assert.strictEqual(OC.setRole(g, g.fish[3].id, 'whale').fish.role, 'giant');
+assert.strictEqual(OC.say(g, g.fish[2], 'Fish spotted at 220,250!', 'sharks', 100).ok, true);
+assert(g._sharkHint && g._sharkHint.x === 220 && g._sharkHint.z === 250, 'expected _sharkHint coordinates parsed from shark chat');
+var dMe = OC.perceive(g, g.fish[1], 100), wMe = OC.perceive(g, g.fish[3], 100), sMe = OC.perceive(g, g.fish[2], 100);
+assert(typeof dMe.you.air === 'number' && typeof wMe.you.air === 'number', 'expected air meter for dolphin & whale');
+assert(sMe.chat.some(function (c) { return c.to === 'sharks' && c.msg.indexOf('220,250') >= 0; }), 'expected shark to read sharks chat');
+assert(!dMe.chat.some(function (c) { return c.to === 'sharks'; }), 'expected dolphin not to see private sharks radio');
+// Keep mixed roles for first 6 bots and classic fish for smart/camper/hunter variety
+OC.setRole(g, g.fish[4].id, 'octopus');
+OC.setRole(g, g.fish[5].id, 'fish');
+OC.setRole(g, g.fish[6].id, 'fish');
+OC.setRole(g, g.fish[7].id, 'fish');
+OC.setRole(g, g.fish[8].id, 'fish');
+OC.setRole(g, g.fish[9].id, 'fish');
 var now = 1000000; OC.start(g, now);
 var rs = { rs: SEED * 31 + 7 }; function R() { return OC.rnd(rs); }
 var next = {}; g.fish.forEach(function (f) { next[f.id] = 1 + Math.floor(R() * 40); });
@@ -31,23 +55,35 @@ function smartWhy(tag, extra) {
 
 function decide(f, me) {
   var pol = f.model, b = { why: pol + ' decision at tick ' + g.tick + ' #' + Math.round(R() * 1e6) }, see = me.see, you = me.you;
-  var fishSeen = see.filter(function (s) { return s.kind === 'fish'; });
+  if (you.air !== undefined && you.air < 35) {
+    b.act = 'swim'; b.heading = you.heading; b.pitch = -50; b.speed = 'cruise'; b.dur = 12;
+    b.why = smartWhy('surfacing for air (' + you.air + '%)', you.species + ' needs oxygen');
+    return b;
+  }
+  var fishSeen = see.filter(function (s) { return s.role === 'fish' || s.kind === 'fish'; });
   var bigger = fishSeen.filter(function (s) { return s.size > you.size * 1.15; });
-  var prey = fishSeen.filter(function (s) { return s.size <= you.size / 1.55 || (s.size < you.size * 0.92 && you.hp > you.hpMax * 0.55); });
-  var shark = see.filter(function (s) { return /shark|orca/.test(s.kind); })[0];
+  var prey = fishSeen.filter(function (s) { return you.role === 'shark' || you.role === 'predator' || s.size <= you.size / 1.55 || (s.size < you.size * 0.92 && you.hp > you.hpMax * 0.55); });
+  var shark = you.role === 'shark' ? null : see.filter(function (s) { return /shark|orca/.test(s.kind); })[0];
   var barracuda = see.filter(function (s) { return s.kind === 'barracuda'; })[0];
   var food = see.filter(function (s) {
-    return /school|plankton|carcass|crab|shrimp|snail|urchin|scallop|clam|salp/.test(s.kind) &&
-      !(s.kind === 'plankton cloud' && you.size > 2.5) &&
+    return /school|plankton|carcass|crab|shrimp|snail|urchin|scallop|clam|salp|jellyfish/.test(s.kind) &&
+      !(s.kind === 'plankton cloud' && you.size > 2.5 && you.species !== 'whale' && you.species !== 'whale shark' && you.species !== 'manta ray') &&
       !(/mackerel|snapper|tuna/.test(s.kind) && you.size < 1.5) &&
       !(s.kind === 'crab' && you.size < 1.3);
   })[0];
+
+  if (you.role === 'shark' && prey.length) {
+    b.act = 'hunt'; b.target = prey[0].id; b.speed = prey[0].dist < 18 ? 'sprint' : 'fast'; b.dur = 18;
+    b.why = smartWhy('shark hunting ' + prey[0].name, 'tracking fish agent');
+    if (R() < 0.15) { b.say = 'Chasing fish ' + prey[0].name + ' near ' + prey[0].x + ',' + prey[0].z; b.to = 'sharks'; }
+    return b;
+  }
 
   if (pol === 'random') {
     b.act = 'swim'; b.heading = R() * 360; b.pitch = (R() - 0.5) * 40; b.speed = ['slow', 'cruise', 'fast'][Math.floor(R() * 3)]; b.dur = 20; return b;
   }
   if (pol === 'camper') {
-    if (you.zone.indexOf('reef-shelf') < 0) { b.act = 'swim'; b.goto = [200, 260, 14]; b.speed = 'cruise'; b.dur = 60; }
+    if (you.zone.indexOf('reef-shelf') < 0) { b.act = 'swim'; b.goto = [184, 232, 13]; b.speed = 'cruise'; b.dur = 60; }
     else { b.act = you.energy < you.energyMax * 0.5 ? 'feed' : 'hide'; b.dur = 60; }
     return b;
   }
@@ -63,9 +99,9 @@ function decide(f, me) {
       b.why = smartWhy('evading barracuda', 'too small for direct engagement');
       return b;
     }
-    if ((you.bleeding || you.poisoned || you.hp < you.hpMax * 0.48) && Math.hypot(you.x - 204, you.z - 268) < 160) {
-      b.act = Math.hypot(you.x - 204, you.z - 268) < 3.5 ? 'hide' : 'swim';
-      b.goto = [204, 268, 14]; b.speed = you.bleeding ? 'fast' : 'cruise'; b.dur = 18;
+    if ((you.bleeding || you.poisoned || you.hp < you.hpMax * 0.48) && Math.hypot(you.x - 188, you.z - 236) < 160) {
+      b.act = Math.hypot(you.x - 188, you.z - 236) < 3.5 ? 'hide' : 'swim';
+      b.goto = [188, 236, 13]; b.speed = you.bleeding ? 'fast' : 'cruise'; b.dur = 18;
       b.why = smartWhy('heading to reef cleaner station', you.bleeding ? 'bleeding draws sharks' : 'clearing poison and healing');
       return b;
     }
@@ -98,8 +134,8 @@ function decide(f, me) {
       return b;
     }
     var spots = you.size < 2.8
-      ? [[200, 260, 14], [120, 140, 20], [110, 420, 22], [380, 420, 50], [420, 95, 22]]
-      : [[470, 330, 50], [380, 420, 50], [560, 220, 22], [200, 260, 14], [420, 610, 120]];
+      ? [[184, 232, 13], [140, 160, 18], [135, 360, 20], [320, 340, 40], [335, 115, 20]]
+      : [[380, 290, 48], [320, 340, 40], [450, 220, 22], [184, 232, 13], [360, 470, 95]];
     var sp0 = spots[Math.floor(R() * spots.length)];
     b.act = 'feed'; b.goto = sp0; b.speed = 'cruise'; b.dur = 20;
     b.why = smartWhy('exploring sector ' + sp0[0] + ',' + sp0[1], 'searching for schools or prey');
