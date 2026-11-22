@@ -91,7 +91,7 @@ input[type=text]{background:#061a28;color:#cfe8f8;border:1px solid rgba(143,211,
 <div id="feed" class="panel"></div>
 <div id="ctl" class="panel">
   <div class="row"><button id="b-free">Free</button><button id="b-follow">Follow fish</button><button id="b-over">Overview</button><button id="b-shark">Sharks ⟳</button><button id="b-species">Species</button></div>
-  <div class="row"><button id="b-labels" class="on">Labels</button><button id="b-why" class="on">Thoughts</button><button id="b-demo">Demo</button><span id="conn" style="font-size:10.5px;color:#8fb0c4"></span></div>
+  <div class="row"><button id="b-labels" class="on">Labels</button><button id="b-why" class="on">Thoughts</button><button id="b-demo">Demo</button><span style="font-size:10.5px;color:#8fb0c4;margin-left:6px">quality:</span><button id="q-low">low</button><button id="q-med">med</button><button id="q-high">high</button><span id="conn" style="font-size:10.5px;color:#8fb0c4"></span></div>
   <input type="text" id="url" placeholder="Arena URL (…/functions/v1/ocean-arena-v5)">
   <div id="help">WASD/arrows move · Q/E down/up · drag mouse look · Shift fast · wheel zoom · click fish/animal = select · 1–9,0 fish · F follow · H hide panels · click minimap = jump</div>
 </div>
@@ -99,6 +99,8 @@ input[type=text]{background:#061a28;color:#cfe8f8;border:1px solid rgba(143,211,
 <div id="end"><div class="box"><h2>GAME OVER</h2><div id="end-body"></div><div style="margin-top:12px"><button onclick="document.getElementById('end').style.display='none'">Close</button></div></div></div>
 <script>/*__THREE__*/</script>
 <script>/*__ENGINE__*/</script>
+<script>/*__CREATURES__*/</script>
+<script>/*__OCEAN__*/</script>
 <script>var OCEAN_BUILT = "__BUILT__";
 /*__VIEWER__*/</script>
 </body>

@@ -99,7 +99,7 @@ while time.time() < t_end and any(t.is_alive() for t in th):
     c, s = call("GET", f"/state?admin={A}")
     if c == 200:
         sharks = sum(1 for a in s.get("npcs", []) if "shark" in a.get("sp", ""))
-        print(f"[{int(time.time()-t0)}s] tick {s['tick']} {s['status']} alive {sum(f['alive'] for f in s['fish'])}/{len(s['fish'])} phase {s['phase']} sharks {sharks} | " + ", ".join(f"{f['n']}:{f['sz']}/{f['hp']}/{f['en']}" for f in s["fish"]))
+        print(f"[{int(time.time()-t0)}s] tick {s['tick']} {s['status']} alive {sum(f['alive'] for f in s['fish'])}/{len(s['fish'])} phase {s['phase']} sharks {sharks} npcs {len(s['npcs'])} | " + ", ".join(f"{f['n']}:{f['sz']}/{f['hp']}/{f['en']}" for f in s["fish"]))
     else:
         print("state", c, s)
 c, lb = call("GET", "/leaderboard")

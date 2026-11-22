@@ -1,4 +1,4 @@
-// OCEAN ARENA v5 — 3D spectator viewer (three.js r128, bundled). Live data from /state or local demo.
+// OCEAN ARENA v5 — 3D spectator viewer (three.js r128 + creatures.js + ocean.js, bundled). Live data from /state or local demo.
 (function () {
   var T = THREE, SP = OC.SPECIES;
   var DEFAULT_API = 'https://wrfniglebquubhnhqrtn.supabase.co/functions/v1/ocean-arena-v5';
@@ -10,15 +10,18 @@
   var $ = function (id) { return document.getElementById(id); };
   function spLabel(n) { return n === 'orca' ? 'ORCA' : n; }
 
-  // ── Renderer / scena ─────────────────────────────────────────────────────
+  // ── Renderer / scene ─────────────────────────────────────────────────────
   var canvas = $('c');
-  var renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  var QL = OCEAN.loadQuality(qs);
+  var renderer = new T.WebGLRenderer({ canvas: canvas, antialias: QL.dpr < 1.5, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, QL.dpr));
   var scene = new T.Scene(); scene.fog = new T.FogExp2(0x0a3550, 0.008);
+  var oceanMats = {};
   var camera = new T.PerspectiveCamera(62, 1, 0.3, 1600);
   var hemi = new T.HemisphereLight(0x8fd0ff, 0x08203a, 0.9); scene.add(hemi);
   var sun = new T.DirectionalLight(0xfff2d0, 0.9); sun.position.set(300, 400, 150); scene.add(sun);
   var amb = new T.AmbientLight(0x204a70, 0.5); scene.add(amb);
+  var lights = { hemi: hemi, sun: sun, amb: amb };
   function resize() { var w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
   window.addEventListener('resize', resize); resize();
   var M = new T.Matrix4(), Q = new T.Quaternion(), V = new T.Vector3(), SC = new T.Vector3();
@@ -38,15 +41,15 @@
       if (x < OC.MANGROVE.x1 && z > OC.MANGROVE.z0 && z < OC.MANGROVE.z1) c.setRGB(0.35, 0.30, 0.20);
       if (OC.gauss(x, z, OC.DEADZONE.x, OC.DEADZONE.z, OC.DEADZONE.r) > 0.4 && d > OC.DEADZONE.minD) c.setRGB(0.20, 0.16, 0.10);
       OC.VENTS.forEach(function (v) { if (OC.gauss(x, z, v.x, v.z, 9) > 0.3) c.setRGB(0.12, 0.10, 0.10); });
-      var n = Math.sin(x * 0.9) * Math.cos(z * 1.1) * 0.03; c.r += n; c.g += n; c.b += n;
+      var n = Math.sin(x * 0.9) * Math.cos(z * 1.1) * 0.03 + Math.sin(x * 0.13 + z * 0.21) * Math.cos(x * 0.07 - z * 0.11) * 0.05; c.r += n; c.g += n; c.b += n;
       colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
     }
     geo.setAttribute('color', new T.BufferAttribute(colors, 3)); geo.computeVertexNormals();
-    scene.add(new T.Mesh(geo, new T.MeshLambertMaterial({ vertexColors: true })));
+    oceanMats.floor = OCEAN.floorMaterial(); oceanMats.floor.userData.u.uCaustics.value = QL.caustics; scene.add(new T.Mesh(geo, oceanMats.floor));
     var wallMat = new T.MeshBasicMaterial({ color: 0x06253a, transparent: true, opacity: 0.35, side: T.DoubleSide });
     [[W / 2, 0, 0, W, 0], [W / 2, 0, L, W, 0], [0, 0, L / 2, L, Math.PI / 2], [W, 0, L / 2, L, Math.PI / 2]].forEach(function (a) { var m = new T.Mesh(new T.PlaneGeometry(a[3], OC.DMAX), wallMat); m.position.set(a[0], -OC.DMAX / 2, a[2]); m.rotation.y = a[4]; scene.add(m); });
-    var surf = new T.Mesh(new T.PlaneGeometry(W * 3, L * 3, 1, 1), new T.MeshBasicMaterial({ color: 0x5fb0ea, transparent: true, opacity: 0.32, side: T.DoubleSide, depthWrite: false }));
-    surf.rotation.x = -Math.PI / 2; surf.position.set(W / 2, 0, L / 2); scene.add(surf);
+    oceanMats.surf = OCEAN.surfaceMaterial(); var surf = new T.Mesh(new T.PlaneGeometry(W * 3, L * 3, QL.surfSeg, QL.surfSeg), oceanMats.surf);
+    surf.rotation.x = -Math.PI / 2; surf.position.set(W / 2, 0, L / 2); surf.renderOrder = 5; scene.add(surf);
     var th = new T.Mesh(new T.PlaneGeometry(W, L), new T.MeshBasicMaterial({ color: 0x1a4a7a, transparent: true, opacity: 0.07, side: T.DoubleSide, depthWrite: false })); th.rotation.x = -Math.PI / 2; th.position.set(W / 2, -OC.THERMO, L / 2); scene.add(th);
   })();
 
@@ -76,8 +79,9 @@
     var sarg = inst(new T.SphereGeometry(1, 6, 4), lam(0x7a6a1a, { transparent: true, opacity: 0.85 }), 220);
     OC.SARGASSUM.forEach(function (s) { for (var i = 0; i < 44; i++) { var a = R() * 6.28, r = Math.sqrt(R()) * s.r; put(sarg, s.x + Math.cos(a) * r, -0.3 - R() * 0.6, s.z + Math.sin(a) * r, 1.5 + R() * 2, 0.5 + R() * 0.6, 1.5 + R() * 2, R() * 3); } });
     // reefs: rock rubble
-    var rubbleGeo = new T.DodecahedronGeometry(1, 0), rubbleMat = lam(0x9a7a6a), rubble = inst(rubbleGeo, rubbleMat, 260);
-    OC.REEFS.forEach(function (rf) { for (var i = 0; i < 130; i++) { var a = R() * 6.28, r = Math.sqrt(R()) * rf.r; var x = rf.x + Math.cos(a) * r, z = rf.z + Math.sin(a) * r, s = 0.5 + R() * 1.4; put(rubble, x, -floorAt(x, z) + s * 0.3, z, s, s * (0.5 + R() * 0.6), s, R() * 3, R(), R()); } var cl = rf.cleaner, cm = new T.Mesh(new T.TorusGeometry(1.6, 0.18, 8, 24), new T.MeshBasicMaterial({ color: 0x7ff8ff })); cm.position.set(cl.x, -cl.d, cl.z); cm.rotation.x = Math.PI / 2; scene.add(cm); sway.push({ ring: cm }); });
+    function rockGeo(seed) { var g = new T.IcosahedronGeometry(1, QL.rays ? 2 : 1), pa = g.attributes.position, v = new T.Vector3(); for (var i = 0; i < pa.count; i++) { v.set(pa.getX(i), pa.getY(i), pa.getZ(i)); var n = 1 + 0.22 * Math.sin(v.x * 3.1 + seed) * Math.cos(v.z * 2.7 - seed) + 0.12 * Math.sin(v.y * 5.3 + v.x * 2 + seed * 2); v.multiplyScalar(n); pa.setXYZ(i, v.x, v.y * 0.75, v.z); } g.computeVertexNormals(); return g; }
+    var rubbleGeo = rockGeo(1.3), rubbleMat = lam(0x8a7262), rubble = inst(rubbleGeo, rubbleMat, 260);
+    OC.REEFS.forEach(function (rf) { for (var i = 0; i < 130; i++) { var a = R() * 6.28, r = Math.sqrt(R()) * rf.r; var x = rf.x + Math.cos(a) * r, z = rf.z + Math.sin(a) * r, s = 0.5 + R() * 1.4; put(rubble, x, -floorAt(x, z) + s * 0.3, z, s, s * (0.5 + R() * 0.6), s, R() * 3, R(), R()); } var cl = rf.cleaner, cm = new T.Mesh(new T.TorusGeometry(1.6, 0.12, 8, 24), new T.MeshBasicMaterial({ color: 0x7ff8ff, transparent: true, opacity: 0.45 })); cm.position.set(cl.x, -cl.d, cl.z); cm.rotation.x = Math.PI / 2; scene.add(cm); sway.push({ ring: cm }); });
     // plants (176 individual instances by type)
     var P = OC.PLANTS, cnt = {}; P.forEach(function (p) { cnt[p.type] = (cnt[p.type] || 0) + 1; });
     var brain = inst(new T.SphereGeometry(1, 10, 8), lam(0xd8b060), cnt['coral-brain'] || 1);
@@ -87,7 +91,7 @@
     var whip = inst((function () { var g = new T.CylinderGeometry(0.05, 0.09, 1, 4); g.translate(0, 0.5, 0); return g; })(), lam(0xf0d060), (cnt['seawhip'] || 1) * 4);
     var anemBase = inst(new T.SphereGeometry(1, 8, 6, 0, 6.283, 0, 1.6), lam(0x60c0a0), cnt['anemone'] || 1), anemTent = inst((function () { var g = new T.CylinderGeometry(0.04, 0.08, 1, 4); g.translate(0, 0.5, 0); return g; })(), lam(0xa0f0d0), (cnt['anemone'] || 1) * 10);
     var sponge = inst((function () { var g = new T.CylinderGeometry(0.45, 0.35, 1, 7, 1, true); g.translate(0, 0.5, 0); return g; })(), lam(0xf08040, { side: T.DoubleSide }), (cnt['sponge'] || 1) * 3);
-    var algae = inst(new T.DodecahedronGeometry(1, 0), lam(0x5a8a3a), cnt['algae-rock'] || 1);
+    var algae = inst(rockGeo(2.9), lam(0x5a8a3a), cnt['algae-rock'] || 1);
     var tube = inst((function () { var g = new T.CylinderGeometry(0.08, 0.1, 1, 5); g.translate(0, 0.5, 0); return g; })(), lam(0xf0f0f0), (cnt['tube-worm'] || 1) * 6), tubeTip = inst(new T.SphereGeometry(0.14, 5, 4), new T.MeshBasicMaterial({ color: 0xff3030 }), (cnt['tube-worm'] || 1) * 6);
     P.forEach(function (p) {
       var y = -p.d, k; var hit = { x: p.x, y: y, z: p.z, r: p.r, id: p.id, name: p.type }; featureHits.push(hit);
@@ -124,7 +128,7 @@
     var rockMat = lam(0x3a3f48);
     OC.CAVES.forEach(function (c) {
       var g = new T.Group(); g.position.set(c.x, -c.d, c.z);
-      for (var k = 0; k < 8; k++) { var rk = new T.Mesh(new T.DodecahedronGeometry(c.r * (0.5 + R() * 0.5), 0), rockMat); var a = R() * 6.28; rk.position.set(Math.cos(a) * c.r * 0.9, (R() - 0.3) * c.r, Math.sin(a) * c.r * 0.9); rk.rotation.set(R() * 3, R() * 3, R() * 3); g.add(rk); }
+      for (var k = 0; k < 8; k++) { var rk = new T.Mesh(rockGeo(R() * 9).scale(c.r * (0.5 + R() * 0.5), c.r * (0.4 + R() * 0.4), c.r * (0.5 + R() * 0.5)), rockMat); var a = R() * 6.28; rk.position.set(Math.cos(a) * c.r * 0.9, (R() - 0.3) * c.r, Math.sin(a) * c.r * 0.9); rk.rotation.set(R() * 3, R() * 3, R() * 3); g.add(rk); }
       var mouth = new T.Mesh(new T.SphereGeometry(c.r * 0.75, 12, 10), new T.MeshBasicMaterial({ color: 0x010204 })); g.add(mouth);
       scene.add(g); featureHits.push({ x: c.x, y: -c.d, z: c.z, r: c.r, id: c.id, name: 'cave (max size ' + c.maxSize + ')' });
     });
@@ -136,69 +140,23 @@
       var pts = new T.Points(pg, new T.PointsMaterial({ color: 0x555555, size: 1.6, transparent: true, opacity: 0.55, depthWrite: false })); scene.add(pts); sway.push({ smoke: pts, base: -fl + 5, x: v.x, z: v.z });
       featureHits.push({ x: v.x, y: -fl + 3, z: v.z, r: 5, id: v.id, name: 'hydrothermal vent' });
     });
-    // biolum
+    // bioluminescence & dead zone
     (function () { var b = OC.BIOLUM, n = 900, pos = new Float32Array(n * 3); for (var k = 0; k < n; k++) { var a = R() * 6.28, r = Math.sqrt(R()) * b.r; var x = b.x + Math.cos(a) * r, z = b.z + Math.sin(a) * r; var fl = floorAt(x, z); pos[k * 3] = x; pos[k * 3 + 1] = -(b.minD + R() * Math.max(2, fl - b.minD - 1)); pos[k * 3 + 2] = z; } var g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); var p = new T.Points(g, new T.PointsMaterial({ color: 0x9a7cff, size: 0.9, transparent: true, opacity: 0.8, blending: T.AdditiveBlending, depthWrite: false })); scene.add(p); sway.push({ glow: p }); })();
     (function () { var dz = OC.DEADZONE, m = new T.Mesh(new T.SphereGeometry(dz.r, 16, 12), new T.MeshBasicMaterial({ color: 0x5a3a10, transparent: true, opacity: 0.13, depthWrite: false })); m.position.set(dz.x, -(dz.minD + 12), dz.z); m.scale.y = 0.5; scene.add(m); })();
-    // tokovi
+    // currents
     OC.CURRENTS.forEach(function (c) {
       var n = 140, pos = new Float32Array(n * 3), items = [];
       for (var k = 0; k < n; k++) items.push({ t: R(), off: (R() - 0.5) * 2, d: R() });
       var g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3));
-      var p = new T.Points(g, new T.PointsMaterial({ color: 0x9fe8ff, size: 0.7, transparent: true, opacity: 0.5, blending: T.AdditiveBlending, depthWrite: false })); scene.add(p); sway.push({ cur: p, c: c, items: items });
+      var p = new T.Points(g, new T.PointsMaterial({ color: 0x9fe8ff, size: 0.35, map: OCEAN.softDot(), transparent: true, opacity: 0.35, blending: T.AdditiveBlending, depthWrite: false })); scene.add(p); sway.push({ cur: p, c: c, items: items });
     });
   })();
-  var snow = (function () { var n = 1600, pos = new Float32Array(n * 3); for (var i = 0; i < n; i++) { pos[i * 3] = (Math.random() - 0.5) * 120; pos[i * 3 + 1] = (Math.random() - 0.5) * 120; pos[i * 3 + 2] = (Math.random() - 0.5) * 120; } var g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); var p = new T.Points(g, new T.PointsMaterial({ color: 0xbfe8ff, size: 0.12, transparent: true, opacity: 0.35, depthWrite: false })); scene.add(p); return p; })();
+  var snow = OCEAN.makeSnow(QL.snow); scene.add(snow);
+  var rays = OCEAN.makeRays(QL.rays); scene.add(rays);
+  var bubbles = OCEAN.makeBubbles(QL.bubbles); scene.add(bubbles);
 
-  // ── 3D Models ────────────────────────────────────────────────────────────
-  function fishModel(colorHex, len, opts) {
-    opts = opts || {}; var g = new T.Group(); var mat = lam(colorHex);
-    var body = new T.Mesh(new T.SphereGeometry(0.5, 14, 10), mat); body.scale.set((opts.flat ? 0.9 : 0.42) * len, (opts.flat ? 0.12 : opts.tall ? 0.9 : 0.5) * len, len * (opts.long ? 1.6 : 1)); g.add(body);
-    var tail = new T.Mesh(new T.ConeGeometry(0.28 * len, 0.45 * len, 3), mat); tail.rotation.order = 'YXZ'; tail.rotation.x = -Math.PI / 2; tail.scale.set(0.25, 1, 1); tail.position.z = -0.62 * len * (opts.long ? 1.6 : 1); if (!opts.flat) g.add(tail);
-    var dorsal = new T.Mesh(new T.ConeGeometry(0.16 * len, (opts.shark ? 0.55 : 0.3) * len, 3), mat); dorsal.scale.set(0.25, 1, 1); dorsal.position.set(0, 0.3 * len, -0.05 * len); if (!opts.flat) g.add(dorsal);
-    if (opts.hammer) { var hm = new T.Mesh(new T.BoxGeometry(0.9 * len, 0.1 * len, 0.18 * len), mat); hm.position.set(0, 0, 0.45 * len); g.add(hm); }
-    if (opts.beak) { var bk = new T.Mesh(new T.ConeGeometry(0.08 * len, 0.3 * len, 6), mat); bk.rotation.x = Math.PI / 2; bk.position.set(0, -0.02 * len, 0.6 * len); g.add(bk); }
-    if (opts.sword) { var sw = new T.Mesh(new T.ConeGeometry(0.04 * len, 0.8 * len, 5), mat); sw.rotation.x = Math.PI / 2; sw.position.set(0, 0, 0.85 * len); g.add(sw); }
-    if (opts.belly) { var be = new T.Mesh(new T.SphereGeometry(0.5, 10, 8), lam(opts.belly)); be.scale.set(0.36 * len, 0.3 * len, 0.8 * len); be.position.y = -0.12 * len; g.add(be); }
-    if (opts.flat) { var tl = new T.Mesh(new T.CylinderGeometry(0.03 * len, 0.01 * len, 0.9 * len, 4), mat); tl.rotation.x = Math.PI / 2; tl.position.z = -0.9 * len; g.add(tl); }
-    if (opts.spines) for (var s = 0; s < 7; s++) { var sp = new T.Mesh(new T.ConeGeometry(0.03 * len, 0.5 * len, 4), lam(0xffffff)); sp.position.set(Math.sin(s) * 0.2 * len, 0.3 * len, (s - 3) * 0.1 * len); sp.rotation.z = Math.sin(s * 2) * 0.8; g.add(sp); }
-    var eyeMat = new T.MeshBasicMaterial({ color: 0x111111 }); [-1, 1].forEach(function (sgn) { var e = new T.Mesh(new T.SphereGeometry(0.05 * len, 8, 6), eyeMat); e.position.set(sgn * (opts.hammer ? 0.44 : 0.14) * len, 0.08 * len, (opts.hammer ? 0.45 : 0.36) * len); g.add(e); });
-    var hit = new T.Mesh(new T.SphereGeometry(Math.max(1.5, len * 0.8), 8, 6), new T.MeshBasicMaterial({ visible: false })); g.add(hit);
-    g.userData.tail = tail; g.userData.hit = hit; g.userData.mat = mat; g.userData.body = body;
-    return g;
-  }
-  var PAL = { sardine: 0xc8d8e8, anchovy: 0xb8c8d8, mackerel: 0x4a8aa8, snapper: 0xe07060, tuna: 0x3a5a8a, squid: 0xe8c0c8, shrimp: 0xf0b0a0, krill: 0xf0a0a0, 'flying fish': 0x80b0e0, 'salp chain': 0xd0f0ff, crab: 0xc84a2a, 'hermit crab': 0xb08050, lobster: 0x8a3a2a, 'sea urchin': 0x2a1a3a, clam: 0xd8d0c0, scallop: 0xe8a080, 'sea cucumber': 0x5a4a2a, starfish: 0xf07030, nudibranch: 0xf040c0, seahorse: 0xe8c060, 'tube worms': 0xffffff, parrotfish: 0x30c0a0, surgeonfish: 0x3060e0, wrasse: 0x60d070, goatfish: 0xf0d080, triggerfish: 0x6a6a30, cuttlefish: 0xa08870, pufferfish: 0xe8d060, lionfish: 0xd04030, 'sea snake': 0x202830, stingray: 0x7a7060, 'eagle ray': 0x3a3a40, 'conger eel': 0x6a7070, moray: 0x5a7a40, octopus: 0xb06040, grouper: 0x7a5a3a, barracuda: 0xa0b0c0, swordfish: 0x4a6a9a, anglerfish: 0x1a1a1a, 'sea turtle': 0x5a7a3a, 'manta ray': 0x1a1a22, sunfish: 0x9a9aa0, whale: 0x4a5a70, seal: 0x7a7068, dolphin: 0x8a98a8, 'man-o-war': 0xa0c0ff, 'great white': 0x6a7680, 'tiger shark': 0x7a7a60, hammerhead: 0x8a8a80, 'bull shark': 0x6a6a60, 'reef shark': 0x8a9090, orca: 0x101014 };
-  function npcModel(name) {
-    var sp = SP[name], sz = sp.size, len = 1.6 + 1.0 * Math.min(sz, 6) + (sz > 6 ? (sz - 6) * 0.8 : 0), col = PAL[name] || 0x889, g, i, m;
-    function lines(n, length) { var lp = []; for (var k = 0; k < n; k++) { var a = k / n * 6.28; lp.push(Math.cos(a) * 0.3, 0, Math.sin(a) * 0.3, Math.cos(a) * 0.9, -length, Math.sin(a) * 0.9); } var lg = new T.BufferGeometry(); lg.setAttribute('position', new T.BufferAttribute(new Float32Array(lp), 3)); return new T.LineSegments(lg, new T.LineBasicMaterial({ color: col })); }
-    switch (name) {
-      case 'crab': case 'hermit crab': case 'lobster': case 'shrimp': g = new T.Group(); m = new T.Mesh(new T.BoxGeometry(1, 0.35, 0.7), lam(col)); g.add(m); var lg = lines(8, 0.5); lg.rotation.x = Math.PI / 2; lg.scale.set(1.2, 1, 1); g.add(lg); g.scale.setScalar(0.8 + sz); break;
-      case 'sea urchin': g = new T.Group(); m = new T.Mesh(new T.IcosahedronGeometry(0.4, 1), lam(col)); g.add(m); for (i = 0; i < 14; i++) { var sp2 = new T.Mesh(new T.ConeGeometry(0.03, 0.9, 4), lam(0x1a1020)); var a = i * 2.4, b = i * 0.7; sp2.position.set(Math.cos(a) * Math.sin(b) * 0.4, Math.cos(b) * 0.4, Math.sin(a) * Math.sin(b) * 0.4); sp2.lookAt(sp2.position.clone().multiplyScalar(3)); sp2.rotateX(Math.PI / 2); g.add(sp2); } break;
-      case 'clam': case 'scallop': g = new T.Group(); m = new T.Mesh(new T.SphereGeometry(0.5, 8, 6, 0, 6.283, 0, 1.57), lam(col)); m.scale.set(1.2, 0.5, 1); g.add(m); break;
-      case 'sea cucumber': g = new T.Group(); m = new T.Mesh(new T.SphereGeometry(0.5, 8, 6), lam(col)); m.scale.set(0.5, 0.4, 1.8); g.add(m); break;
-      case 'starfish': g = new T.Group(); for (i = 0; i < 5; i++) { var arm = new T.Mesh(new T.ConeGeometry(0.22, 1, 4), lam(col)); arm.rotation.z = -Math.PI / 2; arm.rotation.y = i / 5 * 6.28; arm.position.set(Math.cos(i / 5 * 6.28) * 0.5, 0.1, -Math.sin(i / 5 * 6.28) * 0.5); arm.rotation.set(Math.PI / 2, 0, -i / 5 * 6.28 - Math.PI / 2); g.add(arm); } break;
-      case 'nudibranch': case 'seahorse': g = new T.Group(); m = new T.Mesh(new T.SphereGeometry(0.3, 6, 5), lam(col)); m.scale.set(0.6, name === 'seahorse' ? 2.2 : 0.6, name === 'seahorse' ? 0.6 : 1.4); g.add(m); break;
-      case 'tube worms': g = new T.Group(); for (i = 0; i < 5; i++) { var tb = new T.Mesh(new T.CylinderGeometry(0.08, 0.1, 1.2, 5), lam(0xf0f0f0)); tb.position.set((i - 2) * 0.3, 0.6, (i % 2) * 0.3); g.add(tb); var tip = new T.Mesh(new T.SphereGeometry(0.13, 5, 4), new T.MeshBasicMaterial({ color: 0xff3030 })); tip.position.set((i - 2) * 0.3, 1.2, (i % 2) * 0.3); g.add(tip); } break;
-      case 'octopus': case 'cuttlefish': case 'squid': g = new T.Group(); m = new T.Mesh(new T.SphereGeometry(0.5, 10, 8), lam(col)); m.scale.set(0.8, name === 'squid' ? 0.6 : 0.8, name === 'squid' ? 2.2 : 1); g.add(m); var ten = lines(8, 1.6); ten.position.y = -0.2; if (name !== 'octopus') { ten.rotation.x = -Math.PI / 2; ten.position.set(0, 0, 0.6); } g.add(ten); g.scale.setScalar(0.8 + sz); break;
-      case 'man-o-war': g = new T.Group(); m = new T.Mesh(new T.SphereGeometry(0.6, 10, 8), lam(col, { transparent: true, opacity: 0.55 })); m.scale.set(1, 0.7, 1.6); g.add(m); var tn = lines(6, 5); g.add(tn); break;
-      case 'stingray': case 'eagle ray': case 'manta ray': g = fishModel(col, len, { flat: true }); break;
-      case 'sea turtle': g = new T.Group(); m = new T.Mesh(new T.SphereGeometry(0.5, 10, 8, 0, 6.283, 0, 1.57), lam(col)); m.scale.set(len * 0.5, len * 0.25, len * 0.6); g.add(m); var hd = new T.Mesh(new T.SphereGeometry(0.12 * len, 8, 6), lam(0x7a8a4a)); hd.position.set(0, 0.03 * len, 0.38 * len); g.add(hd); [-1, 1].forEach(function (sg) { var fl = new T.Mesh(new T.BoxGeometry(0.4 * len, 0.04 * len, 0.18 * len), lam(0x7a8a4a)); fl.position.set(sg * 0.4 * len, 0, 0.1 * len); fl.rotation.y = sg * 0.4; g.add(fl); }); g.userData.hit = new T.Mesh(new T.SphereGeometry(len, 6, 4), new T.MeshBasicMaterial({ visible: false })); g.add(g.userData.hit); break;
-      case 'sunfish': g = fishModel(col, len, { tall: true }); break;
-      case 'conger eel': case 'moray': case 'sea snake': g = fishModel(col, len * 0.8, { long: true }); break;
-      case 'swordfish': g = fishModel(col, len, { sword: true }); break;
-      case 'dolphin': g = fishModel(col, len, { beak: true, belly: 0xd8e0e8 }); break;
-      case 'orca': g = fishModel(col, len, { shark: true, belly: 0xffffff }); break;
-      case 'hammerhead': g = fishModel(col, len, { shark: true, hammer: true }); break;
-      case 'great white': case 'tiger shark': case 'bull shark': case 'reef shark': g = fishModel(col, len, { shark: true, belly: name === 'great white' ? 0xe8ecf0 : null }); break;
-      case 'lionfish': g = fishModel(col, len, { spines: true }); break;
-      case 'pufferfish': g = new T.Group(); m = new T.Mesh(new T.IcosahedronGeometry(0.55, 0), lam(col)); g.add(m); g.scale.setScalar(0.8 + sz); break;
-      case 'anglerfish': g = fishModel(col, len); var lure = new T.Mesh(new T.SphereGeometry(0.12, 6, 5), new T.MeshBasicMaterial({ color: 0xbfffdf })); lure.position.set(0, 0.5 * len, 0.5 * len); g.add(lure); g.userData.lure = lure; break;
-      case 'seal': g = fishModel(col, len, { belly: 0xb0a898 }); break;
-      case 'whale': g = fishModel(col, len, { belly: 0xb8c0c8 }); break;
-      default: g = fishModel(col, len);
-    }
-    if (!g.userData.hit) { var hit = new T.Mesh(new T.SphereGeometry(Math.max(1.2, len * 0.7), 6, 4), new T.MeshBasicMaterial({ visible: false })); g.add(hit); g.userData.hit = hit; }
-    g.userData.len = len; return g;
-  }
+  // ── 3D Models (CR procedural meshes + vertex-shader swimming) ────────────
+  function npcModel(name) { return CR.creature(name); }
   function makeSprite(w, h) { var cv = document.createElement('canvas'); cv.width = w; cv.height = h; var tx = new T.CanvasTexture(cv); var sp = new T.Sprite(new T.SpriteMaterial({ map: tx, transparent: true, depthTest: false })); sp.userData = { cv: cv, tx: tx, key: '' }; sp.center.set(0.5, 0); return sp; }
   function drawLabel(sp, f) {
     var key = [f.n, f.model, Math.round(f.hp), Math.round(f.en), f.sz, f.hid, f.bleed, f.suspect, f.cheat, f.alive, f.poison, f.cmdN].join('|'); if (sp.userData.key === key) return; sp.userData.key = key;
@@ -230,27 +188,44 @@
 
   // ── Dynamic objects ──────────────────────────────────────────────────────
   var fishObjs = {}, npcObjs = {}, schoolObjs = {}, plankObjs = {}, carrionObjs = {}, bloomObjs = {};
-  var tinyGeo = new T.ConeGeometry(0.12, 0.6, 4); tinyGeo.rotateX(Math.PI / 2);
-  function ensureFish(f) { var o = fishObjs[f.id]; if (o) return o; var len = 1.6 + 1.0 * f.sz, g = fishModel(COL[f.color] || 0x888888, 1); g.scale.setScalar(len); var label = makeSprite(384, 128), bubble = makeSprite(512, 192); scene.add(g); scene.add(label); scene.add(bubble); o = fishObjs[f.id] = { g: g, label: label, bubble: bubble, len: len, id: f.id }; g.userData.hit.userData.pick = { kind: 'fish', id: f.id }; return o; }
-  function ensureNpc(a) { var o = npcObjs[a.id]; if (o) return o; var g = npcModel(a.sp); scene.add(g); o = npcObjs[a.id] = { g: g, sp: a.sp, id: a.id, tag: null }; g.userData.hit.userData.pick = { kind: 'npc', id: a.id }; return o; }
-  function ensureSchool(a) { var o = schoolObjs[a.id]; if (o) return o; var sp = SP[a.sp], n = sp.size < 0.05 ? 90 : 60, s = 0.6 + sp.size * 1.2, im = new T.InstancedMesh(tinyGeo, lam(PAL[a.sp] || 0xc8d8e8), n), ph = []; for (var i = 0; i < n; i++) ph.push({ a: Math.random() * 6.28, r: 1 + Math.random() * (sp.size > 1 ? 8 : 5), y: (Math.random() - 0.5) * 3, w: 0.6 + Math.random() * 0.5 }); scene.add(im); o = schoolObjs[a.id] = { im: im, ph: ph, s: s, nmax: sp.n }; return o; }
+  function ensureFish(f) { var o = fishObjs[f.id]; if (o) return o; var g = CR.player(f.color, 1), len = CR.playerLen(f.sz); g.scale.setScalar(len / CR.playerLen(1)); var label = makeSprite(384, 128), bubble = makeSprite(512, 192); scene.add(g); scene.add(label); scene.add(bubble); o = fishObjs[f.id] = { g: g, label: label, bubble: bubble, len: len, len0: CR.playerLen(1), id: f.id, ph: 0, pp: 0 }; g.userData.hit.userData.pick = { kind: 'fish', id: f.id }; return o; }
+  var protoCache = {};
+  function proto(name) { var p = protoCache[name]; if (!p) { var g = CR.creature(name, true); p = protoCache[name] = { geo: g.userData.mesh.geometry, mat: g.userData.mat, len: g.userData.len, mode: g.userData.mode }; } return p; }
+  function ensureNpc(a) { var o = npcObjs[a.id]; if (o) return o; var g = npcModel(a.sp); scene.add(g); o = npcObjs[a.id] = { g: g, sp: a.sp, id: a.id, tag: null, ph: a.h, pp: 0 }; g.userData.hit.userData.pick = { kind: 'npc', id: a.id }; return o; }
+  // polarized school: individuals swim forward with subtle phase oscillation; tightens into a ball when fleeing
+  function ensureSchool(a) {
+    var o = schoolObjs[a.id]; if (o) return o; var sp = SP[a.sp], L = CR.lenOf(a.sp), tiny = L < 0.1;
+    var n = Math.round((tiny ? 260 : L < 0.3 ? 170 : L < 1 ? 70 : 24) * QL.school), i, ph = [];
+    var R = L > 1 ? 9 : L > 0.3 ? 4.5 : 2.6;
+    for (i = 0; i < n; i++) { var u = Math.random(), v = Math.random(), w = Math.random(); ph.push({ x: (u - 0.5) * 2 * R, y: (v - 0.5) * R * 0.5, z: (w - 0.5) * 2 * R * 1.4, s: 0.8 + Math.random() * 0.4, ph: Math.random() * 6.28, w1: 0.4 + Math.random() * 0.6, w2: 0.3 + Math.random() * 0.5 }); }
+    if (tiny) { var pos = new Float32Array(n * 3), g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); var pts = new T.Points(g, new T.PointsMaterial({ color: a.sp === 'krill' ? 0xffb0a0 : 0xffd8c8, size: 0.12, transparent: true, opacity: 0.85, depthWrite: false })); pts.frustumCulled = false; scene.add(pts); return schoolObjs[a.id] = { pts: pts, ph: ph, nmax: sp.n, R: R }; }
+    var pr = proto(a.sp), geo = pr.geo.clone(), phases = new Float32Array(n); for (i = 0; i < n; i++) phases[i] = ph[i].ph; geo.setAttribute('aPhase', new T.InstancedBufferAttribute(phases, 1));
+    var mat = pr.mat.clone(); mat.userData.u = pr.mat.userData.u; mat.onBeforeCompile = pr.mat.onBeforeCompile; mat.customProgramCacheKey = pr.mat.customProgramCacheKey;
+    var im = new T.InstancedMesh(geo, mat, n); im.frustumCulled = false; scene.add(im);
+    return schoolObjs[a.id] = { im: im, ph: ph, nmax: sp.n, R: R, u: pr.mat.userData.u, len: pr.len };
+  }
   function ensurePlank(p) { var o = plankObjs[p.id]; if (o) return o; var n = 160, pos = new Float32Array(n * 3); for (var i = 0; i < n; i++) { var a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * p.r; pos[i * 3] = Math.cos(a) * r; pos[i * 3 + 1] = (Math.random() - 0.5) * p.r * 0.7; pos[i * 3 + 2] = Math.sin(a) * r; } var g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); var pt = new T.Points(g, new T.PointsMaterial({ color: 0x9fe87a, size: 0.22, transparent: true, opacity: 0.7, depthWrite: false })); scene.add(pt); o = plankObjs[p.id] = { pt: pt }; return o; }
-  function ensureBloom(j) { var o = bloomObjs[j.id]; if (o) return o; var grp = new T.Group(), items = []; var bell = new T.SphereGeometry(0.7, 10, 8, 0, 6.283, 0, 1.6), bm = lam(0xffa0d0, { transparent: true, opacity: 0.45, side: T.DoubleSide }); for (var i = 0; i < 36; i++) { var g = new T.Group(); g.add(new T.Mesh(bell, bm)); var lp = []; for (var k = 0; k < 5; k++) { var a = k / 5 * 6.28; lp.push(Math.cos(a) * 0.4, 0, Math.sin(a) * 0.4, Math.cos(a) * 0.6, -3 - Math.random() * 2, Math.sin(a) * 0.6); } var lg = new T.BufferGeometry(); lg.setAttribute('position', new T.BufferAttribute(new Float32Array(lp), 3)); g.add(new T.LineSegments(lg, new T.LineBasicMaterial({ color: 0xffc0e0, transparent: true, opacity: 0.5 }))); var a2 = Math.random() * 6.28, r2 = Math.sqrt(Math.random()); items.push({ g: g, ox: Math.cos(a2) * r2, oz: Math.sin(a2) * r2, oy: (Math.random() - 0.5), ph: Math.random() * 6.28 }); grp.add(g); } scene.add(grp); return bloomObjs[j.id] = { grp: grp, items: items }; }
-  function ensureCarrion(k) { var o = carrionObjs[k.id]; if (o) return o; var g = fishModel(k.sz > 15 ? 0x5a5a60 : 0x8a8a80, 1, k.sz > 15 ? { belly: 0x9a9a90 } : {}); g.scale.setScalar(1.6 + k.sz); g.rotation.z = Math.PI; scene.add(g); return carrionObjs[k.id] = { g: g }; }
+  function ensureBloom(j) {
+    var o = bloomObjs[j.id]; if (o) return o; var n = Math.round(40 * Math.max(0.5, QL.school)), pr = proto('jellyfish bloom'), geo = pr.geo.clone(), phases = new Float32Array(n), items = [], i;
+    for (i = 0; i < n; i++) { phases[i] = Math.random() * 6.28; var a2 = Math.random() * 6.28, r2 = Math.sqrt(Math.random()); items.push({ ox: Math.cos(a2) * r2, oz: Math.sin(a2) * r2, oy: (Math.random() - 0.5), ph: phases[i], s: 0.7 + Math.random() * 0.8 }); }
+    geo.setAttribute('aPhase', new T.InstancedBufferAttribute(phases, 1)); var mat = pr.mat.clone(); mat.userData.u = pr.mat.userData.u; mat.onBeforeCompile = pr.mat.onBeforeCompile; mat.customProgramCacheKey = pr.mat.customProgramCacheKey; mat.transparent = true; mat.opacity = 0.55; mat.depthWrite = false;
+    var im = new T.InstancedMesh(geo, mat, n); im.frustumCulled = false; scene.add(im); return bloomObjs[j.id] = { im: im, items: items, u: pr.mat.userData.u };
+  }
+  function ensureCarrion(k) { var o = carrionObjs[k.id]; if (o) return o; var g = CR.carcass(k.sz); scene.add(g); return carrionObjs[k.id] = { g: g }; }
 
   // ── State / interpolation ────────────────────────────────────────────────
   var A = null, B = null, tA = 0, tB = 0, LAG = 650, live = { ok: false, demo: false, lastErr: '' }, lastFeedN = 0, lastGen = null;
   function index(s) { s.idx = { fish: {}, npcs: {} }; s.fish.forEach(function (f) { s.idx.fish[f.id] = f; }); s.npcs.forEach(function (a) { s.idx.npcs[a.id] = a; }); return s; }
   function pushState(s) {
     index(s); var now = performance.now(); A = B; tA = tB; B = s; tB = now; if (!A) { A = s; tA = now - 500; }
-    if (lastGen !== null && s.gen !== lastGen) { for (var id in fishObjs) { scene.remove(fishObjs[id].g); scene.remove(fishObjs[id].label); scene.remove(fishObjs[id].bubble); } fishObjs = {}; for (id in carrionObjs) scene.remove(carrionObjs[id].g); carrionObjs = {}; for (id in npcObjs) { scene.remove(npcObjs[id].g); if (npcObjs[id].tag) scene.remove(npcObjs[id].tag); } npcObjs = {}; for (id in schoolObjs) scene.remove(schoolObjs[id].im); schoolObjs = {}; $('end').style.display = 'none'; lastFeedN = 0; }
-    lastGen = s.gen; updateUI(s);
+    if (lastGen !== null && s.gen !== lastGen) { for (var id in fishObjs) { scene.remove(fishObjs[id].g); scene.remove(fishObjs[id].label); scene.remove(fishObjs[id].bubble); } fishObjs = {}; for (id in carrionObjs) scene.remove(carrionObjs[id].g); carrionObjs = {}; for (id in npcObjs) { scene.remove(npcObjs[id].g); if (npcObjs[id].tag) scene.remove(npcObjs[id].tag); } npcObjs = {}; for (id in schoolObjs) scene.remove(schoolObjs[id].im || schoolObjs[id].pts); schoolObjs = {}; for (id in bloomObjs) scene.remove(bloomObjs[id].im); bloomObjs = {}; $('end').style.display = 'none'; lastFeedN = 0; }
+    lastGen = s.gen; if (s.tide) OC._tide = s.tide; updateUI(s);
   }
   function lerpA(a, b, t) { var d = ((b - a) % 360 + 540) % 360 - 180; return a + d * t; }
   function prev(listKey, id) { return (A && A.idx && A.idx[listKey][id]) || null; }
 
   // ── Camera ───────────────────────────────────────────────────────────────
-  var cam = { mode: 'free', yaw: 2.4, pitch: -0.25, pos: new T.Vector3(520, -20, 520), follow: null, followNpc: null, dist: 16, oyaw: 0.6, opitch: 0.3 }, sharkIdx = -1;
+  var cam = { mode: 'free', yaw: -2.2, pitch: -0.12, pos: new T.Vector3(255, -14, 300), follow: null, followNpc: null, dist: 16, oyaw: 0.6, opitch: 0.3 }, sharkIdx = -1;
   var keys = {}, drag = null;
   window.addEventListener('keydown', function (e) { if (e.target.tagName === 'INPUT') return; keys[e.code] = true; var k = e.key; if (k >= '0' && k <= '9') { var idx = k === '0' ? 9 : (+k - 1); var f = (B && B.fish[idx]); if (f) selectFish(f.id, true); } if (k === 'f' || k === 'F') { if (cam.follow) setMode(cam.mode === 'follow' ? 'free' : 'follow'); } if (k === 'h' || k === 'H') { document.querySelectorAll('.panel,#mini').forEach(function (p) { p.style.visibility = p.style.visibility === 'hidden' ? '' : 'hidden'; }); } });
   window.addEventListener('keyup', function (e) { keys[e.code] = false; });
@@ -262,12 +237,22 @@
   var ray = new T.Raycaster(), mouse = new T.Vector2();
   function pick(e) { mouse.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1); ray.setFromCamera(mouse, camera); var hits = [], id; for (id in fishObjs) if (fishObjs[id].g.visible) hits.push(fishObjs[id].g.userData.hit); for (id in npcObjs) if (npcObjs[id].g.visible) hits.push(npcObjs[id].g.userData.hit); var r = ray.intersectObjects(hits, false); if (r.length) { var p = r[0].object.userData.pick; if (p.kind === 'fish') selectFish(p.id, true); else followNpc(p.id); } }
   function selectFish(id, follow) { cam.follow = id; cam.followNpc = null; if (follow) setMode('follow'); updateUI(B); }
+  window.OA = { followSpecies: function (sp, dist) { if (!B) return false; var ids = Object.keys(B.idx.npcs).filter(function (k) { return B.idx.npcs[k].sp === sp; }); if (!ids.length) return false; followNpc(ids[0]); if (dist) cam.dist = dist; return ids[0]; }, cam: cam, state: function () { return B; }, dbg: { npcObjs: npcObjs, fishObjs: fishObjs, camera: camera, scene: scene, renderer: renderer, fps: function () { return fpsN / Math.max(0.001, fpsT); } } };
+  var qsFollow = qs.get('follow');
+  if (qsFollow) {
+    if (/^\d+$/.test(qsFollow)) {
+      setTimeout(function () { var f = B && B.fish[+qsFollow - 1]; if (f) selectFish(f.id, true); }, 1500);
+    } else {
+      var _fi = setInterval(function () { if (window.OA.followSpecies(qsFollow, parseFloat(qs.get('dist')) || 0)) clearInterval(_fi); }, 500);
+    }
+  }
   function followNpc(id) { cam.followNpc = id; cam.mode = 'npc'; ['free', 'follow', 'over', 'shark'].forEach(function (k) { $('b-' + k).classList.toggle('on', k === 'shark'); }); var a = B && B.idx.npcs[id]; if (a) toast(spLabel(a.sp) + ' (' + a.id + ') — ' + stateText(a)); updateUI(B); }
   function setMode(m) { cam.mode = m; ['free', 'follow', 'over', 'shark'].forEach(function (k) { $('b-' + k).classList.toggle('on', k === m); }); if (m === 'over') { cam.pos.set(W / 2, 420, L + 420); cam.yaw = Math.PI; cam.pitch = -0.72; cam.mode = 'free'; $('b-over').classList.add('on'); } }
   function nextShark() { if (!B) return; var sh = B.npcs.filter(function (a) { return SP[a.sp].kind === 'shark'; }); if (!sh.length) { toast('No sharks'); return; } sharkIdx = (sharkIdx + 1) % sh.length; followNpc(sh[sharkIdx].id); }
   function updateCamera(dt) {
     if (cam.mode === 'follow' || cam.mode === 'npc') {
-      var o = cam.mode === 'npc' ? npcObjs[cam.followNpc] : fishObjs[cam.follow], tgt = o && o.g.visible && o.g;
+      var o = cam.mode === 'npc' ? npcObjs[cam.followNpc] : fishObjs[cam.follow], tgt = o && (o.g.visible || cam.mode === 'npc') && o.g;
+      if (!tgt && cam.mode === 'npc' && B && B.idx.npcs[cam.followNpc]) { var sa = B.idx.npcs[cam.followNpc], so = schoolObjs[cam.followNpc]; tgt = { position: new T.Vector3(sa.x, -sa.d, sa.z), userData: { len: so ? so.R * 1.5 : 3 } }; o = { g: tgt }; }
       if (tgt) { var off = new T.Vector3(Math.sin(cam.oyaw) * Math.cos(cam.opitch), Math.sin(cam.opitch), Math.cos(cam.oyaw) * Math.cos(cam.opitch)).multiplyScalar(cam.dist + (o.g.userData.len || 3) * 1.6); var want = tgt.position.clone().add(off); want.y = Math.min(want.y, 2); want.y = Math.max(want.y, -floorAt(OC.clamp(want.x, 0, W), OC.clamp(want.z, 0, L)) + 1); cam.pos.lerp(want, 1 - Math.pow(0.001, dt)); camera.position.copy(cam.pos); camera.lookAt(tgt.position); return; }
     }
     var sp = (keys.ShiftLeft || keys.ShiftRight ? 110 : 24) * dt, dir = camDir(), right = new T.Vector3(dir.z, 0, -dir.x).normalize();
@@ -282,7 +267,7 @@
   function fmt(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); }
   function esc(s) { return (s === undefined || s === null ? '' : String(s)).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function toast(m) { var t = $('toast'); t.textContent = m; t.style.opacity = 1; clearTimeout(t._h); t._h = setTimeout(function () { t.style.opacity = 0; }, 3000); }
-  function stateText(a) { return a.st === 'hunt' ? 'HUNTING ' + (a.tg || '') : a.st === 'scavenge' ? 'scavenging' : a.st === 'rest' ? 'resting (full)' : a.st === 'patrol' ? 'patrolling' : a.st === 'flee' ? 'fleeing' : a.st === 'forage' ? 'foraging' : a.st === 'idle' ? 'idle' : a.st || ''; }
+  function stateText(a) { return a.st === 'hunt' ? 'HUNTING ' + (a.tg || '') : a.st === 'circle' ? 'circling ' + (a.tg || '') : a.st === 'scavenge' ? 'scavenging' : a.st === 'rest' ? 'resting (full)' : a.st === 'patrol' ? 'patrolling' : a.st === 'flee' ? 'fleeing' : a.st === 'forage' ? 'foraging' : a.st === 'idle' ? 'idle' : a.st || ''; }
   function ago(ms, now) { if (!ms) return '—'; var s = Math.max(0, Math.round((now - ms) / 1000)); return s < 60 ? s + 's ago' : Math.floor(s / 60) + 'm ago'; }
   var showSpecies = false;
   function updateUI(s) {
@@ -314,6 +299,8 @@
   function zoneOf(f) { var z = []; var hi = OC.hideInfo(f); if (hi.src) z.push(hi.src); var rf = OC.reefAt(f.x, f.z, f.d); if (rf && z.indexOf(rf.id) < 0) z.push(rf.id); var v = OC.ventAt(f.x, f.z, f.d); if (v.dist < 14) z.push('vent'); if (OC.inBiolum(f.x, f.z, f.d)) z.push('glowing water'); if (OC.inDeadzone(f.x, f.z, f.d)) z.push('dead zone'); if (f.d < 4) z.push('surface'); var cu = OC.currentAt(f.x, f.z, f.d); if (cu.id) z.push('current ' + cu.id); return z.length ? z.join(', ') : 'open water'; }
   $('b-free').onclick = function () { setMode('free'); }; $('b-follow').onclick = function () { if (!cam.follow && B && B.fish[0]) cam.follow = B.fish[0].id; if (cam.follow) setMode('follow'); else toast('No fish to follow'); }; $('b-over').onclick = function () { setMode('over'); }; $('b-shark').onclick = nextShark;
   $('b-species').onclick = function () { showSpecies = !showSpecies; this.classList.toggle('on', showSpecies); $('species').style.display = showSpecies ? 'block' : 'none'; $('insp').style.top = showSpecies ? '' : '258px'; if (showSpecies) $('insp').style.display = 'none'; updateUI(B); };
+  ['low', 'med', 'high'].forEach(function (q) { var b = $('q-' + q); if (!b) return; b.classList.toggle('on', OCEAN.qname === q); b.onclick = function () { OCEAN.setQuality(q); location.reload(); }; });
+  var fpsN = 0, fpsT = 0;
   var showLabels = true, showWhy = true; $('b-labels').onclick = function () { showLabels = !showLabels; this.classList.toggle('on', showLabels); }; $('b-why').onclick = function () { showWhy = !showWhy; this.classList.toggle('on', showWhy); };
   $('b-demo').onclick = function () { setDemo(!live.demo); };
   $('url').value = API; $('url').onchange = function () { API = this.value.trim() || DEFAULT_API; try { localStorage.setItem('ocean.api', API); } catch (e) { } fails = 0; if (live.demo) setDemo(false); };
@@ -382,7 +369,7 @@
     var fishSeen = see.filter(function (s) { return s.kind === 'fish'; }), bigger = fishSeen.filter(function (s) { return s.size > you.size * 1.2; }), smaller = fishSeen.filter(function (s) { return s.size < you.size / 1.6; });
     var pred = see.filter(function (s) { return /shark|orca|barracuda|grouper|dolphin|seal/.test(s.kind) && s.size > you.size * 1.4; })[0];
     var food = see.filter(function (s) { return /school|plankton|carcass|crab|shrimp|snail|urchin|scallop|clam|salp/.test(s.kind) && !(s.kind === 'plankton cloud' && you.size > 2.5) && !(/mackerel|snapper|tuna/.test(s.kind) && you.size < 1.5); })[0];
-    if (pred && pred.dist < 45) { b.act = 'flee'; b.target = pred.id; b.speed = 'sprint'; b.dur = 15; b.why = pred.kind + ' at ' + Math.round(pred.dist) + ' m — sprinting away.'; return b; }
+    if (pred && pred.dist < 45) { b.act = 'flee'; b.target = pred.id; b.speed = 'sprint'; b.dur = 15; b.why = spLabel(pred.kind) + ' at ' + Math.round(pred.dist) + ' m — sprinting away.'; return b; }
     if (pol === 'random') { b.act = 'swim'; b.heading = R() * 360; b.pitch = (R() - 0.5) * 40; b.speed = 'cruise'; b.dur = 20; b.why = 'Swimming randomly to see what turns up.'; return b; }
     if (pol === 'camper') { if (you.zone.join().indexOf('reef') < 0) { b.act = 'swim'; b.goto = [200, 260, 14]; b.speed = 'cruise'; b.dur = 60; b.why = 'Heading to the reef to take cover.'; } else { b.act = you.energy < you.energyMax * 0.5 ? 'feed' : 'hide'; b.dur = 60; b.why = b.act === 'feed' ? 'Hungry, picking snails off the reef.' : 'Hidden in the reef, lying low.'; } return b; }
     if (bigger.length && bigger[0].dist < 25) { if (pol === 'smart') { var k = OC.KELP[1]; b.act = 'swim'; b.goto = [k.x, k.z, 18]; b.speed = 'sprint'; b.why = 'Larger fish ' + bigger[0].name + ' nearby — heading into kelp for cover.'; } else { b.act = 'flee'; b.target = bigger[0].id; b.speed = 'sprint'; b.dur = 12; b.why = 'Fleeing from ' + bigger[0].name + ' (size ' + bigger[0].size + ').'; } return b; }
@@ -410,9 +397,10 @@
       s.fish.forEach(function (f) {
         var o = ensureFish(f), a = prev('fish', f.id) || f;
         var x = OC.lerp(a.x, f.x, alpha), z = OC.lerp(a.z, f.z, alpha), d = OC.lerp(a.d, f.d, alpha), h = lerpA(a.h, f.h, alpha), p = OC.lerp(a.p, f.p, alpha);
-        var len = 1.6 + 1.0 * f.sz; o.g.scale.setScalar(len); o.g.userData.len = len; o.g.position.set(x, -d, z); rotFish(o.g, h, p);
-        o.g.userData.tail.rotation.y = Math.sin(ts * (4 + f.spd * 3) + f.id.length) * (0.15 + Math.min(0.5, f.spd * 0.12));
+        var len = CR.playerLen(f.sz); o.g.scale.setScalar(len / o.len0); o.g.userData.len = len; o.len = len; o.g.position.set(x, -d, z); rotFish(o.g, h, p);
+        var tr = ((h - o.ph + 540) % 360 - 180) / Math.max(dt, 0.001); o.ph = h; CR.animate(o.g, ts, f.alive ? f.spd : 0, tr);
         var mat = o.g.userData.mat; var op = f.hid ? 0.35 : 1; mat.transparent = op < 1; mat.opacity = op; o.g.visible = f.alive; mat.emissive.setHex(f.bleed ? 0x401010 : f.poison ? 0x103010 : 0x000000);
+        if (f.bleed && Math.random() < 0.05) OCEAN.emitBubbles(bubbles, x, -d, z, 1, 0.5, 0.6);
         var dc = camera.position.distanceTo(o.g.position), sc = OC.clamp(dc * 0.09, 1.2, 12);
         o.label.visible = showLabels && f.alive; o.label.position.set(x, -d + len * 0.5, z); o.label.scale.set(sc * 3, sc, 1); drawLabel(o.label, f);
         o.bubble.visible = showWhy && f.alive && !!f.why && dc < 110; o.bubble.position.set(x, -d + len * 0.5 + sc, z); o.bubble.scale.set(sc * 2.7, sc, 1); drawBubble(o.bubble, f.why || '');
@@ -422,31 +410,44 @@
         var sp = SP[a.sp];
         if (sp.kind === 'school') {
           seenS[a.id] = 1; var o = ensureSchool(a), pa = prev('npcs', a.id) || a; var cx = OC.lerp(pa.x, a.x, alpha), cz = OC.lerp(pa.z, a.z, alpha), cd = OC.lerp(pa.d, a.d, alpha);
-          var vis = Math.min(o.ph.length, Math.ceil(a.n / o.nmax * o.ph.length)); o.im.visible = a.n > 0 && camera.position.distanceTo(V.set(cx, -cd, cz)) < 260;
-          if (!o.im.visible) return;
-          for (var i = 0; i < o.ph.length; i++) { var ph = o.ph[i]; if (i >= vis) { M.makeScale(0, 0, 0); o.im.setMatrixAt(i, M); continue; } var an = ph.a + ts * ph.w; V.set(cx + Math.cos(an) * ph.r, -cd + ph.y + Math.sin(ts * 1.3 + ph.a) * 0.5, cz + Math.sin(an) * ph.r); Q.setFromEuler(new T.Euler(0, Math.atan2(-Math.sin(an), Math.cos(an)) + Math.PI, 0)); SC.set(o.s, o.s, o.s); M.compose(V, Q, SC); o.im.setMatrixAt(i, M); } o.im.instanceMatrix.needsUpdate = true; return;
+          var ch = lerpA(pa.h, a.h, alpha), spS = SP[a.sp], fleeing = a.spd > spS.speed * 1.4, sq = fleeing ? 0.45 : 1;
+          var vis = Math.min(o.ph.length, Math.ceil(a.n / o.nmax * o.ph.length)), obj = o.im || o.pts, dcs = camera.position.distanceTo(V.set(cx, -cd, cz)); obj.visible = a.n > 0 && dcs < (o.im ? 240 : 160);
+          if (!obj.visible) return;
+          var hr = ch * D2R, sh = Math.sin(hr), chh = Math.cos(hr), yaw = Math.atan2(sh, -chh), spin = fleeing ? ts * 1.5 : 0;
+          if (o.pts) { var pa2 = o.pts.geometry.attributes.position; for (var i = 0; i < o.ph.length; i++) { var q = o.ph[i]; if (i >= vis) { pa2.setXYZ(i, 0, 50, 0); continue; } var ox = q.x * sq + Math.sin(ts * q.w1 + q.ph) * 0.4, oz = q.z * sq + Math.cos(ts * q.w2 + q.ph) * 0.4, oy = q.y * sq + Math.sin(ts * 0.7 + q.ph) * 0.3; pa2.setXYZ(i, cx + ox * chh + oz * sh, -cd + oy, cz - ox * sh + oz * chh); } pa2.needsUpdate = true; return; }
+          o.u.uTime.value = ts; o.u.uFreq.value = 3 + a.spd * 2.2; o.u.uAmp.value = 0.05 + Math.min(0.06, a.spd * 0.02);
+          for (var i = 0; i < o.ph.length; i++) { var ph = o.ph[i]; if (i >= vis) { M.makeScale(0, 0, 0); o.im.setMatrixAt(i, M); continue; }
+            var lx = ph.x * sq + Math.sin(ts * ph.w1 + ph.ph) * 0.5, lz = ph.z * sq + Math.cos(ts * ph.w2 + ph.ph) * 0.6, ly = ph.y * sq + Math.sin(ts * 0.8 + ph.ph) * 0.35;
+            if (spin) { var ca = Math.cos(spin + ph.ph), sa = Math.sin(spin + ph.ph); var rx = lx * ca - lz * sa; lz = lx * sa + lz * ca; lx = rx; }
+            V.set(cx + lx * chh + lz * sh, -cd + ly, cz - lx * sh + lz * chh);
+            var dyaw = yaw + Math.sin(ts * ph.w1 + ph.ph) * 0.25 + (spin ? ph.ph : 0); Q.setFromEuler(new T.Euler(Math.sin(ts * 0.8 + ph.ph) * 0.1, dyaw, 0)); SC.set(ph.s, ph.s, ph.s); M.compose(V, Q, SC); o.im.setMatrixAt(i, M); }
+          o.im.instanceMatrix.needsUpdate = true; return;
         }
         seenN[a.id] = 1; var n = ensureNpc(a), pb = prev('npcs', a.id) || a;
         var x = OC.lerp(pb.x, a.x, alpha), z = OC.lerp(pb.z, a.z, alpha), d = OC.lerp(pb.d, a.d, alpha), h = lerpA(pb.h, a.h, alpha);
+        var horiz = Math.hypot(a.x - pb.x, a.z - pb.z), pitchT = (pb !== a && horiz + Math.abs(a.d - pb.d) > 0.05) ? Math.atan2(a.d - pb.d, Math.max(0.3, horiz)) / D2R : 0; n.pp += (OC.clamp(pitchT, -60, 60) - n.pp) * Math.min(1, dt * 2.5);
         n.g.position.set(x, -d, z);
-        if (sp.kind === 'static' || sp.buried || a.sp === 'crab' || a.sp === 'lobster' || a.sp === 'hermit crab') n.g.rotation.set(0, (h || 0) * D2R, 0); else rotFish(n.g, h, 0);
-        if (sp.kind === 'drift' || a.sp === 'man-o-war') n.g.position.y += Math.sin(ts + x) * 0.2;
-        if (n.g.userData.tail) n.g.userData.tail.rotation.y = Math.sin(ts * (3 + a.spd * 2) + x) * (0.1 + Math.min(0.4, a.spd * 0.08));
+        var ground = sp.kind === 'static' || sp.buried || a.sp === 'crab' || a.sp === 'lobster' || a.sp === 'hermit crab' || a.sp === 'octopus' || a.sp === 'sea urchin' || a.sp === 'starfish';
+        if (ground) n.g.rotation.set(0, Math.atan2(Math.sin((h || 0) * D2R), -Math.cos((h || 0) * D2R)), 0); else rotFish(n.g, h, n.pp);
+        if (sp.kind === 'drift' || a.sp === 'man-o-war') { n.g.position.y += Math.sin(ts + x) * 0.2; if (a.sp === 'man-o-war') n.g.position.y = 0.15; }
+        if (a.sp === 'whale') { if (a.breach) { var bt = ((ts * 0.5) % 1); n.g.position.y += Math.sin(bt * Math.PI) * 9; n.g.rotation.x = -0.9 * Math.sin(bt * Math.PI); if (bt > 0.55 && Math.random() < 0.3) OCEAN.emitBubbles(bubbles, x + (Math.random() - 0.5) * 14, -0.5, z + (Math.random() - 0.5) * 14, 6, 6, 2); } if (a.blow && Math.random() < 0.5) OCEAN.emitBubbles(bubbles, x, -1, z, 3, 2, 3); if (a.lunge && Math.random() < 0.3) OCEAN.emitBubbles(bubbles, x, -d, z, 2, 6, 1); }
+        if (sp.breathes && d < 1.5 && Math.random() < 0.08) OCEAN.emitBubbles(bubbles, x, -0.5, z, 1, 1, 1);
+        var trn = ((h - n.ph + 540) % 360 - 180) / Math.max(dt, 0.001); n.ph = h; CR.animate(n.g, ts, ground ? 0 : a.spd, trn);
         if (n.g.userData.mat) n.g.userData.mat.emissive.setHex(a.bl ? 0x401010 : 0x000000);
-        var dc = camera.position.distanceTo(n.g.position); n.g.visible = dc < (sp.size > 3 ? 420 : 200);
-        var wantTag = showLabels && n.g.visible && (sp.kind === 'shark' || sp.kind === 'pack' || (dc < 35 && sp.kind !== 'school') || cam.followNpc === a.id);
+        var dc = camera.position.distanceTo(n.g.position); n.g.visible = cam.followNpc === a.id || dc < (sp.size > 3 ? 420 : CR.lenOf(a.sp) < 0.3 ? 90 : 200);
+        var wantTag = showLabels && n.g.visible && !(cam.followNpc === a.id && dc < CR.lenOf(a.sp) * 3 + 4) && (sp.kind === 'shark' || sp.kind === 'pack' || (dc < 35 && sp.kind !== 'school' && CR.lenOf(a.sp) >= 0.3) || cam.followNpc === a.id);
         if (wantTag) { if (!n.tag) { n.tag = makeSprite(384, 128); scene.add(n.tag); } var sc = OC.clamp(dc * 0.08, 1.2, 14); n.tag.visible = true; n.tag.position.set(x, -d + (n.g.userData.len || 2) * 0.5, z); n.tag.scale.set(sc * 3, sc, 1); drawTag(n.tag, spLabel(a.sp).toUpperCase() + (a.hp !== undefined ? ' · hp ' + a.hp : ''), (sp.kind === 'shark' || sp.kind === 'pack' || sp.prey ? stateText(a) : 'size ' + sp.size) + (a.n !== undefined ? ' · ' + a.n : ''), a.sp === 'orca' ? '#ff6a6a' : sp.kind === 'shark' ? '#ffe0a0' : sp.prey ? '#ffc0a0' : '#bfe8ff'); }
         else if (n.tag) n.tag.visible = false;
       });
       for (id in npcObjs) if (!seenN[id]) { scene.remove(npcObjs[id].g); if (npcObjs[id].tag) scene.remove(npcObjs[id].tag); delete npcObjs[id]; if (cam.followNpc === id) { cam.followNpc = null; setMode('free'); } }
-      for (id in schoolObjs) if (!seenS[id]) { scene.remove(schoolObjs[id].im); delete schoolObjs[id]; }
+      for (id in schoolObjs) if (!seenS[id]) { scene.remove(schoolObjs[id].im || schoolObjs[id].pts); delete schoolObjs[id]; }
       s.plankton.forEach(function (q) { var o = ensurePlank(q); o.pt.visible = q.amt > 1; o.pt.position.set(q.x, -q.d, q.z); o.pt.material.opacity = 0.2 + 0.6 * q.amt / 100; o.pt.rotation.y = ts * 0.05; });
-      s.blooms.forEach(function (j) { var o = ensureBloom(j); o.grp.position.set(j.x, -j.d, j.z); var vis = Math.ceil(j.n / 40 * o.items.length); o.items.forEach(function (it, i) { it.g.visible = i < vis; it.g.position.set(it.ox * j.r, it.oy * 14 + Math.sin(ts * 0.8 + it.ph) * 1.2, it.oz * j.r); it.g.scale.y = 0.85 + 0.25 * Math.sin(ts * 2 + it.ph); }); });
+      s.blooms.forEach(function (j) { var o = ensureBloom(j); o.u.uTime.value = ts; var vis = Math.ceil(j.n / 40 * o.items.length); o.im.visible = camera.position.distanceTo(V.set(j.x, -j.d, j.z)) < 300; if (!o.im.visible) return; o.items.forEach(function (it, i) { if (i >= vis) { M.makeScale(0, 0, 0); o.im.setMatrixAt(i, M); return; } V.set(j.x + it.ox * j.r, -j.d + it.oy * 14 + Math.sin(ts * 0.4 + it.ph) * 1.5, j.z + it.oz * j.r); Q.setFromEuler(new T.Euler(Math.sin(ts * 0.3 + it.ph) * 0.2, it.ph, Math.cos(ts * 0.25 + it.ph) * 0.2)); SC.set(it.s, it.s, it.s); M.compose(V, Q, SC); o.im.setMatrixAt(i, M); }); o.im.instanceMatrix.needsUpdate = true; });
       var seenK = {}; s.carrion.forEach(function (k) { var o = ensureCarrion(k); seenK[k.id] = 1; o.g.position.set(k.x, -k.d, k.z); }); for (id in carrionObjs) if (!seenK[id]) { scene.remove(carrionObjs[id].g); delete carrionObjs[id]; }
-      var camD = Math.max(0, -camera.position.y), Lc = (s.light || 1) * Math.exp(-camD / 42), above = camera.position.y > 0;
-      var fc = new T.Color().setRGB(0.02 + 0.10 * Lc, 0.10 + 0.35 * Lc, 0.20 + 0.45 * Lc); if (above) fc.setRGB(0.55, 0.75, 0.95);
-      scene.fog.color.copy(fc); scene.background = fc; scene.fog.density = above ? 0.0012 : 0.005 + 0.018 * (1 - Lc) + (OC.inBiolum(camera.position.x, camera.position.z, camD) ? 0.004 : 0);
-      hemi.intensity = 0.25 + 0.8 * (s.light || 1); sun.intensity = 0.2 + 0.9 * (s.light || 1); amb.intensity = 0.35 + 0.3 * (s.light || 1);
+      var LI = OCEAN.lighting(s, camera, OC.DAY_SEC, lights, oceanMats);
+      scene.fog.color.copy(LI.fog); scene.background = LI.fog; scene.fog.density = LI.density + (!LI.above && OC.inBiolum(camera.position.x, camera.position.z, LI.camD) ? 0.004 : 0);
+      oceanMats.floor.userData.u.uTime.value = ts; oceanMats.surf.userData.u.uTime.value = ts;
+      OCEAN.updateRays(rays, camera, LI.sunDir, LI.light, ts);
       if ((labelTick++ % 6) === 0) drawMini(s);
     }
     sway.forEach(function (o) {
@@ -456,12 +457,13 @@
       else if (o.glow) { o.glow.material.opacity = 0.55 + 0.35 * Math.sin(ts * 1.7); o.glow.rotation.y = ts * 0.02; }
       else if (o.cur) { var c = o.c, pb = o.cur.geometry.attributes.position; for (var m = 0; m < o.items.length; m++) { var it2 = o.items[m]; if (c.kind === 'seg') { var len = Math.hypot(c.bx - c.ax, c.bz - c.az); it2.t += dt * c.v / len; if (it2.t > 1) it2.t -= 1; var ux = (c.bx - c.ax) / len, uz = (c.bz - c.az) / len; pb.setXYZ(m, c.ax + ux * len * it2.t - uz * it2.off * c.w, -(c.d0 + it2.d * (c.d1 - c.d0)), c.az + uz * len * it2.t + ux * it2.off * c.w); } else { it2.d -= dt * 0.02; if (it2.d < 0) it2.d += 1; pb.setXYZ(m, c.x + Math.cos(it2.off * 3.14) * c.r * it2.t, -(5 + it2.d * 60), c.z + Math.sin(it2.off * 3.14) * c.r * it2.t); } } pb.needsUpdate = true; }
     });
-    snow.position.copy(camera.position); snow.rotation.y = ts * 0.01;
-    renderer.render(scene, camera);
+    if (!B) { var LI0 = OCEAN.lighting(null, camera, OC.DAY_SEC, lights, oceanMats); scene.fog.color.copy(LI0.fog); scene.background = LI0.fog; scene.fog.density = LI0.density; oceanMats.floor.userData.u.uTime.value = ts; oceanMats.surf.userData.u.uTime.value = ts; }
+    OCEAN.updateSnow(snow, camera, dt, ts); OCEAN.updateBubbles(bubbles, dt, ts);
+    sway.forEach(function (o) { if (o.smoke && Math.random() < 0.15) OCEAN.emitBubbles(bubbles, o.x, o.base - 3, o.z, 1, 1.5, 1.2); });
+    renderer.render(scene, camera); fpsN++; fpsT += dt;
   }
   setMode('free');
   if (qs.get('cam')) { var cq = qs.get('cam').split(',').map(Number); if (cq.length >= 5) { cam.pos.set(cq[0], cq[1], cq[2]); cam.yaw = cq[3]; cam.pitch = cq[4]; } }
-  if (qs.get('follow')) { setTimeout(function () { var f = B && B.fish[+qs.get('follow') - 1]; if (f) selectFish(f.id, true); }, 1500); }
   if (qs.get('shark')) setTimeout(nextShark, 1500);
   if (qs.get('species') === '1') setTimeout(function () { $('b-species').click(); }, 1200);
   if (qs.get('demo') === '1') setDemo(true); else poll();

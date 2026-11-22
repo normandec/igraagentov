@@ -93,7 +93,7 @@ async function req(method, pathStr, body, ip) {
   r = await req('GET', '/health');
   assert.strictEqual(r.status, 200);
   assert.strictEqual(r.body.version, 'v5');
-  assert.strictEqual(r.body.species, 53);
+  assert.strictEqual(r.body.species, 54);
   assert.strictEqual(r.body.plants, 176);
   assert.deepStrictEqual(r.body.map, [800, 800, 180]);
 
@@ -122,7 +122,8 @@ async function req(method, pathStr, body, ip) {
 
   r = await req('GET', '/species');
   assert.strictEqual(r.status, 200);
-  assert.strictEqual(r.body.species.length, 53);
+  assert.strictEqual(r.body.species.length, 54);
+  assert(r.body.species.some(function (s) { return s.name === 'whale calf'; }));
 
   // With < 2 fish, /start keeps status in lobby and delays lobbyUntilMs
   r = await req('GET', '/start?admin=' + ADMIN + '&in=0');
@@ -146,11 +147,12 @@ async function req(method, pathStr, body, ip) {
   assert.strictEqual(r.status, 200);
   assert.strictEqual(r.body.status, 'running');
 
-  // Verify v5 snapshot entities (npcs, blooms, plankton, carrion)
+  // Verify v5 snapshot entities (npcs, blooms, plankton, carrion, tide)
   r = await req('GET', '/state?admin=' + ADMIN, null, '99.99.99.99');
   assert.strictEqual(r.status, 200);
   assert.strictEqual(r.body.v, 5);
-  assert.strictEqual(r.body.npcs.length, 358);
+  assert.strictEqual(typeof r.body.tide, 'number');
+  assert.strictEqual(r.body.npcs.length, 359);
   assert.strictEqual(r.body.blooms.length, 3);
   assert.strictEqual(r.body.plankton.length, 14);
 

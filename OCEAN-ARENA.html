@@ -91,7 +91,7 @@ input[type=text]{background:#061a28;color:#cfe8f8;border:1px solid rgba(143,211,
 <div id="feed" class="panel"></div>
 <div id="ctl" class="panel">
   <div class="row"><button id="b-free">Free</button><button id="b-follow">Follow fish</button><button id="b-over">Overview</button><button id="b-shark">Sharks ⟳</button><button id="b-species">Species</button></div>
-  <div class="row"><button id="b-labels" class="on">Labels</button><button id="b-why" class="on">Thoughts</button><button id="b-demo">Demo</button><span id="conn" style="font-size:10.5px;color:#8fb0c4"></span></div>
+  <div class="row"><button id="b-labels" class="on">Labels</button><button id="b-why" class="on">Thoughts</button><button id="b-demo">Demo</button><span style="font-size:10.5px;color:#8fb0c4;margin-left:6px">quality:</span><button id="q-low">low</button><button id="q-med">med</button><button id="q-high">high</button><span id="conn" style="font-size:10.5px;color:#8fb0c4"></span></div>
   <input type="text" id="url" placeholder="Arena URL (…/functions/v1/ocean-arena-v5)">
   <div id="help">WASD/arrows move · Q/E down/up · drag mouse look · Shift fast · wheel zoom · click fish/animal = select · 1–9,0 fish · F follow · H hide panels · click minimap = jump</div>
 </div>
@@ -239,8 +239,11 @@ var OC = globalThis.OC || (globalThis.OC = {});
   OC.inBiolum = function (x, z, d) { var b = OC.BIOLUM; return d > b.minD && dist2(x, z, b.x, b.z) < b.r * b.r; };
   OC.inDeadzone = function (x, z, d) { var b = OC.DEADZONE; return d > b.minD && dist2(x, z, b.x, b.z) < b.r * b.r; };
   OC.tempAt = function (x, z, d) { var t = 20 - 12 * sstep(OC.THERMO - 8, OC.THERMO + 8, d); var v = OC.ventAt(x, z, d); if (v.dist < 14) t += (34 - t) * (1 - v.dist / 14); if (OC.mangroveAt(x, z, d)) t += 3; return Math.round(t * 10) / 10; };
+  // tidal cycle: current strength oscillates with a 10 min period (engine sets OC._tide each tick, viewer sets it from snapshot)
+  OC.TIDE_SEC = 600; OC._tide = 1;
+  OC.tideAt = function (tSec) { return 0.55 + 0.45 * Math.sin(tSec / OC.TIDE_SEC * Math.PI * 2); };
   OC.currentAt = function (x, z, d) {
-    var cx = 0, cz = 0, cy = 0, id = null;
+    var cx = 0, cz = 0, cy = 0, id = null, tide = OC._tide || 1;
     for (var i = 0; i < OC.CURRENTS.length; i++) {
       var c = OC.CURRENTS[i];
       if (c.kind === 'seg') {
@@ -251,7 +254,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
         var f = c.v * (1 - Math.pow(off / c.w, 2)); cx += vx * f; cz += vz * f; id = id || c.id;
       } else { var q = dist2(x, z, c.x, c.z); if (q < c.r * c.r && d < 80) { cy -= c.v * (1 - q / (c.r * c.r)); id = id || c.id; } }
     }
-    return { x: cx, z: cz, d: cy, id: id };
+    return { x: cx * tide, z: cz * tide, d: cy * tide, id: id };
   };
   OC.dayLight = function (tSec) { var ph = (tSec / OC.DAY_SEC) % 1; var sun = Math.cos(ph * Math.PI * 2); return clamp(0.06 + 0.94 * sstep(-0.25, 0.35, sun), 0.06, 1); };
   OC.phaseName = function (tSec) { var ph = (tSec / OC.DAY_SEC) % 1; if (ph < 0.2 || ph > 0.8) return 'day'; if (ph < 0.3) return 'dusk'; if (ph < 0.7) return 'night'; return 'dawn'; };
@@ -272,7 +275,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
     'mackerel':     { kind: 'school', count: 4, n: 60, size: 0.6, speed: 2.4, flee: 5.2, habitat: { zone: 'pelagic', d0: 15, d1: 60 }, dayD: 35, nightD: 20, food: { e: 14, catchP: 0.5, minHunter: 1.4 } },
     'snapper':      { kind: 'school', count: 3, n: 30, size: 0.9, speed: 1.8, flee: 4.2, habitat: { zone: 'reef', d0: 10, d1: 40 }, dayD: 20, nightD: 16, food: { e: 22, catchP: 0.45, minHunter: 1.8 } },
     'tuna':         { kind: 'school', count: 2, n: 12, size: 3.0, speed: 3.4, flee: 9, habitat: { zone: 'deep', d0: 30, d1: 90 }, dayD: 60, nightD: 30, food: { e: 90, catchP: 0.3, minHunter: 4.5 } },
-    'squid':        { kind: 'school', count: 4, n: 40, size: 0.5, speed: 1.6, flee: 5, habitat: { zone: 'trench', d0: 60, d1: 170 }, dayD: 150, nightD: 30, food: { e: 12, catchP: 0.55, minHunter: 1.0 }, defense: { type: 'ink' }, nocturnal: true },
+    'squid':        { kind: 'school', count: 4, n: 40, size: 0.5, speed: 1.6, flee: 5, habitat: { zone: 'trench', d0: 60, d1: 170 }, dayD: 150, nightD: 30, food: { e: 12, catchP: 0.55, minHunter: 1.0 }, defense: { type: 'ink' }, nocturnal: true, gather: { x: 300, z: 720, d: 30, phase: 'night', note: 'squid gather to spawn over the seagrass at night' } },
     'shrimp':       { kind: 'school', count: 5, n: 400, size: 0.05, speed: 0.6, flee: 1.5, habitat: { zone: 'mangrove', d0: 1, d1: 5 }, food: { e: 1.5, catchP: 0.9, maxHunter: 2.0 } },
     'krill':        { kind: 'school', count: 4, n: 1000, size: 0.02, speed: 0.4, flee: 0.8, habitat: { zone: 'trench', d0: 40, d1: 170 }, dayD: 150, nightD: 25, food: { e: 2.5, catchP: 1, maxHunter: 3.0 } },
     'flying fish':  { kind: 'school', count: 3, n: 40, size: 0.4, speed: 2.2, flee: 7, habitat: { zone: 'surface', d0: 1, d1: 6 }, dayD: 3, nightD: 3, food: { e: 10, catchP: 0.3, minHunter: 1.2 } },
@@ -309,10 +312,11 @@ var OC = globalThis.OC || (globalThis.OC = {});
     'swordfish':    { kind: 'hunter', count: 2, size: 4.0, speed: 3.0, sprint: 11, habitat: { zone: 'deep', d0: 30, d1: 100 }, food: { e: 120, catchP: 0.25, minHunter: 6.5 }, prey: { max: 3.2, swallow: 1.2, dmg: 40, range: 30, detect: ['vision'], active: 'any', satiety: 200 }, respawn: 0 },
     'anglerfish':   { kind: 'ambush', count: 6, size: 1.0, speed: 0.5, habitat: { zone: 'trench', d0: 140, d1: 176 }, lure: true, food: { e: 30, catchP: 0.6, minHunter: 1.8 }, prey: { max: 1.5, swallow: 1.2, dmg: 30, range: 2.5, detect: ['lateral'], active: 'any', satiety: 120 }, respawn: 3000 },
     // ── nenevarne velike ──
-    'sea turtle':   { kind: 'wander', count: 4, size: 2.5, speed: 1.0, flee: 2.2, habitat: { zone: 'seagrass', d0: 5, d1: 40 }, defense: { type: 'shell' }, eatsJellies: true, food: { e: 0, catchP: 0 } },
+    'sea turtle':   { kind: 'wander', count: 4, size: 2.5, speed: 1.0, flee: 2.2, habitat: { zone: 'seagrass', d0: 5, d1: 40 }, defense: { type: 'shell' }, eatsJellies: true, breathes: true, food: { e: 0, catchP: 0 } },
     'manta ray':    { kind: 'passer', count: 2, size: 6.0, speed: 1.8, habitat: { zone: 'pelagic', d0: 5, d1: 40 }, defense: { type: 'shell' }, food: { e: 0, catchP: 0 }, filter: true },
     'sunfish':      { kind: 'wander', count: 2, size: 5.0, speed: 0.6, flee: 1.0, habitat: { zone: 'pelagic', d0: 5, d1: 60 }, eatsJellies: true, food: { e: 150, catchP: 0.5, minHunter: 8.0 }, defense: { type: 'shell' } },
-    'whale':        { kind: 'passer', count: 1, size: 25, speed: 2.5, habitat: { zone: 'pelagic', d0: 10, d1: 30 }, defense: { type: 'shell' }, food: { e: 0, catchP: 0 } },
+    'whale':        { kind: 'passer', count: 1, size: 25, speed: 2.2, sprint: 5, habitat: { zone: 'pelagic', d0: 10, d1: 30 }, defense: { type: 'shell' }, food: { e: 0, catchP: 0 }, breathes: true, waypoints: [[110, 340, 18], [330, 120, 22], [600, 160, 20], [720, 480, 24], [460, 620, 110], [300, 600, 120], [180, 470, 20]] },
+    'whale calf':   { kind: 'passer', count: 1, size: 8, speed: 2.2, sprint: 4.5, habitat: { zone: 'pelagic', d0: 8, d1: 25 }, hp: 1200, defense: { type: 'shell' }, food: { e: 0, catchP: 0 }, breathes: true },
     // ── plenilci s čutili ──
     'seal':         { kind: 'hunter', count: 3, size: 2.8, speed: 2.5, sprint: 6.5, habitat: { zone: 'surface', d0: 1, d1: 20 }, food: { e: 80, catchP: 0.3, minHunter: 4.6 }, prey: { max: 2.0, swallow: 1.3, dmg: 24, range: 25, detect: ['vision', 'lateral'], active: 'day', satiety: 200 }, breathes: true },
     'dolphin':      { kind: 'pack', count: 5, size: 3.0, speed: 3.0, sprint: 8, habitat: { zone: 'pelagic', d0: 3, d1: 40 }, food: { e: 0, catchP: 0 }, defense: { type: 'bite', dmg: 20 }, prey: { max: 2.0, swallow: 1.4, dmg: 20, range: 60, detect: ['echo', 'vision'], active: 'any', satiety: 240, preferSchools: true }, breathes: true },
@@ -324,11 +328,11 @@ var OC = globalThis.OC || (globalThis.OC = {});
     'hammerhead':   { kind: 'shark', count: 3, pack: 'hammerheads', size: 7, speed: 2.9, sprint: 7.5, sprintT: 14, tiredT: 70, hp: 450, prey: { max: 3.5, swallow: 2.8, dmg: 38, range: 26, smell: 120, detect: ['vision', 'electro', 'smell'], electro: 16, active: 'day', satiety: 360, ignoreAbove: 6 }, waypoints: [[560, 220, 30], [600, 280, 45], [520, 160, 40], [650, 620, 55], [480, 330, 45]], rest: [620, 400, 80] },
     'bull shark':   { kind: 'shark', count: 1, size: 8, speed: 2.6, sprint: 7.0, sprintT: 14, tiredT: 70, hp: 520, prey: { max: 4, swallow: 3.0, dmg: 42, range: 22, smell: 150, detect: ['vision', 'smell', 'lateral'], active: 'any', satiety: 300, aggressive: true, ignoreAbove: 99 }, waypoints: [[60, 300, 8], [80, 520, 12], [160, 400, 18], [120, 200, 16], [60, 650, 10], [220, 620, 20]], rest: [140, 420, 20], shallowOK: 4 },
     'reef shark':   { kind: 'shark', count: 3, size: 4.5, speed: 2.4, sprint: 6.4, sprintT: 12, tiredT: 60, hp: 260, prey: { max: 2.0, swallow: 1.6, dmg: 26, range: 20, smell: 80, detect: ['vision', 'smell'], active: 'night', satiety: 240, ignoreAbove: 3.5, timid: 6 }, waypoints: [[200, 260, 18], [240, 230, 20], [160, 290, 20], [470, 330, 48], [500, 300, 50], [440, 360, 52]], rest: [430, 300, 55], shallowOK: 8 },
-    'orca':         { kind: 'shark', count: 0, pack: 'orcas', size: 18, speed: 3.5, sprint: 10, sprintT: 24, tiredT: 40, hp: 1500, prey: { max: 30, swallow: 6, dmg: 90, range: 90, smell: 0, detect: ['echo', 'vision'], active: 'any', satiety: 120, huntsSharks: true, minPrey: 3.0 }, waypoints: [[420, 420, 30], [560, 220, 25], [300, 300, 30], [650, 620, 40], [200, 600, 25]], rest: [400, 100, 30], event: true }
+    'orca':         { kind: 'shark', count: 0, pack: 'orcas', size: 18, speed: 3.5, sprint: 10, sprintT: 24, tiredT: 40, hp: 1500, prey: { max: 30, swallow: 6, dmg: 90, range: 90, smell: 0, detect: ['echo', 'vision'], active: 'any', satiety: 120, huntsSharks: true, huntsNpc: ['whale calf'], prefer: ['whale calf'], minPrey: 3.0 }, waypoints: [[420, 420, 30], [560, 220, 25], [300, 300, 30], [650, 620, 40], [200, 600, 25]], rest: [400, 100, 30], event: true }
   };
   OC.SPECIES_LIST = Object.keys(S);
   // short spectator descriptions (NOT exposed to agents)
-  OC.SPECIES_INFO = { 'great white': 'smells blood at 240 m, 8 m/s sprint, swallows up to size 4.5', 'tiger shark': 'nocturnal, coastal, scavenger', 'hammerhead': 'pack of 3, electroreception detects fish hidden on the bottom', 'bull shark': 'shallows/mangroves, attacks everything', 'reef shark': 'nocturnal reef shark, shy around large fish', 'orca': '18–22 min event: hunts sharks and large fish', 'dolphin': 'pod, echolocation detects hidden fish', 'barracuda': 'lightning-fast daytime hunter in the shallows', 'grouper': 'ambushes from wrecks, swallows up to size 2.0', 'anglerfish': 'lure glows in the dark', 'lionfish': 'venomous spines', 'stingray': 'buried in sand; stings on touch', 'pufferfish': 'poisonous except to very large predators', 'moray': 'in caves, bites anything under size 4', 'octopus': 'nocturnal ambush predator, ink cloud', 'seal': 'daytime predator near the surface', 'man-o-war': 'drifting siphonophore, severe stinging tentacles' };
+  OC.SPECIES_INFO = { 'whale': 'humpback with calf: dives to the trench for krill, breathes at the surface, sings at night; mother defends calf from orcas', 'whale calf': 'humpback calf — targeted by orcas', 'great white': 'smells blood at 240 m, 8 m/s sprint, swallows up to size 4.5', 'tiger shark': 'nocturnal, coastal, scavenger', 'hammerhead': 'pack of 3, electroreception detects fish hidden on the bottom', 'bull shark': 'shallows/mangroves, attacks everything', 'reef shark': 'nocturnal reef shark, shy around large fish', 'orca': '18–22 min event: hunts sharks and large fish', 'dolphin': 'pod, echolocation detects hidden fish', 'barracuda': 'lightning-fast daytime hunter in the shallows', 'grouper': 'ambushes from wrecks, swallows up to size 2.0', 'anglerfish': 'lure glows in the dark', 'lionfish': 'venomous spines', 'stingray': 'buried in sand; stings on touch', 'pufferfish': 'poisonous except to very large predators', 'moray': 'in caves, bites anything under size 4', 'octopus': 'nocturnal ambush predator, ink cloud', 'seal': 'daytime predator near the surface', 'man-o-war': 'drifting siphonophore, severe stinging tentacles' };
 })(OC);
 
 // OCEAN ARENA v5 — pogon simulacije (deterministično; brez omrežja).
@@ -415,7 +419,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
         continue;
       }
       if (sp.event) continue;
-      for (i = 0; i < sp.count; i++) { var pos = spawnPos(g, sp, i); if (name === 'whale') pos = { x: -30, z: 300, d: 18 }; if (sp.kind === 'shark') { var w0 = sp.waypoints[i % sp.waypoints.length]; pos = { x: w0[0] + i * 6, z: w0[1] + i * 4, d: w0[2] }; } mkNpc(g, name, i, pos); }
+      for (i = 0; i < sp.count; i++) { var pos = spawnPos(g, sp, i); if (name === 'whale') pos = { x: 120, z: 300, d: 18 }; if (name === 'whale calf') pos = { x: 112, z: 306, d: 15 }; if (sp.kind === 'shark') { var w0 = sp.waypoints[i % sp.waypoints.length]; pos = { x: w0[0] + i * 6, z: w0[1] + i * 4, d: w0[2] }; } mkNpc(g, name, i, pos); }
     }
     return g;
   };
@@ -756,18 +760,18 @@ var OC = globalThis.OC || (globalThis.OC = {});
   function moveNpc(g, a, sp, wantH, spd, wantD, opts) {
     opts = opts || {}; a.h = turnToward(a.h, wantH, (opts.turn || 90) * DT); var hr = a.h * D2R;
     var nx = clamp(a.x + Math.sin(hr) * spd * DT, 2, OC.W - 2), nz = clamp(a.z - Math.cos(hr) * spd * DT, 2, OC.L - 2), fl = floorAt(nx, nz);
-    if (sp.kind === 'shark') { var minFl = sp.shallowOK || 20; if (fl < minFl || OC.kelpAt(nx, nz, a.d) || (sp.size > 3 && OC.reefAt(nx, nz, a.d) && fl < 18)) { a.h = norm360(a.h + 120); a.tm = 8; return; } }
+    if (sp.kind === 'shark') { var minFl = sp.shallowOK || 20, fl0 = floorAt(a.x, a.z), bad = (fl < minFl && fl < fl0 + 0.05) || (OC.kelpAt(nx, nz, a.d) && !OC.kelpAt(a.x, a.z, a.d)) || (sp.size > 3 && OC.reefAt(nx, nz, a.d) && fl < 18 && !OC.reefAt(a.x, a.z, a.d)); if (bad) { a.h = norm360(a.h + 120); a.tm = 8; return; } }
     a.x = nx; a.z = nz; a.spd = spd;
     if (wantD !== undefined) a.d += clamp(wantD - a.d, -spd * DT * 0.8, spd * DT * 0.8);
     a.d = clamp(a.d, sp.habitat && sp.habitat.zone === 'surface' ? 0.5 : 1, floorAt(a.x, a.z) - (sp.kind === 'static' || opts.onBottom ? 0.4 : 1.2));
   }
   function detectPrey(g, a, sp, candidates) { // candidates: ribe (in za orke tudi NPC)
-    var pr = sp.prey, best = null, bd = 1e9, i, act = pr.active === 'any' ? 1 : (pr.active === 'night' ? (isNight(g) ? 1 : 0.45) : (isDay(g) ? 1 : 0.45));
+    var pr = sp.prey, best = null, bd = 1e9, i, ph = OC.phaseName(tSec(g)), twilight = ph === 'dusk' || ph === 'dawn', act = twilight ? 1.25 : pr.active === 'any' ? 1 : (pr.active === 'night' ? (isNight(g) ? 1 : 0.45) : (isDay(g) ? 1 : 0.45));
     for (i = 0; i < candidates.length; i++) {
       var f = candidates[i], fsz = f.sz || SP[f.sp].size; if (!f.alive) continue;
-      if (f.sp && !(pr.huntsSharks && SP[f.sp].kind === 'shark')) continue;
+      if (f.sp && !(pr.huntsSharks && SP[f.sp].kind === 'shark') && !(pr.huntsNpc && pr.huntsNpc.indexOf(f.sp) >= 0)) continue;
       if (fsz > pr.max && !pr.aggressive) continue; if (pr.minPrey && fsz < pr.minPrey) continue; if (pr.ignoreAbove && fsz >= pr.ignoreAbove) continue; if (pr.timid && fsz >= pr.timid) continue;
-      var dd = dist3(a, f), rng = pr.range * act, det = false;
+      var dd = dist3(a, f), rng = pr.range * act * ((pr.prefer && f.sp && pr.prefer.indexOf(f.sp) >= 0) ? 3.5 : 1), det = false;
       var hi = hideInfo(f);
       if (pr.detect.indexOf('vision') >= 0 && dd < rng * visMul(g, f, a, pr.detect)) det = true;
       if (!det && pr.detect.indexOf('lateral') >= 0 && f.spd > 0.8 && dd < 25 && !hi.solid) det = true;
@@ -775,7 +779,9 @@ var OC = globalThis.OC || (globalThis.OC = {});
       if (!det && pr.detect.indexOf('echo') >= 0 && dd < rng && !hi.solid) det = true;
       if (!det && pr.detect.indexOf('electro') >= 0 && dd < (pr.electro || 16) && !hi.solid) det = true;
       if (det && hi.solid && !(pr.detect.indexOf('vision') >= 0 && hideInfo(a).src === hi.src)) det = false;
-      if (det && dd < bd) { bd = dd; best = f; }
+      if (det && a.ban && a.ban.id === f.id && a.ban.until > g.tick) det = false;
+      var ed = (pr.prefer && f.sp && pr.prefer.indexOf(f.sp) >= 0) ? dd * 0.01 : dd;
+      if (det && ed < bd) { bd = ed; best = f; }
     }
     return best;
   }
@@ -799,6 +805,8 @@ var OC = globalThis.OC || (globalThis.OC = {});
     else if (a.tm > 0) { a.tm--; want = a.h; spd = sp.flee * 0.8; }
     else want = distH(a, { x: a.hx, z: a.hz }) > 60 ? bearing(a.x, a.z, a.hx, a.hz) : norm360(a.h + (rnd(g) - 0.5) * 40);
     var wd = sp.dayD !== undefined ? (isNight(g) ? sp.nightD : sp.dayD) : a.hd; if (sp.habitat.zone === 'mangrove') wd = 2;
+    if (sp.gather && OC.phaseName(tSec(g)) === sp.gather.phase && !threat && a.tm <= 0) { var gd = distH(a, sp.gather); if (gd > 15) { want = bearing(a.x, a.z, sp.gather.x, sp.gather.z); spd = sp.speed * 1.4; } else { want = norm360(a.h + 25); spd = sp.speed * 0.5; } wd = sp.gather.d; if (!g.gatherTold && gd < 40) { g.gatherTold = g.tick; addFeed(g, sp.gather.note); } }
+    if (sp.gather && g.gatherTold && g.tick - g.gatherTold > 2000) g.gatherTold = 0;
     moveNpc(g, a, sp, want, spd, wd + (rnd(g) - 0.5) * 0.4, { turn: 120 });
     if (!g.famine && isNight(g) && a.n < sp.n && rnd(g) < 0.05) a.n++;
   }
@@ -806,6 +814,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
     var i, threat = null, td = 1e9;
     if (sp.flee) for (i = 0; i < g.fish.length; i++) { var f = g.fish[i]; if (!f.alive || f.sz < sp.size * 0.8 || f.spd < 0.3) continue; var dd = dist3(a, f); if (dd < 10 && dd < td) { td = dd; threat = f; } }
     var night = isNight(g); var asleep = (sp.sleepsNight && night) || (sp.nocturnal && !night);
+    if (sp.breathes) { if (a.breath === undefined) a.breath = Math.floor(rnd(g) * 600); a.breath++; if (a.breath > 900) { a.st = 'surfacing'; moveNpc(g, a, sp, a.h + 2, sp.speed, 0.6, { turn: 40 }); if (a.d < 1.5) a.breath = 0; return; } }
     if (sp.eatsJellies) { var bl = g.blooms[0], bdd = 1e9; g.blooms.forEach(function (b) { var q = dist3(a, b); if (q < bdd) { bdd = q; bl = b; } }); if (bdd > 10) { moveNpc(g, a, sp, bearing(a.x, a.z, bl.x, bl.z), sp.speed, bl.d); return; } if (bl.n > 5 && rnd(g) < 0.01) bl.n--; a.spd = 0.2; return; }
     if (threat && !asleep) { a.st = 'flee'; a.tm = 20; moveNpc(g, a, sp, norm360(bearing(a.x, a.z, threat.x, threat.z) + 180), sp.flee, a.d, { turn: 160 }); return; }
     if (a.st === 'flee' && a.tm > 0) { a.tm--; moveNpc(g, a, sp, a.h, sp.flee * 0.8, a.d); return; }
@@ -854,11 +863,17 @@ var OC = globalThis.OC || (globalThis.OC = {});
     if (a.sprint > 0) { a.sprint--; if (a.sprint === 0) a.tired = sp.tiredT; } else if (a.tired > 0) a.tired--;
     if (a.sat > 0) { a.sat--; a.st = 'rest'; a.tg = null; var rp = sp.rest; if (distH(a, { x: rp[0], z: rp[1] }) > 10) moveNpc(g, a, sp, bearing(a.x, a.z, rp[0], rp[1]), sp.speed * 0.6, rp[2]); else { a.spd = 0.3; moveNpc(g, a, sp, a.h + 5, 0.6, rp[2]); } return; }
     // 1) tarče: vid/elektro/eho/kri
-    var cands = g.fish; if (pr.huntsSharks) { cands = g.fish.concat(g.npcs.filter(function (o) { return o.alive && SP[o.sp].kind === 'shark' && o !== a && o.pk !== a.pk; })); }
+    var cands = g.fish; if (pr.huntsSharks) { cands = g.fish.concat(g.npcs.filter(function (o) { return o.alive && (SP[o.sp].kind === 'shark' || (pr.huntsNpc && pr.huntsNpc.indexOf(o.sp) >= 0)) && o !== a && o.pk !== a.pk; })); }
     var prey = detectPrey(g, a, sp, cands);
     if (!prey && a.pk) { for (i = 0; i < g.npcs.length; i++) { var m = g.npcs[i]; if (m !== a && m.alive && m.pk === a.pk && m.st === 'hunt' && m.tg) { var t = findTarget(g, m.tg); if (t && t.o.alive && dist3(a, t.o) < 120) { prey = t.o; break; } } } }
     if (prey) {
-      a.st = 'hunt'; a.tg = prey.id; a.tm = 40; var dd = dist3(a, prey);
+      var dd = dist3(a, prey);
+      // ritual: pred napadom morski pes kroži okoli plena (6 s), riba to čuti
+      if (!prey.sp && a.circ === undefined && dd < 28 && dd > reach(sp.size) + 4 && a.sprint <= 0) { a.circ = 24; }
+      if (a.circ > 0) { a.circ--; a.st = 'circle'; a.tg = prey.id; var cb = bearing(a.x, a.z, prey.x, prey.z); moveNpc(g, a, sp, cb + 75, sp.speed * 1.1, prey.d + 2, { turn: 90 }); if (a.circ % 8 === 0 && !prey.sp) ev(prey, 'circled:' + a.sp, 'a ' + a.sp + ' is circling you at ' + Math.round(dd) + ' m'); return; }
+      if (a.circ === 0) a.circ = -1;
+      if (a.tg === prey.id) { a.chase = (a.chase || 0) + 1; if (a.chase > 240) { a.ban = { id: prey.id, until: g.tick + 600 }; a.chase = 0; a.tg = null; a.st = 'patrol'; return; } } else a.chase = 0;
+      a.st = 'hunt'; a.tg = prey.id; a.tm = 40;
       var tx = prey.x, tz = prey.z; if (a.pk && dd > 15) { var idx = g.npcs.filter(function (o) { return o.pk === a.pk; }).indexOf(a), off = (idx - 1) * 70, b0 = bearing(prey.x, prey.z, a.x, a.z) + off; tx = prey.x + Math.sin(b0 * D2R) * 10; tz = prey.z - Math.cos(b0 * D2R) * 10; }
       if (dd < 30 && a.sprint <= 0 && a.tired <= 0) a.sprint = sp.sprintT;
       var spd = a.sprint > 0 ? sp.sprint : (a.tired > 0 ? sp.speed * 0.5 : sp.speed * 1.15);
@@ -866,6 +881,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
       return;
     }
     if (a.st === 'hunt' && a.tm > 0 && a.tg) { var lt = findTarget(g, a.tg); if (lt && lt.o.alive) { moveNpc(g, a, sp, bearing(a.x, a.z, lt.o.x, lt.o.z), sp.speed, lt.o.d); return; } }
+    if (a.circ !== undefined && a.tm <= 0) delete a.circ;
     // 2) vonj (mrhovina) → investigate
     if (sp.scavenge || pr.smell) {
       var bk = null, bq = 1e9; for (i = 0; i < g.carrion.length; i++) { var k = g.carrion[i]; var q = dist3(a, k); var rng = (pr.smell || 100) * (k.sz > 15 ? 2.5 : 1); if (q < rng && q < bq && floorAt(k.x, k.z) >= (sp.shallowOK || 20)) { bq = q; bk = k; } }
@@ -879,9 +895,58 @@ var OC = globalThis.OC || (globalThis.OC = {});
     moveNpc(g, a, sp, bearing(a.x, a.z, wp[0], wp[1]) + (rnd(g) - 0.5) * 10, sp.speed * (a.tired > 0 ? 0.6 : 1), wp[2] + Math.sin(g.tick * 0.01 + a.id.length) * 5);
   }
   function stepPasser(g, a, sp) {
-    if (a.sp === 'whale') { moveNpc(g, a, sp, 90, sp.speed, 18, { turn: 20 }); if (a.x > OC.W - 5) { a.alive = false; a.rt = 0; } return; }
+    if (a.sp === 'whale' || a.sp === 'whale calf') return stepWhale(g, a, sp);
     var bp = null, bd = 1e9; g.plankton.forEach(function (p) { var q = dist3(a, p); if (p.amt > 20 && q < bd) { bd = q; bp = p; } });
     if (bp && bd > 6) moveNpc(g, a, sp, bearing(a.x, a.z, bp.x, bp.z), sp.speed, bp.d, { turn: 30 }); else { if (bp) bp.amt = Math.max(0, bp.amt - 0.05); moveNpc(g, a, sp, a.h + 6, sp.speed * 0.7, a.d, { turn: 30 }); }
+  }
+  // ── kit (grbavec) z mladičem: krožna pot, potop po kril (jarek), dih na gladini, nočna pesem, obramba pred orkami ──
+  function whaleEvent(g, a, txt, key, range) { for (var i = 0; i < g.fish.length; i++) { var f = g.fish[i]; if (f.alive && dist3(f, a) < range) ev(f, key, txt); } }
+  function stepWhale(g, a, sp) {
+    var i, pr; if (a.wst === undefined) { a.wst = 'cruise'; a.wt = 0; a.breath = 0; a.wp = 0; a.song = 0; }
+    a.wt++; a.breath++;
+    if (a.sp === 'whale calf') { // mladič: sledi materi, diha, ko diha ona
+      var mom = null; for (i = 0; i < g.npcs.length; i++) if (g.npcs[i].sp === 'whale' && g.npcs[i].alive) { mom = g.npcs[i]; break; }
+      if (!mom) { moveNpc(g, a, sp, a.h + 3, sp.speed * 0.8, 12, { turn: 30 }); return; }
+      var ang = mom.h + 150, lx = mom.x + Math.sin(ang * D2R) * 9, lz = mom.z - Math.cos(ang * D2R) * 9, ld = distH(a, { x: lx, z: lz });
+      var wantD = mom.wst === 'surface' ? 0.6 : Math.min(mom.d + 2, 40);
+      moveNpc(g, a, sp, ld > 3 ? bearing(a.x, a.z, lx, lz) : mom.h, ld > 25 ? sp.sprint : (ld > 6 ? mom.spd * 1.2 : mom.spd), wantD, { turn: 40 });
+      a.st = mom.wst === 'feed' ? 'waits above' : mom.st; return;
+    }
+    // orke v bližini mladiča → mati se postavi med orke in mladiča, udari z repom
+    var calf = null, orca = null, od = 1e9; for (i = 0; i < g.npcs.length; i++) { var o = g.npcs[i]; if (!o.alive) continue; if (o.sp === 'whale calf') calf = o; if (o.sp === 'orca') { var q = dist3(o, calf || a); if (q < od) { od = q; orca = o; } } }
+    if (orca && od < 60) {
+      a.wst = 'defend'; a.wt = 0; a.st = 'defends calf';
+      var tx = calf ? (calf.x + orca.x) / 2 : orca.x, tz = calf ? (calf.z + orca.z) / 2 : orca.z, dd = dist3(a, orca);
+      if (dd < reach(sp.size) + 6 && a.cool <= 0) { orca.hp -= 140; orca.bleed = 60; orca.st = 'flee'; orca.tm = 50; orca.sat = 80; a.cool = 24; addFeed(g, 'the whale slams an orca with its tail'); whaleEvent(g, a, 'a thunderous tail slap shakes the water', 'whale:slap', 200); if (orca.hp <= 0) { npcDie(g, orca, a); addFeed(g, 'the orca was killed by the whale'); } }
+      else moveNpc(g, a, sp, bearing(a.x, a.z, tx, tz), sp.sprint, orca.d, { turn: 60 });
+      if (a.cool > 0) a.cool--; return;
+    }
+    if (a.cool > 0) a.cool--;
+    var night = isNight(g);
+    // dih: vsakih ~110 s (po potopu prej)
+    if (a.wst !== 'surface' && a.wst !== 'feed' && a.breath > 440) { a.wst = 'surface'; a.wt = 0; }
+    if (a.wst === 'surface') {
+      a.st = 'surfacing'; moveNpc(g, a, sp, a.h + 2, sp.speed * 0.8, 0.6, { turn: 30 });
+      if (a.d < 1.5 && a.wt > 20) { a.breath = 0; a.wst = 'cruise'; a.wt = 0; a.blow = g.tick; addFeed(g, 'the whale blows at the surface'); whaleEvent(g, a, 'a whale blows at the surface nearby', 'whale:blow', 160); if (rnd(g) < 0.35) { a.breach = g.tick; addFeed(g, 'the whale breaches!'); } }
+      return;
+    }
+    // hranjenje: potop v jarek, ko je kril blizu poti (ne ponoči, ko kril pride gor — takrat je na površju)
+    if (a.wst === 'cruise' && a.breath > 40 && a.breath < 200 && rnd(g) < 0.008) { var best = null, bd = 1e9; for (i = 0; i < g.npcs.length; i++) { var k = g.npcs[i]; if (k.alive && k.sp === 'krill' && k.n > 200) { var q2 = distH(a, k); if (q2 < bd) { bd = q2; best = k; } } } if (best) { a.wst = 'feed'; a.wt = 0; a.tg = best.id; } }
+    if (a.wst === 'feed') {
+      var kt = findTarget(g, a.tg); a.st = 'lunge-feeding';
+      if (!kt || !kt.o.alive || kt.o.n <= 50 || a.wt > 360 || a.breath > 600) { a.wst = 'surface'; a.wt = 0; a.tg = null; return; }
+      var kd = dist3(a, kt.o);
+      if (kd < 12) { kt.o.n = Math.max(0, kt.o.n - 6); a.lunge = g.tick; moveNpc(g, a, sp, a.h + 25, sp.speed * 0.6, kt.o.d, { turn: 60 }); }
+      else moveNpc(g, a, sp, bearing(a.x, a.z, kt.o.x, kt.o.z), sp.speed, kt.o.d, { turn: 30 });
+      return;
+    }
+    // pesem (noč): vsakih ~2.5 min, slišijo ribe do 400 m
+    if (night && g.tick - a.song > 600 && rnd(g) < 0.01) { a.song = g.tick; addFeed(g, 'a whale is singing'); whaleEvent(g, a, 'a long, low whale song rolls through the water', 'whale:song', 400); }
+    a.st = (night && g.tick - a.song < 120) ? 'singing' : 'cruise';
+    var wps = sp.waypoints, wp = wps[a.wp % wps.length];
+    if (distH(a, { x: wp[0], z: wp[1] }) < 25) { a.wp = (a.wp + 1) % wps.length; wp = wps[a.wp]; }
+    var cruiseD = (wp[2] > 60) ? 30 : wp[2];
+    moveNpc(g, a, sp, bearing(a.x, a.z, wp[0], wp[1]), sp.speed * (night ? 0.7 : 1), cruiseD + Math.sin(g.tick * 0.02) * 4, { turn: 18 });
   }
   function stepDrift(g, a, sp) { var cur = OC.currentAt(a.x, a.z, a.d); a.x = clamp(a.x + cur.x * DT * 0.6 + (rnd(g) - 0.5) * 0.05, 3, OC.W - 3); a.z = clamp(a.z + cur.z * DT * 0.6 + (rnd(g) - 0.5) * 0.05, 3, OC.L - 3); a.spd = 0.1; a.d = clamp(a.d, sp.habitat.d0, Math.min(sp.habitat.d1, floorAt(a.x, a.z) - 1)); }
 
@@ -912,12 +977,12 @@ var OC = globalThis.OC || (globalThis.OC = {});
     for (i = g.carrion.length - 1; i >= 0; i--) { var k = g.carrion[i]; k.age++; var fl = floorAt(k.x, k.z); if (k.d < fl - 0.8) k.d = Math.min(fl - 0.8, k.d + 0.3 * DT); if (k.en <= 0 || k.age > (k.sz > 15 ? 9000 : 1400)) g.carrion.splice(i, 1); }
     // dogodki
     if (g.tick === OC.WHALE_FALL.t) { var wf = OC.WHALE_FALL; g.carrion.push({ id: 'k' + (g.nextK++), x: wf.x, z: wf.z, d: 30, sz: 25, en: 3000, age: 0, of: 'whale' }); addFeed(g, 'a dead whale is sinking into the trench'); }
-    if (g.tick === OC.ORCA_EVENT.t0) { for (i = 0; i < 2; i++) mkNpc(g, 'orca', i, { x: 5, z: 380 + i * 12, d: 22 }); addFeed(g, 'a pod of orcas has entered the arena'); }
+    if (g.tick === OC.ORCA_EVENT.t0) { for (i = 0; i < 2; i++) mkNpc(g, 'orca', i, { x: 70, z: 380 + i * 12, d: 22 }); addFeed(g, 'a pod of orcas has entered the arena'); }
     if (g.tick === OC.ORCA_EVENT.t1) { g.npcs.forEach(function (o) { if (o.sp === 'orca') { o.alive = false; o.rt = 0; } }); addFeed(g, 'the orcas have moved on'); }
   }
 
   OC.stepOnce = function (g) {
-    g.tick++;
+    g.tick++; OC._tide = OC.tideAt(tSec(g));
     if (g.tick === C.FAMINE_TICK) { g.famine = true; addFeed(g, 'the sea is growing empty: nothing new is spawning'); }
     for (var i = 0; i < g.fish.length; i++) if (g.fish[i].alive) stepFish(g, g.fish[i]);
     stepNpcs(g);
@@ -949,10 +1014,10 @@ var OC = globalThis.OC || (globalThis.OC = {});
   OC.snapshot = function (g, nowMs) {
     var ts = tSec(g);
     return {
-      v: 5, gen: g.gen, status: g.status, tick: g.tick, t: Math.round(ts), timeLeft: Math.max(0, Math.round((C.MAX_TICKS - g.tick) * DT)), phase: OC.phaseName(ts), light: Math.round(OC.dayLight(ts) * 100) / 100, famine: g.famine,
+      v: 5, gen: g.gen, status: g.status, tick: g.tick, t: Math.round(ts), timeLeft: Math.max(0, Math.round((C.MAX_TICKS - g.tick) * DT)), phase: OC.phaseName(ts), light: Math.round(OC.dayLight(ts) * 100) / 100, famine: g.famine, tide: Math.round(OC.tideAt(ts) * 100) / 100,
       lobbyIn: g.status === 'lobby' && g.lobbyUntilMs ? Math.max(0, Math.round((g.lobbyUntilMs - nowMs) / 1000)) : null, lobbyArmed: !!g.lobbyUntilMs,
       fish: g.fish.map(function (f) { return { id: f.id, n: f.n, model: f.model, color: f.color, x: r1(f.x), z: r1(f.z), d: r1(f.d), h: Math.round(f.h), p: Math.round(f.p), spd: r1(f.spd), sz: r1(f.sz), hp: Math.round(f.hp), hpMax: hpMax(f.sz), en: Math.round(f.en), enMax: enMax(f.sz), st: Math.round(f.st), alive: f.alive, hid: f.hid, bleed: f.bleed > 0, poison: f.poison > 0, ink: f.ink > 0, kills: f.kills, npcKills: f.npcKills, ate: Math.round(f.ate), act: f.cmd.act, speed: f.cmd.speed, target: f.cmd.target, why: f.why, cmdN: f.cmdN, suspect: f.suspect, cheat: f.cheat, cause: f.cause, idle: Math.round((g.tick - f.lastCmdTick) * DT), score: scoreOf(g, f), meN: f.meN, lastCmdMs: f.lastCmdMs, recent: f.whyLog.slice(-6).map(function (w) { return { t: w.t, ms: w.ms, act: w.act, why: w.why }; }) }; }),
-      npcs: g.npcs.filter(function (a) { return a.alive; }).map(function (a) { var o = { id: a.id, sp: a.sp, x: r1(a.x), z: r1(a.z), d: r1(a.d), h: Math.round(a.h), spd: r1(a.spd), st: a.st }; if (a.n !== undefined) o.n = a.n; if (a.tg) o.tg = a.tg; if (a.bleed > 0) o.bl = 1; if (a.hp !== undefined && SP[a.sp].kind === 'shark') o.hp = Math.round(a.hp); return o; }),
+      npcs: g.npcs.filter(function (a) { return a.alive; }).map(function (a) { var o = { id: a.id, sp: a.sp, x: r1(a.x), z: r1(a.z), d: r1(a.d), h: Math.round(a.h), spd: r1(a.spd), st: a.st }; if (a.n !== undefined) o.n = a.n; if (a.tg) o.tg = a.tg; if (a.bleed > 0) o.bl = 1; if (a.hp !== undefined && SP[a.sp].kind === 'shark') o.hp = Math.round(a.hp); if (a.sp === 'whale') { if (a.blow && g.tick - a.blow < 40) o.blow = 1; if (a.breach && g.tick - a.breach < 40) o.breach = 1; if (a.lunge && g.tick - a.lunge < 8) o.lunge = 1; } return o; }),
       plankton: g.plankton.map(function (p) { return { id: p.id, x: r1(p.x), z: r1(p.z), d: r1(p.d), r: p.r, amt: Math.round(p.amt) }; }),
       blooms: g.blooms.map(function (j) { return { id: j.id, x: r1(j.x), z: r1(j.z), d: r1(j.d), r: j.r, n: j.n }; }),
       carrion: g.carrion.map(function (k) { return { id: k.id, x: r1(k.x), z: r1(k.z), d: r1(k.d), sz: r1(k.sz), en: Math.round(k.en) }; }),
@@ -961,8 +1026,456 @@ var OC = globalThis.OC || (globalThis.OC = {});
   };
 })(OC);
 </script>
-<script>var OCEAN_BUILT = "2026-11-21 21:49";
-// OCEAN ARENA v5 — 3D spectator viewer (three.js r128, bundled). Live data from /state or local demo.
+<script>// OCEAN ARENA v5 — proceduralna telesa živali + animacija plavanja v vertex shaderju.
+// Vsaka žival = ENA zlita geometrija (telo + plavuti, barve po ogliščih: protisenčenje, vzorci) + lasten material z uniformami.
+// Lokalni koordinatni sistem: +z = naprej (gobec), +y = gor, +x = desno. Dolžine v metrih (realistične).
+var CR = (function () {
+  var T = THREE;
+  var _V = new T.Vector3(), _M = new T.Matrix4(), LOD = false;
+
+  // ── Shader za plavanje ───────────────────────────────────────────────────
+  // uMode: 0 bočno valovanje (ribe, morski psi, jegulje), 1 navpično (kiti, delfini, tjulnji), 2 zamah kril (skati),
+  //        3 utrip zvona (meduze), 4 valovanje lovk (glavonožci), 5 nič
+  var SWIM_PARS = [
+    'uniform float uTime, uAmp, uFreq, uLen, uMode, uPhase, uBend;',
+    '#ifdef USE_INSTANCING', 'attribute float aPhase;', '#else', 'const float aPhase = 0.0;', '#endif'
+  ].join('\n');
+  var SWIM_BODY = [
+    'float t_ = clamp(0.5 - transformed.z / uLen, 0.0, 1.0);',
+    'float ph_ = uTime * uFreq + uPhase + aPhase;',
+    'if (uMode < 0.5) { float w = t_ * t_; transformed.x += uAmp * uLen * w * sin(ph_ - t_ * 3.2) + uBend * uLen * w; }',
+    'else if (uMode < 1.5) { float w = t_ * t_; transformed.y += uAmp * uLen * w * sin(ph_ - t_ * 2.6); transformed.x += uBend * uLen * w; }',
+    'else if (uMode < 2.5) { float wx = abs(transformed.x) / (uLen * 0.5); transformed.y += uAmp * uLen * wx * wx * sin(ph_ - wx * 1.6); }',
+    'else if (uMode < 3.5) { float s = 1.0 + 0.14 * sin(ph_); if (transformed.y > -0.05 * uLen) { transformed.x *= s; transformed.z *= s; transformed.y *= (2.0 - s); } else { float k = -transformed.y / uLen; transformed.x += 0.08 * uLen * k * sin(ph_ * 0.6 + k * 4.0); transformed.z += 0.08 * uLen * k * cos(ph_ * 0.5 + k * 3.0); } }',
+    'else if (uMode < 4.5) { if (t_ > 0.5) { float k = (t_ - 0.5) * 2.0; transformed.x += uAmp * uLen * k * k * sin(ph_ + transformed.x * 3.0 - k * 5.0); transformed.y += uAmp * uLen * k * k * cos(ph_ * 0.8 + transformed.y * 3.0 - k * 4.0); } }'
+  ].join('\n');
+  function swimMaterial(opts) {
+    opts = opts || {};
+    var m = new T.MeshPhongMaterial({ vertexColors: true, shininess: opts.shininess !== undefined ? opts.shininess : 30, specular: new T.Color(opts.specular || 0x334455), side: T.DoubleSide, transparent: !!opts.transparent, opacity: opts.opacity !== undefined ? opts.opacity : 1, depthWrite: opts.depthWrite !== false });
+    var u = { uTime: { value: 0 }, uAmp: { value: 0.05 }, uFreq: { value: 4 }, uLen: { value: opts.len || 1 }, uMode: { value: opts.mode || 0 }, uPhase: { value: Math.random() * 6.28 }, uBend: { value: 0 } };
+    m.userData.u = u;
+    m.onBeforeCompile = function (sh) { for (var k in u) sh.uniforms[k] = u[k]; sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + SWIM_PARS).replace('#include <begin_vertex>', '#include <begin_vertex>\n' + SWIM_BODY); };
+    m.customProgramCacheKey = function () { return 'swim-v1'; };
+    return m;
+  }
+
+  // ── Geometrijske osnove ──────────────────────────────────────────────────
+  // Telo: obroči vzdolž z; prof(t) -> {rx, ry, dy} (polosi preseka in navpični zamik), col(t, ang) -> [r,g,b]  (ang: 0 = hrbet, PI = trebuh)
+  function tube(len, n, m, prof, col) {
+    if (LOD) { n = Math.max(6, Math.round(n * 0.45)); m = Math.max(5, Math.round(m * 0.5)); }
+    var pos = [], nor = [], colr = [], idx = [], i, j;
+    for (i = 0; i <= n; i++) {
+      var t = i / n, p = prof(t), z = len * (0.5 - t), cl = Math.min(1, Math.sqrt(t / 0.03), Math.sqrt((1 - t) / 0.03)); p = { rx: p.rx * cl, ry: p.ry * cl, dy: p.dy };
+      for (j = 0; j <= m; j++) {
+        var a = j / m * Math.PI * 2, sx = Math.sin(a), cy = Math.cos(a);
+        pos.push(sx * p.rx, cy * p.ry + (p.dy || 0), z); nor.push(sx * (p.ry || 0.01), cy * (p.rx || 0.01), 0);
+        var ang = Math.acos(Math.max(-1, Math.min(1, cy))), c = col(t, ang, sx); colr.push(c[0], c[1], c[2]);
+      }
+    }
+    for (i = 0; i < n; i++) for (j = 0; j < m; j++) { var a0 = i * (m + 1) + j, b0 = a0 + m + 1; idx.push(a0, b0, a0 + 1, a0 + 1, b0, b0 + 1); }
+    var g = new T.BufferGeometry();
+    g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(nor, 3)); g.setAttribute('color', new T.Float32BufferAttribute(colr, 3)); g.setIndex(idx);
+    g.computeVertexNormals(); return g;
+  }
+  // Plavut: ploski lik iz 2D točk v ravnini (u,v); plane: 'xz' (vodoravno, npr. prsne), 'yz' (navpično, hrbtna/repna)
+  function fin(pts, color, plane, mat) {
+    var sh = new T.Shape(); sh.moveTo(pts[0][0], pts[0][1]); for (var i = 1; i < pts.length; i++) sh.lineTo(pts[i][0], pts[i][1]); sh.closePath();
+    var g = new T.ShapeGeometry(sh, 3); // v ravnini xy: x=u, y=v
+    if (plane === 'yz') g.rotateY(-Math.PI / 2); // (u,v,0) -> (0,v,u): u = z (naprej), v = y
+    if (plane === 'xz') g.rotateX(-Math.PI / 2); // u = x, v -> -z ; želimo v = z
+    if (plane === 'xz') g.scale(1, 1, -1);
+    paint(g, color); if (mat) g.applyMatrix4(mat); return g;
+  }
+  function paint(g, color) { var c = new T.Color(color), n = g.attributes.position.count, arr = new Float32Array(n * 3); for (var i = 0; i < n; i++) { arr[i * 3] = c.r; arr[i * 3 + 1] = c.g; arr[i * 3 + 2] = c.b; } g.setAttribute('color', new T.BufferAttribute(arr, 3)); return g; }
+  function merge(list) { // vse v ne-indeksirano in zlij (position, normal, color)
+    var P = [], N = [], C = [];
+    list.forEach(function (g) { if (!g) return; var q = g.index ? g.toNonIndexed() : g; if (!q.attributes.normal) q.computeVertexNormals(); if (!q.attributes.color) paint(q, 0x888888); var p = q.attributes.position.array, n = q.attributes.normal.array, c = q.attributes.color.array; for (var i = 0; i < p.length; i++) { P.push(p[i]); N.push(n[i]); C.push(c[i]); } });
+    var g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(N, 3)); g.setAttribute('color', new T.Float32BufferAttribute(C, 3)); return g;
+  }
+  function mat4(x, y, z, rx, ry, rz, s) { var m = new T.Matrix4(); m.compose(new T.Vector3(x || 0, y || 0, z || 0), new T.Quaternion().setFromEuler(new T.Euler(rx || 0, ry || 0, rz || 0)), new T.Vector3(s || 1, s || 1, s || 1)); return m; }
+  function sphere(r, color, x, y, z, sx, sy, sz) { var g = new T.SphereGeometry(r, 10, 8); g.scale(sx || 1, sy || 1, sz || 1); g.translate(x || 0, y || 0, z || 0); return paint(g, color); }
+  function sphereLo(r, color, x, y, z) { var g = new T.SphereGeometry(r, 7, 5); g.translate(x || 0, y || 0, z || 0); return paint(g, color); }
+  function eye(len, x, y, z, r) { if (LOD) return []; r = r || len * 0.03; var w = sphereLo(r, 0xe8e8e8, x, y, z), p = sphereLo(r * 0.6, 0x050505, x + (x > 0 ? r * 0.55 : -r * 0.55), y, z + r * 0.3); return [w, p]; }
+  function on(prof, L, t, fx, fy) { var p = prof(t); return { x: p.rx * (fx === undefined ? 0.92 : fx), y: p.ry * (fy === undefined ? 0.3 : fy) + (p.dy || 0), z: L * (0.5 - t) }; }
+  function eyes(prof, L, t, r, fy) { var e = on(prof, L, t, 0.9, fy); return eye(L, e.x, e.y, e.z, r).concat(eye(L, -e.x, e.y, e.z, r)); }
+  function mix(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+  function rgb(hex) { var c = new T.Color(hex); return [c.r, c.g, c.b]; }
+  // protisenčenje: hrbet temen, bok, trebuh svetel + opcijski vzorec
+  function shade(dorsal, ventral, pattern) { var D = rgb(dorsal), Vv = rgb(ventral); return function (t, ang, sx) { var k = Math.pow(ang / Math.PI, 1.6), c = mix(D, Vv, k); if (pattern) c = pattern(c, t, ang, sx) || c; return c; }; }
+  function stripes(color, n, width, only) { var S = rgb(color); return function (c, t, ang) { if (only === 'top' && ang > 1.9) return c; var v = Math.sin(t * n * Math.PI * 2); return v > 1 - width ? mix(c, S, 0.8) : c; }; }
+  function spots(color, dens, seed) { var S = rgb(color); return function (c, t, ang, sx) { var h = Math.sin(t * 73.1 * dens + ang * 41.7 + seed) * Math.cos(t * 19.3 - ang * 23.1); return h > 0.75 ? mix(c, S, 0.85) : c; }; }
+
+  // ── Profili teles ────────────────────────────────────────────────────────
+  // t: 0 gobec … 1 rep. Vrne rx, ry (polosi), dy (zamik gor/dol)
+  function rel(prof, L) { return function (t) { var p = prof(t); return { rx: p.rx * L, ry: p.ry * L, dy: (p.dy || 0) * L }; }; }
+  function fusiform(h, w, bluntNose) { return function (t) { var a = Math.sin(Math.pow(t, bluntNose ? 0.55 : 0.75) * Math.PI); var tail = t > 0.82 ? 0.25 + 0.75 * (1 - (t - 0.82) / 0.18) : 1; var r = Math.max(0.004, a * tail); return { rx: r * w, ry: r * h, dy: 0 }; }; }
+  function sharkProf(t) { var a = Math.sin(Math.pow(t, 0.62) * Math.PI); var tail = t > 0.78 ? 0.22 + 0.78 * (1 - (t - 0.78) / 0.22) : 1; var r = Math.max(0.004, a * tail); if (t < 0.12) r *= 0.75 + 2 * t; return { rx: r * 0.085, ry: r * 0.095, dy: -r * 0.01 }; }
+  function whaleProf(t) { var a = Math.sin(Math.pow(t, 0.5) * Math.PI); var tail = t > 0.7 ? 0.2 + 0.8 * (1 - (t - 0.7) / 0.3) : 1; var r = Math.max(0.004, a * tail); if (t < 0.25) r = Math.max(r, 0.55 + 0.4 * t); return { rx: r * 0.11, ry: r * 0.125, dy: t < 0.35 ? -r * 0.02 : r * 0.01 }; }
+  function dolphinProf(t) { var a = Math.sin(Math.pow(t, 0.6) * Math.PI); var tail = t > 0.8 ? 0.2 + 0.8 * (1 - (t - 0.8) / 0.2) : 1; var r = Math.max(0.004, a * tail); if (t < 0.08) r *= 0.35 + 7 * t; return { rx: r * 0.085, ry: r * 0.09, dy: 0 }; }
+  function eelProf(t) { var r = t < 0.06 ? t / 0.06 : t > 0.75 ? (1 - t) / 0.25 : 1; r = Math.max(0.004, Math.pow(r, 0.5)); return { rx: r * 0.028, ry: r * 0.036, dy: 0 }; }
+  function roundProf(t) { var a = Math.sin(Math.pow(t, 0.9) * Math.PI); var tail = t > 0.85 ? 0.3 + 0.7 * (1 - (t - 0.85) / 0.15) : 1; var r = Math.max(0.004, a * tail); return { rx: r * 0.32, ry: r * 0.34, dy: 0 }; }
+  function tallProf(t) { var a = Math.sin(Math.pow(t, 0.7) * Math.PI); var r = Math.max(0.004, a); return { rx: r * 0.07, ry: r * 0.45, dy: 0 }; }
+
+  // ── Plavuti (standardni kompleti) ────────────────────────────────────────
+  function caudalForked(L, c, deep) { var k = deep ? 0.26 : 0.18; return fin([[-L * 0.48, 0], [-L * 0.5 - L * k, L * k * 1.1], [-L * 0.5 - L * k * 0.55, 0], [-L * 0.5 - L * k, -L * k * 1.1]], c, 'yz'); }
+  function caudalRound(L, c) { return fin([[-L * 0.48, 0.02 * L], [-L * 0.56, 0.1 * L], [-L * 0.64, 0.06 * L], [-L * 0.66, 0], [-L * 0.64, -0.06 * L], [-L * 0.56, -0.1 * L], [-L * 0.48, -0.02 * L]], c, 'yz'); }
+  function caudalShark(L, c) { return fin([[-L * 0.47, 0.01 * L], [-L * 0.56, 0.11 * L], [-L * 0.68, 0.2 * L], [-L * 0.7, 0.17 * L], [-L * 0.6, 0.02 * L], [-L * 0.64, -0.06 * L], [-L * 0.58, -0.07 * L], [-L * 0.5, -0.01 * L]], c, 'yz'); }
+  function flukes(L, c, wide) { var w = (wide ? 0.17 : 0.13) * L; return fin([[-w, -L * 0.5 - 0.06 * L], [-w * 0.2, -L * 0.48], [w * 0.2, -L * 0.48], [w, -L * 0.5 - 0.06 * L], [w * 0.6, -L * 0.5 - 0.075 * L], [0, -L * 0.5 - 0.045 * L], [-w * 0.6, -L * 0.5 - 0.075 * L]], c, 'xz'); }
+  function dorsal(L, c, z0, h, w, swept) { return fin([[z0, 0], [z0 - (swept ? L * 0.02 : 0) + w * 0.2, h], [z0 - w * 0.8, h * 0.35], [z0 - w, 0]], c, 'yz', mat4(0, L * 0.07, 0)); }
+  function pectoral(L, c, z0, len, w, y, up) { var l = fin([[0, 0], [len * 0.55, -len * 0.35], [len, -len * 0.65], [len * 0.8, -len * 0.75], [len * 0.25, -len * 0.35]], c, 'xz', mat4(w, y, z0, up || 0, 0, -0.35)), r = fin([[0, 0], [-len * 0.55, -len * 0.35], [-len, -len * 0.65], [-len * 0.8, -len * 0.75], [-len * 0.25, -len * 0.35]], c, 'xz', mat4(-w, y, z0, up || 0, 0, 0.35)); return [l, r]; }
+  function anal(L, c, z0, h, w) { return fin([[z0, 0], [z0 - w * 0.3, -h], [z0 - w, -h * 0.3], [z0 - w, 0]], c, 'yz', mat4(0, -L * 0.05, 0)); }
+
+  // ── Graditelji ───────────────────────────────────────────────────────────
+  function build(name, L, opts) {
+    opts = opts || {}; LOD = !!opts.lod; var parts = [], g, i, c = opts.colors || {}, D = c.dorsal || 0x3a5a7a, Vt = c.ventral || 0xcfd8dc, F = c.fin || D, mode = 0, shin = 30, spec = 0x334455;
+    var pat = opts.pattern || null, col = shade(D, Vt, pat);
+    switch (opts.shape) {
+      case 'shark': {
+        parts.push(tube(L, 28, 16, rel(sharkProf, L), col)); parts.push(caudalShark(L, F));
+        parts.push(dorsal(L, F, L * 0.05, L * 0.16, L * 0.16, true)); parts.push(dorsal(L, F, -L * 0.3, L * 0.05, L * 0.06, true));
+        parts.push.apply(parts, pectoral(L, F, L * 0.15, L * 0.22, L * 0.06, -L * 0.02, 0.15)); parts.push(anal(L, F, -L * 0.3, L * 0.04, L * 0.05));
+        if (opts.hammer) { var hm = tube(L * 0.08, 4, 10, function (t) { return { rx: L * 0.21 * Math.sin(t * Math.PI) + 0.01, ry: L * 0.022, dy: 0 }; }, col); hm.rotateY(Math.PI / 2); hm.translate(0, 0, L * 0.47); parts.push(hm); parts.push.apply(parts, eye(L, L * 0.2, 0, L * 0.47, L * 0.014)); parts.push.apply(parts, eye(L, -L * 0.2, 0, L * 0.47, L * 0.014)); }
+        else parts.push.apply(parts, eyes(rel(sharkProf, L), L, 0.13, L * 0.012, 0.35));
+        // škrge
+        for (i = 0; i < 5; i++) { var gp = on(rel(sharkProf, L), L, 0.28 + i * 0.02, 1.01, 0), gl = fin([[0, 0], [0.01 * L, 0.04 * L], [0.012 * L, 0.04 * L], [0.004 * L, 0]], 0x222a33, 'yz', mat4(gp.x, gp.y - L * 0.01, gp.z)); parts.push(gl); var gr = gl.clone(); gr.translate(-2 * gp.x, 0, 0); parts.push(gr); }
+        var mp = on(rel(sharkProf, L), L, 0.1, 0, -0.95), mouth = fin([[-L * 0.03, 0], [0, L * 0.06], [L * 0.03, 0]], 0x1a0f10, 'xz', mat4(0, mp.y, mp.z - L * 0.03)); parts.push(mouth);
+        break;
+      }
+      case 'orca': case 'dolphin': case 'seal': {
+        mode = 1; var isOrca = opts.shape === 'orca';
+        parts.push(tube(L, 28, 16, rel(dolphinProf, L), col)); parts.push(flukes(L, F, isOrca));
+        parts.push(dorsal(L, F, L * 0.02, isOrca ? L * 0.2 : L * 0.08, isOrca ? L * 0.14 : L * 0.09, !isOrca));
+        parts.push.apply(parts, pectoral(L, F, L * 0.2, isOrca ? L * 0.16 : L * 0.12, L * 0.06, -L * 0.03, 0.3));
+        parts.push.apply(parts, eyes(rel(dolphinProf, L), L, 0.14, L * 0.011, 0.25));
+        if (isOrca) { var ep = on(rel(dolphinProf, L), L, 0.17, 0.95, 0.45), sp6 = on(rel(dolphinProf, L), L, 0.62, 0, 0.98); parts.push(sphere(L * 0.03, 0xf4f4f4, ep.x, ep.y, ep.z, 1.6, 0.9, 1.1)); parts.push(sphere(L * 0.03, 0xf4f4f4, -ep.x, ep.y, ep.z, 1.6, 0.9, 1.1)); parts.push(sphere(L * 0.06, 0xd8d8e0, 0, sp6.y, sp6.z, 1.2, 0.3, 1)); }
+        if (opts.shape === 'dolphin') { parts.push(tube(L * 0.1, 4, 8, function (t) { return { rx: L * 0.025 * (1 - t * 0.5), ry: L * 0.02 * (1 - t * 0.5), dy: -L * 0.01 }; }, col).translate(0, 0, L * 0.5)); }
+        break;
+      }
+      case 'whale': {
+        mode = 1; shin = 14; spec = 0x0e1216;
+        parts.push(tube(L, 36, 18, rel(whaleProf, L), function (t, ang, sx) { var cc = col(t, ang, sx); var mot = Math.sin(t * 57 + ang * 9) * Math.cos(t * 23 - ang * 5); if (mot > 0.55) cc = mix(cc, [0.45, 0.5, 0.52], 0.25); if (ang > 2.2 && t > 0.2 && t < 0.62) { var v = Math.sin(sx * 40); cc = v > 0.3 ? mix(cc, [0.55, 0.58, 0.6], 0.5) : cc; } return cc; }));
+        parts.push(flukes(L, F, true));
+        parts.push(dorsal(L, F, -L * 0.17, L * 0.035, L * 0.07, true)); // grba
+        // dolga prsna plavut grbavca (1/3 telesa)
+        var fl = fin([[0, 0], [L * 0.12, -L * 0.1], [L * 0.3, -L * 0.22], [L * 0.33, -L * 0.2], [L * 0.2, -L * 0.03]], 0xdfe6ea, 'xz', mat4(L * 0.09, -L * 0.05, L * 0.18, 0.1, 0, -0.5)); parts.push(fl);
+        var fr = fin([[0, 0], [-L * 0.12, -L * 0.1], [-L * 0.3, -L * 0.22], [-L * 0.33, -L * 0.2], [-L * 0.2, -L * 0.03]], 0xdfe6ea, 'xz', mat4(-L * 0.09, -L * 0.05, L * 0.18, 0.1, 0, 0.5)); parts.push(fr);
+        for (i = 0; i < 14; i++) { var kt = 0.03 + (i % 5) * 0.035, kp = on(rel(whaleProf, L), L, kt, 0, 0.98), kx = Math.sin(i * 2.3) * 0.5 * whaleProf(kt).rx; parts.push(sphere(L * 0.009, 0x2a3238, kx, kp.y - Math.abs(kx) * 0.5, kp.z)); }
+        parts.push.apply(parts, eyes(rel(whaleProf, L), L, 0.2, L * 0.008, -0.25));
+        var bh = on(rel(whaleProf, L), L, 0.32, 0, 0.98); parts.push(sphere(L * 0.012, 0x1a2228, 0, bh.y, bh.z, 1.4, 0.5, 1)); // dihalnica
+        break;
+      }
+      case 'eel': {
+        parts.push(tube(L, 40, 10, rel(eelProf, L), col));
+        parts.push(fin([[L * 0.2, 0], [L * 0.1, L * 0.03], [-L * 0.2, L * 0.035], [-L * 0.45, L * 0.03], [-L * 0.5, 0], [-L * 0.45, -L * 0.025], [-L * 0.2, -L * 0.03], [L * 0.05, -L * 0.02]], F, 'yz'));
+        parts.push.apply(parts, eyes(rel(eelProf, L), L, 0.05, L * 0.007, 0.3));
+        if (opts.mouth) parts.push(fin([[0, 0], [L * 0.07, -L * 0.03], [L * 0.0, -L * 0.012]], 0x200a0a, 'yz', mat4(0, -L * 0.01, L * 0.44)));
+        break;
+      }
+      case 'ray': {
+        mode = 2; var span = L, bodyL = L * 0.75;
+        var disc = new T.PlaneGeometry(span, bodyL, 22, 14); disc.rotateX(-Math.PI / 2); // v xz, y gor
+        var dp = disc.attributes.position, dc = new Float32Array(dp.count * 3), Dr = rgb(D), Vr = rgb(Vt);
+        for (i = 0; i < dp.count; i++) { var x = dp.getX(i), z = dp.getZ(i); var u = Math.abs(x) / (span / 2), v = z / (bodyL / 2); var zf = v > 0 ? 1 - v * v : 1 - Math.abs(v) * 0.6; var keep = Math.max(0, zf - u) ; var thick = Math.max(0, 0.06 * L * (1 - u) * (1 - Math.abs(v) * 0.5)); dp.setX(i, x * zf); dp.setY(i, thick); var cc = Dr; if (pat) cc = pat(Dr, 0.5 + v * 0.5, 0.3, x / span) || Dr; dc[i * 3] = cc[0]; dc[i * 3 + 1] = cc[1]; dc[i * 3 + 2] = cc[2]; }
+        disc.setAttribute('color', new T.BufferAttribute(dc, 3)); disc.computeVertexNormals(); parts.push(disc);
+        var under = disc.clone(); var up2 = under.attributes.position; for (i = 0; i < up2.count; i++) up2.setY(i, -up2.getY(i) * 0.6); paint(under, Vt); under.computeVertexNormals(); parts.push(under);
+        var tl = tube(L * 1.1, 6, 6, function (t) { var r = 0.012 * (1 - t); return { rx: r * L, ry: r * L, dy: 0 }; }, function () { return Dr; }); tl.translate(0, 0, -bodyL * 0.4 - L * 0.55); parts.push(tl);
+        if (opts.manta) { parts.push(tube(L * 0.1, 4, 6, function (t) { return { rx: L * 0.012, ry: L * 0.03, dy: 0 }; }, function () { return Dr; }).translate(L * 0.08, 0, bodyL * 0.5)); parts.push(tube(L * 0.1, 4, 6, function (t) { return { rx: L * 0.012, ry: L * 0.03, dy: 0 }; }, function () { return Dr; }).translate(-L * 0.08, 0, bodyL * 0.5)); }
+        parts.push.apply(parts, eye(L, L * 0.05, L * 0.03, bodyL * 0.35, L * 0.012)); parts.push.apply(parts, eye(L, -L * 0.05, L * 0.03, bodyL * 0.35, L * 0.012));
+        break;
+      }
+      case 'squid': {
+        mode = 4; shin = 60; spec = 0x8899aa;
+        var Sq = rgb(c.dorsal || 0xd9a8a0), Sw = rgb(c.ventral || 0xf2e2dc);
+        parts.push(tube(L * 0.55, 16, 12, function (t) { var r = t < 0.9 ? Math.sin(Math.pow(t, 0.6) * Math.PI * 0.5) : 1 - (t - 0.9) * 4; return { rx: Math.max(0.004, r) * L * 0.075, ry: Math.max(0.004, r) * L * 0.08, dy: 0 }; }, function (t, ang, sx) { var cc = mix(Sq, Sw, ang / Math.PI); var h = Math.sin(t * 60 + ang * 30) * Math.cos(t * 37 - ang * 17); return h > 0.6 ? mix(cc, [0.55, 0.2, 0.25], 0.7) : cc; }).translate(0, 0, L * 0.225));
+        parts.push(fin([[0, L * 0.5], [L * 0.11, L * 0.3], [L * 0.07, L * 0.1], [0, L * 0.1]], c.dorsal || 0xd9a8a0, 'xz'));
+        parts.push(fin([[0, L * 0.5], [-L * 0.11, L * 0.3], [-L * 0.07, L * 0.1], [0, L * 0.1]], c.dorsal || 0xd9a8a0, 'xz'));
+        parts.push(sphere(L * 0.07, 0xe8d8d0, 0, 0, -L * 0.07, 1.15, 1, 1.1));
+        parts.push.apply(parts, eye(L, L * 0.065, 0, -L * 0.06, L * 0.03)); parts.push.apply(parts, eye(L, -L * 0.065, 0, -L * 0.06, L * 0.03));
+        for (i = 0; i < 8; i++) { var aa = i / 8 * Math.PI * 2, ar = tube(L * 0.32, 10, 5, function (t) { var r = 0.016 * (1 - t * 0.8); return { rx: r * L, ry: r * L, dy: 0 }; }, function () { return Sq; }); ar.translate(0, 0, -L * 0.16); ar.applyMatrix4(mat4(Math.cos(aa) * L * 0.035, Math.sin(aa) * L * 0.035, -L * 0.1, Math.sin(aa) * 0.12, -Math.cos(aa) * 0.12, 0)); parts.push(ar); }
+        for (i = 0; i < 2; i++) { var tn = tube(L * 0.5, 8, 4, function (t) { var r = 0.01 * (t > 0.85 ? 2.2 : 1); return { rx: r * L, ry: r * L, dy: 0 }; }, function () { return Sw; }); tn.translate(0, 0, -L * 0.25); tn.applyMatrix4(mat4((i ? 1 : -1) * L * 0.02, 0, -L * 0.1)); parts.push(tn); }
+        break;
+      }
+      case 'octopus': {
+        mode = 4; shin = 15; var Oc = rgb(c.dorsal || 0xa8603a), Ow = rgb(c.ventral || 0xd8b090);
+        parts.push(tube(L * 0.4, 14, 12, function (t) { var r = Math.sin(Math.pow(t, 0.8) * Math.PI); return { rx: Math.max(0.004, r) * L * 0.14, ry: Math.max(0.004, r) * L * 0.15, dy: L * 0.02 }; }, function (t, ang) { var cc = mix(Oc, Ow, ang / Math.PI * 0.6); return Math.sin(t * 50 + ang * 20) > 0.7 ? mix(cc, [0.4, 0.2, 0.12], 0.6) : cc; }).translate(0, L * 0.12, L * 0.05));
+        parts.push.apply(parts, eye(L, L * 0.09, L * 0.17, L * 0.12, L * 0.025)); parts.push.apply(parts, eye(L, -L * 0.09, L * 0.17, L * 0.12, L * 0.025));
+        for (i = 0; i < 8; i++) { var oa = (i + 0.5) / 8 * Math.PI * 2, arm = tube(L * 0.55, 14, 6, function (t) { var r = 0.03 * (1 - t * 0.9); return { rx: r * L, ry: r * L * 0.8, dy: 0 }; }, function (t, ang) { return ang > 2 ? Ow : Oc; }); arm.translate(0, 0, -L * 0.27); var ax = Math.cos(oa), az = Math.sin(oa); arm.applyMatrix4(new T.Matrix4().makeRotationY(Math.atan2(-ax, -az))); arm.applyMatrix4(mat4(ax * L * 0.06, L * 0.03, az * L * 0.06 + L * 0.02, 0, 0, 0)); var ap = arm.attributes.position; for (var k = 0; k < ap.count; k++) { var px = ap.getX(k), pz = ap.getZ(k), rr = Math.hypot(px, pz) / L; ap.setY(k, ap.getY(k) + Math.sin(rr * 5) * L * 0.05 * (1 - rr)); } arm.computeVertexNormals(); parts.push(arm); }
+        break;
+      }
+      case 'cuttlefish': {
+        mode = 4; shin = 40; var Cu = rgb(c.dorsal || 0x8f7a60), Cw = rgb(c.ventral || 0xe0d4c0);
+        parts.push(tube(L * 0.7, 16, 12, function (t) { var r = Math.sin(Math.pow(t, 0.7) * Math.PI); return { rx: Math.max(0.004, r) * L * 0.2, ry: Math.max(0.004, r) * L * 0.12, dy: 0 }; }, function (t, ang) { var cc = mix(Cu, Cw, ang / Math.PI); return Math.sin(t * 40) > 0.4 && ang < 1.6 ? mix(cc, [0.35, 0.25, 0.2], 0.6) : cc; }).translate(0, 0, L * 0.1));
+        parts.push(fin([[0, L * 0.44], [L * 0.27, L * 0.3], [L * 0.28, -L * 0.15], [0, -L * 0.24], [-L * 0.28, -L * 0.15], [-L * 0.27, L * 0.3]], c.ventral || 0xe0d4c0, 'xz'));
+        parts.push.apply(parts, eye(L, L * 0.12, L * 0.04, -L * 0.2, L * 0.035)); parts.push.apply(parts, eye(L, -L * 0.12, L * 0.04, -L * 0.2, L * 0.035));
+        for (i = 0; i < 8; i++) { var ca = i / 8 * Math.PI * 2, carm = tube(L * 0.25, 6, 4, function (t) { return { rx: 0.02 * L * (1 - t * 0.7), ry: 0.02 * L * (1 - t * 0.7), dy: 0 }; }, function () { return Cw; }); carm.translate(0, 0, -L * 0.12); carm.applyMatrix4(mat4(Math.cos(ca) * L * 0.06, Math.sin(ca) * L * 0.04, -L * 0.25)); parts.push(carm); }
+        break;
+      }
+      case 'jelly': {
+        mode = 3; shin = 80; spec = 0xffffff;
+        var J = rgb(c.dorsal || 0xffb6d6);
+        var bell = new T.SphereGeometry(L * 0.5, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.55); bell.scale(1, 0.75, 1); paint(bell, c.dorsal || 0xffb6d6); parts.push(bell);
+        var rim = new T.TorusGeometry(L * 0.46, L * 0.03, 6, 20); rim.rotateX(Math.PI / 2); rim.translate(0, -L * 0.02, 0); paint(rim, c.fin || 0xff8fc0); parts.push(rim);
+        for (i = 0; i < 4; i++) { var oa2 = i / 4 * Math.PI * 2, oarm = tube(L * 1.3, 10, 5, function (t) { var r = 0.06 * (1 - t * 0.6) * (1 + 0.5 * Math.sin(t * 20)); return { rx: r * L, ry: r * L * 0.4, dy: 0 }; }, function () { return mix(J, [1, 1, 1], 0.3); }); oarm.rotateX(Math.PI / 2); oarm.translate(Math.cos(oa2) * L * 0.1, -L * 0.67, Math.sin(oa2) * L * 0.1); parts.push(oarm); }
+        for (i = 0; i < 16; i++) { var ta = i / 16 * Math.PI * 2, tt = tube(L * 2.2, 8, 3, function () { return { rx: L * 0.006, ry: L * 0.006, dy: 0 }; }, function () { return J; }); tt.rotateX(Math.PI / 2); tt.translate(Math.cos(ta) * L * 0.44, -L * 1.12, Math.sin(ta) * L * 0.44); parts.push(tt); }
+        break;
+      }
+      case 'turtle': {
+        mode = 5; shin = 12; var Sh = rgb(c.dorsal || 0x5a6b3a), Sl = rgb(c.ventral || 0xd8c89a), Sk = c.fin || 0x7a8a50;
+        var shell = new T.SphereGeometry(L * 0.42, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.5); shell.scale(0.85, 0.5, 1); var sp2 = shell.attributes.position, scol = new Float32Array(sp2.count * 3); for (i = 0; i < sp2.count; i++) { var hx = sp2.getX(i) / L, hz = sp2.getZ(i) / L; var cell = Math.sin(hx * 26) * Math.sin(hz * 22); var cc = cell > 0.55 ? mix(Sh, [0.2, 0.25, 0.12], 0.6) : mix(Sh, [0.75, 0.7, 0.4], Math.max(0, cell) * 0.3); scol[i * 3] = cc[0]; scol[i * 3 + 1] = cc[1]; scol[i * 3 + 2] = cc[2]; } shell.setAttribute('color', new T.BufferAttribute(scol, 3)); shell.computeVertexNormals(); parts.push(shell);
+        var plast = new T.SphereGeometry(L * 0.4, 12, 8, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5); plast.scale(0.8, 0.2, 0.95); paint(plast, c.ventral || 0xd8c89a); parts.push(plast);
+        parts.push(tube(L * 0.3, 6, 8, function (t) { var r = Math.sin(Math.pow(t, 0.6) * Math.PI); return { rx: Math.max(0.01, r) * L * 0.07, ry: Math.max(0.01, r) * L * 0.07, dy: 0 }; }, function () { return rgb(Sk); }).translate(0, L * 0.02, L * 0.5));
+        parts.push.apply(parts, eye(L, L * 0.045, L * 0.045, L * 0.55, L * 0.012)); parts.push.apply(parts, eye(L, -L * 0.045, L * 0.045, L * 0.55, L * 0.012));
+        parts.push(fin([[0, 0], [L * 0.3, -L * 0.12], [L * 0.5, -L * 0.3], [L * 0.42, -L * 0.34], [L * 0.1, -L * 0.14]], Sk, 'xz', mat4(L * 0.3, 0, L * 0.3, 0, 0.4, 0)));
+        parts.push(fin([[0, 0], [-L * 0.3, -L * 0.12], [-L * 0.5, -L * 0.3], [-L * 0.42, -L * 0.34], [-L * 0.1, -L * 0.14]], Sk, 'xz', mat4(-L * 0.3, 0, L * 0.3, 0, -0.4, 0)));
+        parts.push(fin([[0, 0], [L * 0.2, -L * 0.1], [L * 0.22, -L * 0.2], [L * 0.05, -L * 0.1]], Sk, 'xz', mat4(L * 0.28, 0, -L * 0.3)));
+        parts.push(fin([[0, 0], [-L * 0.2, -L * 0.1], [-L * 0.22, -L * 0.2], [-L * 0.05, -L * 0.1]], Sk, 'xz', mat4(-L * 0.28, 0, -L * 0.3)));
+        break;
+      }
+      case 'crab': {
+        mode = 5; shin = 20; var Cr = rgb(D), isLob = opts.lobster;
+        if (isLob) { parts.push(tube(L, 14, 10, function (t) { var r = t < 0.45 ? 1 : 1 - (t - 0.45) * 1.1; return { rx: r * L * 0.1, ry: r * L * 0.09, dy: 0 }; }, col)); parts.push(fin([[-L * 0.5, 0], [-L * 0.62, L * 0.09], [-L * 0.66, 0], [-L * 0.62, -L * 0.09]], D, 'xz')); }
+        else { var car = new T.SphereGeometry(L * 0.5, 12, 8); car.scale(1, 0.35, 0.7); paint(car, D); parts.push(car); }
+        for (i = 0; i < 4; i++) { [-1, 1].forEach(function (sg) { var leg = tube(L * 0.55, 4, 4, function (t) { return { rx: L * 0.025 * (1 - t * 0.7), ry: L * 0.025 * (1 - t * 0.7), dy: 0 }; }, function () { return Cr; }); leg.translate(0, 0, L * 0.27); leg.applyMatrix4(mat4(sg * L * 0.3, -L * 0.02, (isLob ? L * 0.25 : L * 0.2) - i * L * 0.14, -0.5, sg * (1.3 + i * 0.25), 0)); parts.push(leg); }); }
+        [-1, 1].forEach(function (sg) { var cl = tube(L * 0.5, 6, 6, function (t) { var r = t < 0.5 ? 0.04 : 0.08 * (1 - (t - 0.5)); return { rx: r * L, ry: r * L * 0.7, dy: 0 }; }, function () { return Cr; }); cl.translate(0, 0, -L * 0.1); cl.applyMatrix4(mat4(sg * L * 0.3, 0, L * 0.3, 0, sg * 0.5, 0)); parts.push(cl); });
+        parts.push.apply(parts, eye(L, L * 0.12, L * 0.08, L * 0.32, L * 0.03)); parts.push.apply(parts, eye(L, -L * 0.12, L * 0.08, L * 0.32, L * 0.03));
+        for (i = 0; i < 2; i++) { var ant = tube(L * 0.9, 4, 3, function () { return { rx: L * 0.006, ry: L * 0.006, dy: 0 }; }, function () { return Cr; }); ant.applyMatrix4(mat4((i ? 1 : -1) * L * 0.08, L * 0.05, L * 0.75, -0.3, (i ? 1 : -1) * 0.5, 0)); parts.push(ant); }
+        break;
+      }
+      case 'seahorse': {
+        mode = 5; parts.push(tube(L, 20, 8, function (t) { var r = t < 0.2 ? 0.5 + t : t < 0.5 ? 1 : 1 - (t - 0.5) * 1.6; return { rx: Math.max(0.01, r) * L * 0.1, ry: Math.max(0.01, r) * L * 0.12, dy: 0 }; }, col)); parts.push(tube(L * 0.25, 4, 6, function (t) { return { rx: L * 0.03, ry: L * 0.035, dy: 0 }; }, col).translate(0, L * 0.05, L * 0.55)); parts.push(fin([[L * 0.1, 0], [-L * 0.05, L * 0.12], [-L * 0.2, 0]], F, 'yz', mat4(0, L * 0.1, 0))); parts.push.apply(parts, eye(L, L * 0.05, L * 0.06, L * 0.45, L * 0.02)); parts.push.apply(parts, eye(L, -L * 0.05, L * 0.06, L * 0.45, L * 0.02));
+        break;
+      }
+      case 'urchin': { mode = 5; var ub = new T.IcosahedronGeometry(L * 0.4, 1); paint(ub, D); parts.push(ub); for (i = 0; i < 40; i++) { var th = Math.acos(1 - 2 * (i + 0.5) / 40), phh = i * 2.399; var sp3 = new T.ConeGeometry(L * 0.02, L * 0.6, 4); sp3.translate(0, L * 0.5, 0); paint(sp3, c.fin || 0x1a1024); var dir = new T.Vector3(Math.sin(th) * Math.cos(phh), Math.cos(th), Math.sin(th) * Math.sin(phh)); sp3.applyMatrix4(new T.Matrix4().makeRotationFromQuaternion(new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), dir))); parts.push(sp3); } break; }
+      case 'starfish': { mode = 5; for (i = 0; i < 5; i++) { var aa2 = i / 5 * Math.PI * 2, arm2 = tube(L * 0.5, 8, 6, function (t) { var r = 1 - t * 0.85; return { rx: r * L * 0.1, ry: r * L * 0.05, dy: 0 }; }, function (t, ang) { var cc = rgb(D); return ang < 1.2 && Math.sin(t * 30) > 0.5 ? mix(cc, [1, 0.9, 0.7], 0.4) : cc; }); arm2.translate(0, 0, L * 0.25); arm2.applyMatrix4(new T.Matrix4().makeRotationY(aa2)); parts.push(arm2); } parts.push(sphere(L * 0.12, D, 0, L * 0.02, 0, 1, 0.6, 1)); break; }
+      case 'shell': { mode = 5; shin = 50; var sh1 = new T.SphereGeometry(L * 0.5, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2); sh1.scale(1, 0.35, 1.1); var shp = sh1.attributes.position, shc = new Float32Array(shp.count * 3), Dd = rgb(D), Ll = rgb(Vt); for (i = 0; i < shp.count; i++) { var rid = Math.sin(Math.atan2(shp.getX(i), shp.getZ(i)) * 12) > 0.3 ? 1 : 0; var cc2 = mix(Dd, Ll, rid * 0.5); shc[i * 3] = cc2[0]; shc[i * 3 + 1] = cc2[1]; shc[i * 3 + 2] = cc2[2]; } sh1.setAttribute('color', new T.BufferAttribute(shc, 3)); parts.push(sh1); var sh2 = sh1.clone(); sh2.scale(1, -0.6, 1); parts.push(sh2); break; }
+      case 'cucumber': { mode = 5; shin = 5; parts.push(tube(L, 14, 10, function (t) { var r = Math.sin(Math.pow(t, 0.9) * Math.PI) * 0.6 + 0.4; return { rx: r * L * 0.12, ry: r * L * 0.1, dy: 0 }; }, function (t, ang) { var cc = rgb(D); return Math.sin(t * 40 + ang * 3) > 0.6 ? mix(cc, [0.1, 0.08, 0.05], 0.5) : cc; })); break; }
+      case 'nudibranch': { mode = 5; shin = 40; parts.push(tube(L, 12, 8, function (t) { var r = Math.sin(Math.pow(t, 0.8) * Math.PI); return { rx: Math.max(0.01, r) * L * 0.18, ry: Math.max(0.01, r) * L * 0.14, dy: 0 }; }, col)); for (i = 0; i < 10; i++) parts.push(sphere(L * 0.025, c.fin || 0xffa030, (Math.random() - 0.5) * L * 0.2, L * 0.15, L * 0.3 - i * L * 0.06, 1, 2.5, 1)); parts.push(sphere(L * 0.02, c.fin || 0xffa030, L * 0.06, L * 0.12, L * 0.42, 1, 2, 1)); parts.push(sphere(L * 0.02, c.fin || 0xffa030, -L * 0.06, L * 0.12, L * 0.42, 1, 2, 1)); break; }
+      case 'tubeworms': { mode = 5; for (i = 0; i < 7; i++) { var tx = (Math.random() - 0.5) * L * 0.5, tz = (Math.random() - 0.5) * L * 0.5, th2 = L * (0.5 + Math.random() * 0.5); var tb = new T.CylinderGeometry(L * 0.035, L * 0.045, th2, 6); tb.translate(tx, th2 / 2, tz); paint(tb, 0xf2f2ee); parts.push(tb); parts.push(sphere(L * 0.05, 0xe03030, tx, th2 + L * 0.02, tz, 1, 1.4, 1)); } break; }
+      case 'salp': { mode = 5; shin = 90; spec = 0xffffff; for (i = 0; i < 9; i++) { var sg2 = new T.CylinderGeometry(L * 0.05, L * 0.05, L * 0.1, 10, 1, true); sg2.rotateX(Math.PI / 2); sg2.translate(0, 0, L * 0.45 - i * L * 0.11); paint(sg2, 0xcfe8ff); parts.push(sg2); } break; }
+      case 'manowar': { mode = 5; shin = 90; spec = 0xffffff; var flt = new T.SphereGeometry(L * 0.5, 14, 10); flt.scale(0.6, 0.7, 1.4); paint(flt, c.dorsal || 0x7fb0ff); parts.push(flt); var crest = fin([[-L * 0.6, 0], [-L * 0.3, L * 0.35], [L * 0.3, L * 0.4], [L * 0.6, 0]], c.fin || 0xd070c0, 'yz', mat4(0, L * 0.2, 0)); parts.push(crest); for (i = 0; i < 12; i++) { var tn2 = tube(L * (4 + Math.random() * 5), 10, 3, function () { return { rx: L * 0.008, ry: L * 0.008, dy: 0 }; }, function () { return rgb(0x5a40a0); }); tn2.rotateX(Math.PI / 2); tn2.translate((Math.random() - 0.5) * L * 0.6, -L * 2.5 - Math.random() * 2, (Math.random() - 0.5) * L * 1.2); parts.push(tn2); } break; }
+      case 'puffer': { parts.push(tube(L, 20, 14, rel(roundProf, L), col)); parts.push(caudalRound(L, F)); parts.push(dorsal(L, F, -L * 0.15, L * 0.1, L * 0.1)); parts.push.apply(parts, pectoral(L, F, L * 0.05, L * 0.14, L * 0.3, 0, 0.3)); parts.push.apply(parts, eye(L, L * 0.2, L * 0.12, L * 0.3, L * 0.04)); parts.push.apply(parts, eye(L, -L * 0.2, L * 0.12, L * 0.3, L * 0.04)); if (opts.spiky) for (i = 0; i < 60; i++) { var th3 = Math.acos(1 - 2 * (i + 0.5) / 60), ph3 = i * 2.399, pr = roundProf(0.5 - Math.cos(th3) * 0.4); var sp4 = new T.ConeGeometry(L * 0.012, L * 0.1, 3); sp4.translate(0, L * 0.05, 0); paint(sp4, 0xf8f0c0); var d3 = new T.Vector3(Math.sin(th3) * Math.cos(ph3), Math.sin(th3) * Math.sin(ph3), Math.cos(th3)); sp4.applyMatrix4(new T.Matrix4().makeRotationFromQuaternion(new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), d3))); sp4.translate(d3.x * pr.rx * L * 0.9, d3.y * pr.ry * L * 0.9, d3.z * L * 0.4); parts.push(sp4); } break; }
+      case 'sunfish': { parts.push(tube(L, 20, 14, rel(tallProf, L), col)); parts.push(fin([[L * 0.1, 0], [-L * 0.1, L * 0.55], [-L * 0.25, L * 0.5], [-L * 0.3, 0]], F, 'yz', mat4(0, L * 0.3, 0))); parts.push(fin([[L * 0.1, 0], [-L * 0.1, -L * 0.55], [-L * 0.25, -L * 0.5], [-L * 0.3, 0]], F, 'yz', mat4(0, -L * 0.3, 0))); parts.push(fin([[-L * 0.45, L * 0.3], [-L * 0.55, L * 0.1], [-L * 0.56, -L * 0.1], [-L * 0.45, -L * 0.3]], F, 'yz')); parts.push.apply(parts, eye(L, L * 0.07, L * 0.05, L * 0.38, L * 0.025)); parts.push.apply(parts, eye(L, -L * 0.07, L * 0.05, L * 0.38, L * 0.025)); break; }
+      case 'angler': { shin = 5; parts.push(tube(L, 20, 12, function (t) { var a = Math.sin(Math.pow(t, 1.1) * Math.PI); var r = Math.max(0.004, a * (t > 0.85 ? 0.4 : 1)); return { rx: r * L * 0.22, ry: r * L * 0.26, dy: 0 }; }, col)); parts.push(caudalRound(L, F)); parts.push(fin([[L * 0.46, -L * 0.05], [L * 0.3, -L * 0.22], [L * 0.1, -L * 0.1]], 0x100808, 'yz')); for (i = 0; i < 8; i++) { var tooth = new T.ConeGeometry(L * 0.01, L * 0.06, 4); tooth.rotateX(Math.PI); tooth.translate((i - 3.5) * L * 0.04, -L * 0.02, L * 0.42); paint(tooth, 0xfafaf0); parts.push(tooth); } var rod = tube(L * 0.45, 6, 4, function () { return { rx: L * 0.008, ry: L * 0.008, dy: 0 }; }, function () { return rgb(D); }); rod.applyMatrix4(mat4(0, L * 0.22, L * 0.2, -1.1, 0, 0)); parts.push(rod); parts.push.apply(parts, eye(L, L * 0.12, L * 0.1, L * 0.3, L * 0.03)); parts.push.apply(parts, eye(L, -L * 0.12, L * 0.1, L * 0.3, L * 0.03)); break; }
+      default: { // generična kostna riba
+        var H = opts.tall ? 0.19 : opts.slim ? 0.065 : 0.12, Wd = opts.slim ? 0.045 : opts.tall ? 0.05 : 0.065, deep = opts.fast;
+        parts.push(tube(L, 24, 14, rel(fusiform(H, Wd, opts.blunt), L), col));
+        parts.push(opts.roundTail ? caudalRound(L, F) : caudalForked(L, F, deep));
+        parts.push(dorsal(L, F, L * (opts.tall ? 0.2 : 0.1), L * (opts.tall ? 0.2 : opts.spiky ? 0.18 : 0.08), L * (opts.tall ? 0.45 : opts.spiky ? 0.35 : 0.25), !opts.tall));
+        parts.push.apply(parts, pectoral(L, F, L * 0.18, L * (opts.wings ? 0.42 : 0.14), L * Wd * 0.8, -L * 0.02, opts.wings ? 0.1 : 0.4));
+        parts.push(anal(L, F, -L * 0.12, L * 0.06, L * 0.16));
+        if (deep) { parts.push(fin([[-L * 0.1, 0], [-L * 0.2, L * 0.05], [-L * 0.28, 0]], F, 'yz', mat4(0, L * 0.07, 0))); }
+        if (opts.sword) { parts.push(tube(L * 0.45, 4, 6, function (t) { var r = 0.014 * (1 - t * 0.9); return { rx: r * L, ry: r * L * 0.5, dy: 0 }; }, function () { return rgb(D); }).translate(0, 0, L * 0.7)); }
+        if (opts.spiky) { for (i = 0; i < 13; i++) { var sp5 = fin([[0, 0], [L * 0.012, L * 0.3 + Math.sin(i) * L * 0.05], [L * 0.024, 0]], 0xf0e0d0, 'yz', mat4(0, L * 0.05, L * 0.2 - i * L * 0.035, 0, 0, 0)); sp5.rotateX(0.2 - i * 0.05); parts.push(sp5); } parts.push.apply(parts, pectoral(L, 0xf0d8c8, L * 0.1, L * 0.32, L * 0.05, 0, 0.6)); }
+        if (opts.barbels) { parts.push(tube(L * 0.2, 3, 3, function () { return { rx: L * 0.006, ry: L * 0.006, dy: 0 }; }, function () { return rgb(0xf0e0b0); }).applyMatrix4(mat4(L * 0.02, -L * 0.07, L * 0.4, 1.2, 0, 0))); parts.push(tube(L * 0.2, 3, 3, function () { return { rx: L * 0.006, ry: L * 0.006, dy: 0 }; }, function () { return rgb(0xf0e0b0); }).applyMatrix4(mat4(-L * 0.02, -L * 0.07, L * 0.4, 1.2, 0, 0))); }
+        parts.push.apply(parts, eyes(rel(fusiform(H, Wd, opts.blunt), L), L, 0.13, L * (opts.bigEye ? 0.03 : 0.022), 0.35));
+        shin = opts.shiny ? 90 : 35; spec = opts.shiny ? 0xaabbcc : 0x334455;
+        if (opts.mouth) parts.push(fin([[0, 0], [L * 0.06, -L * 0.015], [L * 0.08, 0]], 0x1a0a0a, 'xz', mat4(0, -H * L * 0.4, L * 0.42)));
+      }
+    }
+    var geo = merge(parts); geo.computeBoundingSphere(); LOD = false;
+    var mat = swimMaterial({ len: L, mode: opts.mode !== undefined ? opts.mode : mode, shininess: shin, specular: spec, transparent: opts.transparent, opacity: opts.opacity });
+    var mesh = new T.Mesh(geo, mat); mesh.frustumCulled = true;
+    var grp = new T.Group(); grp.add(mesh);
+    var hit = new T.Mesh(new T.SphereGeometry(Math.max(0.6, L * 0.55), 6, 4), new T.MeshBasicMaterial({ visible: false })); grp.add(hit);
+    grp.userData = { mesh: mesh, mat: mat, u: mat.userData.u, len: L, hit: hit, mode: mat.userData.u.uMode.value, name: name };
+    return grp;
+  }
+
+  // ── Vizualne specifikacije vrst ──────────────────────────────────────────
+  // L = dolžina v metrih (realistična), shape + barve + vzorci
+  var SPEC = {
+    'sardine': { L: 0.22, colors: { dorsal: 0x3a6a8a, ventral: 0xe8f0f4, fin: 0xa8c0d0 }, slim: true, shiny: true, bigEye: true },
+    'anchovy': { L: 0.16, colors: { dorsal: 0x4a7a90, ventral: 0xf0f4f6, fin: 0xb8c8d0 }, slim: true, shiny: true, bigEye: true },
+    'mackerel': { L: 0.45, colors: { dorsal: 0x1f6a8a, ventral: 0xe8eef2, fin: 0x6a8a9a }, pattern: stripes(0x0a2a3a, 14, 0.5, 'top'), fast: true, shiny: true },
+    'snapper': { L: 0.7, colors: { dorsal: 0xd05040, ventral: 0xf4d8c8, fin: 0xe07060 }, mouth: true },
+    'tuna': { L: 2.2, colors: { dorsal: 0x1a2f5a, ventral: 0xd8dde4, fin: 0xe0c040 }, fast: true, shiny: true },
+    'squid': { L: 0.6, shape: 'squid', colors: { dorsal: 0xd9a8a0, ventral: 0xf4e6e0 }, transparent: true, opacity: 0.92 },
+    'shrimp': { L: 0.08, shape: 'crab', lobster: true, colors: { dorsal: 0xf0b8a8, ventral: 0xf8e0d8 } },
+    'krill': { L: 0.04, shape: 'crab', lobster: true, colors: { dorsal: 0xf0a0a0, ventral: 0xffd0d0 } },
+    'flying fish': { L: 0.35, colors: { dorsal: 0x2a5a9a, ventral: 0xe8eef4, fin: 0x9ab8e0 }, wings: true, shiny: true },
+    'salp chain': { L: 1.0, shape: 'salp', transparent: true, opacity: 0.45 },
+    'crab': { L: 0.3, shape: 'crab', colors: { dorsal: 0xc8502a } },
+    'hermit crab': { L: 0.12, shape: 'crab', colors: { dorsal: 0xb08050 } },
+    'lobster': { L: 0.55, shape: 'crab', lobster: true, colors: { dorsal: 0x7a2a1a, ventral: 0xb0604a } },
+    'sea urchin': { L: 0.22, shape: 'urchin', colors: { dorsal: 0x2a1a3a, fin: 0x1a1024 } },
+    'clam': { L: 0.2, shape: 'shell', colors: { dorsal: 0xd8d0c0, ventral: 0xf0ece0 } },
+    'scallop': { L: 0.15, shape: 'shell', colors: { dorsal: 0xe8a080, ventral: 0xf8e0d0 } },
+    'sea cucumber': { L: 0.4, shape: 'cucumber', colors: { dorsal: 0x5a4a2a } },
+    'starfish': { L: 0.3, shape: 'starfish', colors: { dorsal: 0xf07030 } },
+    'nudibranch': { L: 0.1, shape: 'nudibranch', colors: { dorsal: 0xf040c0, ventral: 0xf8c0e8, fin: 0xffa030 } },
+    'seahorse': { L: 0.2, shape: 'seahorse', colors: { dorsal: 0xe8c060, ventral: 0xf0e0a0, fin: 0xf8e8b0 } },
+    'tube worms': { L: 0.5, shape: 'tubeworms' },
+    'parrotfish': { L: 0.6, colors: { dorsal: 0x20a090, ventral: 0x80d0c0, fin: 0xf07090 }, pattern: spots(0xf07090, 1.2, 3), blunt: true, roundTail: true },
+    'surgeonfish': { L: 0.4, colors: { dorsal: 0x2050d0, ventral: 0x6090f0, fin: 0xf0d020 }, tall: true },
+    'wrasse': { L: 0.35, colors: { dorsal: 0x50c060, ventral: 0xb0f0c0, fin: 0xf08040 }, pattern: stripes(0xf08040, 1.5, 0.3), roundTail: true },
+    'goatfish': { L: 0.4, colors: { dorsal: 0xf0d080, ventral: 0xfcf4e0, fin: 0xf0c060 }, barbels: true },
+    'triggerfish': { L: 0.5, colors: { dorsal: 0x5a6a30, ventral: 0xb0b080, fin: 0x2a3a20 }, tall: true, pattern: spots(0xe0e0a0, 2, 7) },
+    'cuttlefish': { L: 0.5, shape: 'cuttlefish', colors: { dorsal: 0x8f7a60, ventral: 0xe0d4c0 } },
+    'pufferfish': { L: 0.5, shape: 'puffer', colors: { dorsal: 0xd8c050, ventral: 0xf8f0d0, fin: 0xe8d890 }, pattern: spots(0x3a3a20, 2, 11), spiky: true },
+    'lionfish': { L: 0.4, colors: { dorsal: 0xc83020, ventral: 0xf0d8c8, fin: 0xf0e0d0 }, pattern: stripes(0xf8f0e8, 11, 0.45), spiky: true },
+    'sea snake': { L: 1.2, shape: 'eel', colors: { dorsal: 0x202830, ventral: 0xe0e0c0, fin: 0x202830 }, pattern: stripes(0xe8e8d0, 18, 0.5) },
+    'stingray': { L: 1.4, shape: 'ray', colors: { dorsal: 0x7a7060, ventral: 0xf0ece0 }, pattern: spots(0x4a4030, 1.5, 5) },
+    'eagle ray': { L: 2.4, shape: 'ray', colors: { dorsal: 0x2a2a36, ventral: 0xf0f0f4 }, pattern: spots(0xe8e8f0, 2.5, 9) },
+    'conger eel': { L: 2.0, shape: 'eel', colors: { dorsal: 0x6a7470, ventral: 0xd0d4d0, fin: 0x4a5450 } },
+    'moray': { L: 2.0, shape: 'eel', colors: { dorsal: 0x5a7a40, ventral: 0xc8d090, fin: 0x4a6a30 }, pattern: spots(0xe8e8a0, 2, 13), mouth: true },
+    'octopus': { L: 1.2, shape: 'octopus', colors: { dorsal: 0xa8603a, ventral: 0xd8b090 } },
+    'grouper': { L: 2.0, colors: { dorsal: 0x6a4a30, ventral: 0xc8b090, fin: 0x5a3a20 }, pattern: spots(0x3a2a18, 2.5, 17), blunt: true, roundTail: true, mouth: true },
+    'barracuda': { L: 1.6, colors: { dorsal: 0x6a7a8a, ventral: 0xe8ecf0, fin: 0x4a5a6a }, slim: true, shiny: true, pattern: stripes(0x2a3a4a, 9, 0.6, 'top'), mouth: true },
+    'swordfish': { L: 3.5, colors: { dorsal: 0x3a5a8a, ventral: 0xd8e0e8, fin: 0x2a3a5a }, slim: true, sword: true, fast: true, shiny: true },
+    'anglerfish': { L: 0.6, shape: 'angler', colors: { dorsal: 0x1a1a1c, ventral: 0x2a2a2c, fin: 0x202022 } },
+    'sea turtle': { L: 1.2, shape: 'turtle', colors: { dorsal: 0x5a6b3a, ventral: 0xd8c89a, fin: 0x7a8a50 } },
+    'manta ray': { L: 5.0, shape: 'ray', manta: true, colors: { dorsal: 0x1a1a22, ventral: 0xf4f4f8 } },
+    'sunfish': { L: 2.5, shape: 'sunfish', colors: { dorsal: 0x8a8a92, ventral: 0xd0d0d4, fin: 0x7a7a82 } },
+    'whale': { L: 18, shape: 'whale', colors: { dorsal: 0x161c24, ventral: 0xd8e0e6, fin: 0x161c24 } },
+    'whale calf': { L: 6, shape: 'whale', colors: { dorsal: 0x1e262e, ventral: 0xe4eaee, fin: 0x3a4652 } },
+    'seal': { L: 1.8, shape: 'seal', colors: { dorsal: 0x5a5048, ventral: 0xb8a898, fin: 0x4a4038 }, pattern: spots(0x3a3028, 1.5, 19) },
+    'dolphin': { L: 2.8, shape: 'dolphin', colors: { dorsal: 0x4a5a6a, ventral: 0xe8ecf0, fin: 0x3a4a5a } },
+    'man-o-war': { L: 0.3, shape: 'manowar', colors: { dorsal: 0x7fb0ff, fin: 0xd070c0 }, transparent: true, opacity: 0.7 },
+    'great white': { L: 6.0, shape: 'shark', colors: { dorsal: 0x4a5560, ventral: 0xeef0f2, fin: 0x3a4550 } },
+    'tiger shark': { L: 5.0, shape: 'shark', colors: { dorsal: 0x5a6a60, ventral: 0xe0e4e0, fin: 0x4a5a50 }, pattern: stripes(0x2a3a30, 12, 0.5, 'top') },
+    'hammerhead': { L: 4.0, shape: 'shark', hammer: true, colors: { dorsal: 0x6a7060, ventral: 0xe8ece8, fin: 0x5a6050 } },
+    'bull shark': { L: 3.2, shape: 'shark', colors: { dorsal: 0x6a7a80, ventral: 0xe0e8ea, fin: 0x5a6a70 } },
+    'reef shark': { L: 1.8, shape: 'shark', colors: { dorsal: 0x7a8a90, ventral: 0xe8eef0, fin: 0x3a3a3a } },
+    'orca': { L: 8.0, shape: 'orca', colors: { dorsal: 0x0a0c10, ventral: 0xf4f4f6, fin: 0x0a0c10 } },
+    'jellyfish bloom': { L: 0.5, shape: 'jelly', colors: { dorsal: 0xffb6d6, fin: 0xff8fc0 }, transparent: true, opacity: 0.5 }
+  };
+  function lenOf(name) { var s = SPEC[name]; return s ? s.L : 0.5; }
+  function creature(name, lod) { var s = SPEC[name] || { L: 0.5 }; if (lod) { var o = {}; for (var k in s) o[k] = s[k]; o.lod = true; s = o; } return build(name, s.L, s); }
+  var PLAYER_COLORS = { sand: { dorsal: 0xb89a62, ventral: 0xf0e6c8, fin: 0xa08850 }, kelp: { dorsal: 0x2f6a2a, ventral: 0xc8e0a0, fin: 0x3f8a3a }, blue: { dorsal: 0x1f5fb0, ventral: 0xd8e8f8, fin: 0x2f7fd0 }, dark: { dorsal: 0x1a1d2a, ventral: 0x6a6f85, fin: 0x2a2d3a }, silver: { dorsal: 0x8a98a8, ventral: 0xf4f6f8, fin: 0xa8b4c0 }, red: { dorsal: 0xa02020, ventral: 0xf0c8b8, fin: 0xc62f2f }, orange: { dorsal: 0xd07010, ventral: 0xf8e0b0, fin: 0xf08a24 } };
+  function playerLen(size) { return 0.8 + 0.6 * size; }
+  function player(color, size) { return build('player', playerLen(size || 1), { colors: PLAYER_COLORS[color] || PLAYER_COLORS.blue, shiny: color === 'silver', mouth: true }); }
+  function carcass(sz) { var g = sz > 15 ? build('carcass', 18, { shape: 'whale', colors: { dorsal: 0x6a6e70, ventral: 0xa8a8a0, fin: 0x5a5e60 }, mode: 5 }) : build('carcass', playerLen(sz), { colors: { dorsal: 0x8a8a80, ventral: 0xb8b8a8, fin: 0x7a7a70 }, mode: 5 }); g.userData.mesh.rotation.z = Math.PI; return g; }
+
+  // animacija: hitrost (m/s) -> frekvenca/amplituda
+  function animate(grp, time, spd, turnRate) {
+    var u = grp.userData.u, L = grp.userData.len, m = grp.userData.mode;
+    u.uTime.value = time;
+    if (m === 0) { var k = L > 3 ? 0.6 : L > 1 ? 1 : 1.6; u.uFreq.value = (1.2 + Math.min(10, spd) * 1.3) * k; u.uAmp.value = 0.025 + Math.min(0.07, spd * 0.015); }
+    else if (m === 1) { u.uFreq.value = (0.9 + Math.min(10, spd) * 0.8) * (L > 10 ? 0.45 : 1); u.uAmp.value = 0.02 + Math.min(0.05, spd * 0.012); }
+    else if (m === 2) { u.uFreq.value = 1.2 + Math.min(6, spd) * 0.6; u.uAmp.value = 0.12 + Math.min(0.1, spd * 0.04); }
+    else if (m === 3) { u.uFreq.value = 1.6; u.uAmp.value = 0.1; }
+    else if (m === 4) { u.uFreq.value = 1.5 + Math.min(5, spd); u.uAmp.value = 0.08; }
+    u.uBend.value = turnRate ? Math.max(-0.12, Math.min(0.12, -turnRate * 0.004)) : 0;
+  }
+  return { build: build, creature: creature, player: player, carcass: carcass, animate: animate, lenOf: lenOf, SPEC: SPEC, swimMaterial: swimMaterial, merge: merge, paint: paint, playerLen: playerLen, PLAYER_COLORS: PLAYER_COLORS };
+})();
+</script>
+<script>// OCEAN ARENA v5 — voda, svetloba, dno (kaustike), gladina (valovi), sončni žarki, delci, kakovost.
+var OCEAN = (function () {
+  var T = THREE;
+  var Q = { low: { dpr: 1, snow: 500, rays: 0, caustics: 0, surfSeg: 40, school: 0.4, bubbles: 60, aniso: 1 }, med: { dpr: 1.25, snow: 1500, rays: 10, caustics: 1, surfSeg: 96, school: 0.8, bubbles: 160, aniso: 2 }, high: { dpr: 1.75, snow: 3500, rays: 18, caustics: 1, surfSeg: 160, school: 1.3, bubbles: 320, aniso: 4 } };
+  var O = { q: Q.med, qname: 'med' };
+  O.setQuality = function (name) { O.qname = Q[name] ? name : 'med'; O.q = Q[O.qname]; try { localStorage.setItem('ocean.q', O.qname); } catch (e) {} return O.q; };
+  O.loadQuality = function (qs) { var n = (qs && qs.get('q')) || (function () { try { return localStorage.getItem('ocean.q'); } catch (e) { return null; } })(); return O.setQuality(n || 'med'); };
+
+  // ── Dno: lasten shader (barve po ogliščih + peščeni valovi + kaustike + megla) ──
+  var FLOOR_VS = [
+    '#include <common>', '#include <fog_pars_vertex>',
+    'varying vec3 vCol; varying vec3 vN; varying vec3 vW;',
+    'void main(){ vCol = color; vN = normalize(normalMatrix * normal); vec4 wp = modelMatrix * vec4(position,1.0); vW = wp.xyz; vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition;',
+    '#include <fog_vertex>', '}'
+  ].join('\n');
+  var FLOOR_FS = [
+    '#include <common>', '#include <fog_pars_fragment>',
+    'uniform float uTime, uLight, uCaustics; uniform vec3 uSunDir, uSunCol, uAmb;',
+    'varying vec3 vCol; varying vec3 vN; varying vec3 vW;',
+    'float caus(vec2 p, float t){ float v = 0.0; for (int i = 0; i < 3; i++) { float fi = float(i); vec2 q = p * (0.28 + fi * 0.15) + vec2(t * (0.25 + fi * 0.08), t * (0.18 - fi * 0.06)); v += pow(abs(sin(q.x + sin(q.y * 1.3 + t * 0.7))) * abs(cos(q.y + cos(q.x * 0.9 - t * 0.6))), 3.0); } return v / 3.0; }',
+    'void main(){',
+    '  float depth = max(0.0, -vW.y);',
+    '  vec3 n = normalize(vN);',
+    '  float rip = sin(vW.x * 2.1 + vW.z * 0.7 + sin(vW.z * 1.7) * 0.8) * 0.5 + 0.5;',
+    '  n = normalize(n + vec3(rip * 0.08 - 0.04, 0.0, (1.0 - rip) * 0.06 - 0.03));',
+    '  float ndl = max(0.0, dot(n, uSunDir));',
+    '  vec3 att = vec3(exp(-depth / 10.0), exp(-depth / 26.0), exp(-depth / 80.0));',
+    '  vec3 sun = uSunCol * att * uLight;',
+    '  float c = uCaustics * caus(vW.xz, uTime) * uLight * exp(-depth / 32.0);',
+    '  vec3 col = vCol * (uAmb * (0.7 + 0.45 * n.y) + sun * 0.55 * (0.25 + 0.55 * ndl) * (1.0 + c * 1.4)) * vec3(0.92, 0.9, 1.0);',
+    '  gl_FragColor = vec4(col, 1.0);',
+    '#include <fog_fragment>', '}'
+  ].join('\n');
+  O.floorMaterial = function () {
+    var u = { uTime: { value: 0 }, uLight: { value: 1 }, uCaustics: { value: 1 }, uSunDir: { value: new T.Vector3(0.3, 0.9, 0.2) }, uSunCol: { value: new T.Color(1, 0.95, 0.85) }, uAmb: { value: new T.Color(0.12, 0.2, 0.3) }, fogColor: { value: new T.Color(0x0a3550) }, fogDensity: { value: 0.008 } };
+    var m = new T.ShaderMaterial({ uniforms: u, vertexShader: FLOOR_VS, fragmentShader: FLOOR_FS, vertexColors: true, fog: true }); m.userData.u = u; return m;
+  };
+
+  // ── Gladina: Gerstnerjevi valovi, pogled od spodaj (svetla, Snellovo okno) in od zgoraj ──
+  var SURF_VS = [
+    '#include <common>', '#include <fog_pars_vertex>',
+    'uniform float uTime; varying vec3 vN; varying vec3 vW;',
+    'vec3 gerst(vec2 p, float t, vec2 dir, float wl, float amp, float speed, inout vec3 n) { float k = 6.2831 / wl; float f = k * dot(dir, p) - speed * t; float a = amp; n += vec3(-dir.x * k * a * cos(f), 0.0, -dir.y * k * a * cos(f)); return vec3(dir.x * a * sin(f) * 0.6, a * cos(f), dir.y * a * sin(f) * 0.6); }',
+    'void main(){ vec4 wp = modelMatrix * vec4(position, 1.0); vec3 n = vec3(0.0, 1.0, 0.0); vec3 d = vec3(0.0);',
+    '  d += gerst(wp.xz, uTime, normalize(vec2(1.0, 0.3)), 18.0, 0.45, 1.3, n); d += gerst(wp.xz, uTime, normalize(vec2(-0.4, 1.0)), 9.0, 0.22, 1.9, n); d += gerst(wp.xz, uTime, normalize(vec2(0.7, -0.6)), 4.5, 0.09, 2.6, n); d += gerst(wp.xz, uTime, normalize(vec2(-0.9, -0.2)), 2.2, 0.035, 3.4, n);',
+    '  wp.xyz += d; vN = normalize(n); vW = wp.xyz; vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition;',
+    '#include <fog_vertex>', '}'
+  ].join('\n');
+  var SURF_FS = [
+    '#include <common>', '#include <fog_pars_fragment>',
+    'uniform vec3 uSunDir, uSunCol, uSky, uDeep; uniform float uLight, uAbove; varying vec3 vN; varying vec3 vW;',
+    'void main(){ vec3 V = normalize(cameraPosition - vW); vec3 n = normalize(vN);',
+    '  if (uAbove < 0.5) { n = -n; float cosi = max(0.0, dot(V, -n));',
+    '    float window = smoothstep(0.45, 0.8, cosi);',            // Snellovo okno: strmo navzgor vidiš nebo, poševno zrcalo
+    '    vec3 R = reflect(-V, n); float spec = pow(max(0.0, dot(R, -uSunDir)), 60.0);',
+    '    vec3 col = mix(uDeep * 1.6, uSky * uLight, window) + uSunCol * spec * uLight * 1.5;',
+    '    float a = mix(0.85, 0.55, window);',
+    '    gl_FragColor = vec4(col, a);',
+    '  } else { float fres = pow(1.0 - max(0.0, dot(V, n)), 3.0); vec3 R = reflect(-V, n); float spec = pow(max(0.0, dot(R, uSunDir)), 120.0);',
+    '    vec3 col = mix(uDeep, uSky, 0.25 + 0.75 * fres) + uSunCol * spec * 2.0 * uLight; gl_FragColor = vec4(col, 0.92); }',
+    '#include <fog_fragment>', '}'
+  ].join('\n');
+  O.surfaceMaterial = function () {
+    var u = { uTime: { value: 0 }, uLight: { value: 1 }, uAbove: { value: 0 }, uSunDir: { value: new T.Vector3(0.3, 0.9, 0.2) }, uSunCol: { value: new T.Color(1, 0.95, 0.85) }, uSky: { value: new T.Color(0.75, 0.88, 1.0) }, uDeep: { value: new T.Color(0.05, 0.25, 0.4) }, fogColor: { value: new T.Color(0x0a3550) }, fogDensity: { value: 0.008 } };
+    var m = new T.ShaderMaterial({ uniforms: u, vertexShader: SURF_VS, fragmentShader: SURF_FS, transparent: true, side: T.DoubleSide, depthWrite: false, fog: true }); m.userData.u = u; return m;
+  };
+
+  // ── Sončni žarki: navpične prosojne lamele okoli kamere, nagnjene po soncu ──
+  O.makeRays = function (n) {
+    var grp = new T.Group(); if (!n) return grp;
+    var cv = document.createElement('canvas'); cv.width = 64; cv.height = 256; var x = cv.getContext('2d'); var gr = x.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, 'rgba(255,255,255,0.0)'); gr.addColorStop(0.08, 'rgba(255,255,255,0.55)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.18)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 256); var gh = x.createLinearGradient(0, 0, 64, 0); gh.addColorStop(0, 'rgba(0,0,0,1)'); gh.addColorStop(0.35, 'rgba(0,0,0,0)'); gh.addColorStop(0.65, 'rgba(0,0,0,0)'); gh.addColorStop(1, 'rgba(0,0,0,1)'); x.globalCompositeOperation = 'destination-out'; x.fillStyle = gh; x.fillRect(0, 0, 64, 256);
+    var tx = new T.CanvasTexture(cv), mat = new T.MeshBasicMaterial({ map: tx, transparent: true, opacity: 0.35, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide, color: 0xbfe0ff });
+    for (var i = 0; i < n; i++) { var w = 2 + Math.random() * 5, h = 70 + Math.random() * 50; var m = new T.Mesh(new T.PlaneGeometry(w, h), mat); m.userData = { a: Math.random() * 6.28, r: 8 + Math.random() * 45, ph: Math.random() * 6.28, h: h }; grp.add(m); }
+    grp.userData.mat = mat; return grp;
+  };
+  O.updateRays = function (grp, cam, sunDir, light, t) {
+    if (!grp.children.length) return; var camD = Math.max(0, -cam.position.y); var vis = light * Math.exp(-camD / 26) * (cam.position.y < 0 ? 1 : 0); grp.visible = vis > 0.02; if (!grp.visible) return;
+    grp.userData.mat.opacity = 0.42 * vis;
+    var tilt = Math.atan2(Math.hypot(sunDir.x, sunDir.z), Math.max(0.2, sunDir.y));
+    grp.children.forEach(function (m, i) { var u = m.userData; var a = u.a + t * 0.02; var cx = cam.position.x + Math.cos(a) * u.r, cz = cam.position.z + Math.sin(a) * u.r; m.position.set(cx + sunDir.x * u.h * 0.3, -u.h / 2 + 1, cz + sunDir.z * u.h * 0.3); m.rotation.set(0, Math.atan2(cam.position.x - cx, cam.position.z - cz), 0); m.rotateX(0); m.rotation.z = 0; m.rotation.x = 0; m.rotateOnWorldAxis(new T.Vector3(-sunDir.z, 0, sunDir.x).normalize(), tilt * 0.5); m.scale.x = 1 + 0.3 * Math.sin(t * 0.5 + u.ph); });
+  };
+
+  var _dot = null; O.softDot = function () { if (_dot) return _dot; var cv = document.createElement('canvas'); cv.width = cv.height = 32; var x = cv.getContext('2d'); var gr = x.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.4, 'rgba(255,255,255,0.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 32, 32); _dot = new T.CanvasTexture(cv); return _dot; };
+  // ── Morski sneg (delci okoli kamere, tonejo) ──
+  O.makeSnow = function (n) { var pos = new Float32Array(n * 3), i; for (i = 0; i < n; i++) { pos[i * 3] = (Math.random() - 0.5) * 100; pos[i * 3 + 1] = (Math.random() - 0.5) * 100; pos[i * 3 + 2] = (Math.random() - 0.5) * 100; } var g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); var p = new T.Points(g, new T.PointsMaterial({ color: 0xdff0ff, size: 0.12, map: O.softDot(), transparent: true, opacity: 0.55, depthWrite: false, sizeAttenuation: true })); p.frustumCulled = false; return p; };
+  O.updateSnow = function (p, cam, dt, t) { var a = p.geometry.attributes.position, cx = cam.position.x, cy = cam.position.y, cz = cam.position.z; for (var i = 0; i < a.count; i++) { var x = a.getX(i), y = a.getY(i) - dt * 0.25, z = a.getZ(i); x += Math.sin(t * 0.3 + i) * dt * 0.1; if (y < cy - 50) y += 100; if (y > cy + 50) y -= 100; if (x < cx - 50) x += 100; if (x > cx + 50) x -= 100; if (z < cz - 50) z += 100; if (z > cz + 50) z -= 100; if (y > 0) y = Math.min(y, -0.05); a.setXYZ(i, x, y, z); } a.needsUpdate = true; };
+
+  // ── Mehurčki (bazen delcev; emit(x,y,z,n,spread)) ──
+  O.makeBubbles = function (n) { var pos = new Float32Array(n * 3), vel = new Float32Array(n), life = new Float32Array(n); for (var i = 0; i < n; i++) { pos[i * 3 + 1] = 10; life[i] = 0; } var g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); var cv = document.createElement('canvas'); cv.width = cv.height = 32; var x = cv.getContext('2d'); var gr = x.createRadialGradient(16, 16, 2, 16, 16, 15); gr.addColorStop(0, 'rgba(255,255,255,0.1)'); gr.addColorStop(0.7, 'rgba(255,255,255,0.15)'); gr.addColorStop(0.9, 'rgba(255,255,255,0.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 32, 32); var p = new T.Points(g, new T.PointsMaterial({ map: new T.CanvasTexture(cv), size: 0.35, transparent: true, opacity: 0.8, depthWrite: false, color: 0xe8f6ff })); p.frustumCulled = false; p.userData = { vel: vel, life: life, head: 0, n: n }; return p; };
+  O.emitBubbles = function (p, x, y, z, n, spread, size) { var u = p.userData, a = p.geometry.attributes.position; for (var k = 0; k < n; k++) { var i = u.head; u.head = (u.head + 1) % u.n; a.setXYZ(i, x + (Math.random() - 0.5) * spread, y + (Math.random() - 0.5) * spread * 0.5, z + (Math.random() - 0.5) * spread); u.vel[i] = (0.4 + Math.random() * 0.8) * (size || 1); u.life[i] = 1; } a.needsUpdate = true; };
+  O.updateBubbles = function (p, dt, t) { var u = p.userData, a = p.geometry.attributes.position, any = false; for (var i = 0; i < u.n; i++) { if (u.life[i] <= 0) continue; any = true; var y = a.getY(i) + u.vel[i] * dt; var x = a.getX(i) + Math.sin(t * 3 + i) * dt * 0.15; if (y >= -0.1) { u.life[i] = 0; y = 10; } a.setXYZ(i, x, y, a.getZ(i)); } if (any) a.needsUpdate = true; };
+
+  // ── Svetloba glede na uro dneva in globino kamere ──
+  O.sunDir = function (tSec, DAY) { var ph = (tSec / DAY) % 1; var el = Math.cos(ph * Math.PI * 2); var az = ph * Math.PI * 2 + 0.6; var e = Math.max(-0.35, el); var v = new T.Vector3(Math.cos(az) * Math.cos(e * 1.2), Math.max(0.08, Math.sin(Math.max(0.05, e) * 1.3)), Math.sin(az) * Math.cos(e * 1.2)); return v.normalize(); };
+  O.attenuate = function (d) { return new T.Color(Math.exp(-d / 16), Math.exp(-d / 46), Math.exp(-d / 100)); };
+  O.lighting = function (state, cam, DAY, lights, mats) {
+    var light = state ? state.light : 1, ts = state ? state.t : 0, phase = state ? state.phase : 'day';
+    var sunDir = O.sunDir(ts, DAY); var camD = Math.max(0, -cam.position.y), above = cam.position.y > 0;
+    var warm = phase === 'dusk' || phase === 'dawn'; var sunCol = new T.Color().setRGB(1, warm ? 0.72 : 0.96, warm ? 0.45 : 0.88); if (phase === 'night') sunCol.setRGB(0.55, 0.7, 1.0);
+    var att = O.attenuate(camD * 0.9); var sunUnder = sunCol.clone().multiply(att);
+    var Lc = light * Math.exp(-camD / 48);
+    var fog = new T.Color().setRGB(0.01 + 0.09 * Lc * att.r, 0.07 + 0.34 * Lc * (0.6 + 0.4 * att.g), 0.16 + 0.44 * Lc);
+    if (above) fog.setRGB(0.55 + 0.25 * light, 0.72 * light + 0.15, 0.95 * light + 0.05);
+    lights.sun.color.copy(above ? sunCol : sunUnder); lights.sun.intensity = above ? 0.9 + 0.6 * light : 0.15 + 0.75 * light * Math.exp(-camD / 60);
+    lights.sun.position.set(sunDir.x * 400, sunDir.y * 400, sunDir.z * 400).add(new T.Vector3(cam.position.x, 0, cam.position.z));
+    lights.hemi.color.copy(fog).multiplyScalar(1.6); lights.hemi.groundColor.setRGB(0.02, 0.05, 0.08); lights.hemi.intensity = 0.2 + 0.55 * light * Math.exp(-camD / 120);
+    lights.amb.color.setRGB(0.1 + 0.1 * att.r, 0.18, 0.3); lights.amb.intensity = 0.18 + 0.35 * Lc + (above ? 0.3 : 0);
+    var dens = above ? 0.0015 : 0.0055 + 0.02 * (1 - Lc);
+    for (var k in mats) { var u = mats[k].userData.u; if (!u) continue; if (u.uSunDir) u.uSunDir.value.copy(sunDir); if (u.uSunCol) u.uSunCol.value.copy(sunCol); if (u.uLight) u.uLight.value = light; if (u.uAmb) u.uAmb.value.copy(fog).multiplyScalar(1.1); if (u.fogColor) u.fogColor.value.copy(fog); if (u.fogDensity) u.fogDensity.value = dens; if (u.uAbove) u.uAbove.value = above ? 1 : 0; if (u.uSky) u.uSky.value.setRGB(0.55 + 0.4 * light, 0.7 * light + 0.2, 0.9 * light + 0.1); }
+    return { fog: fog, density: dens, sunDir: sunDir, light: light, above: above, camD: camD };
+  };
+  return O;
+})();
+</script>
+<script>var OCEAN_BUILT = "2026-11-22 09:05";
+// OCEAN ARENA v5 — 3D spectator viewer (three.js r128 + creatures.js + ocean.js, bundled). Live data from /state or local demo.
 (function () {
   var T = THREE, SP = OC.SPECIES;
   var DEFAULT_API = 'https://wrfniglebquubhnhqrtn.supabase.co/functions/v1/ocean-arena-v5';
@@ -974,15 +1487,18 @@ var OC = globalThis.OC || (globalThis.OC = {});
   var $ = function (id) { return document.getElementById(id); };
   function spLabel(n) { return n === 'orca' ? 'ORCA' : n; }
 
-  // ── Renderer / scena ─────────────────────────────────────────────────────
+  // ── Renderer / scene ─────────────────────────────────────────────────────
   var canvas = $('c');
-  var renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  var QL = OCEAN.loadQuality(qs);
+  var renderer = new T.WebGLRenderer({ canvas: canvas, antialias: QL.dpr < 1.5, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, QL.dpr));
   var scene = new T.Scene(); scene.fog = new T.FogExp2(0x0a3550, 0.008);
+  var oceanMats = {};
   var camera = new T.PerspectiveCamera(62, 1, 0.3, 1600);
   var hemi = new T.HemisphereLight(0x8fd0ff, 0x08203a, 0.9); scene.add(hemi);
   var sun = new T.DirectionalLight(0xfff2d0, 0.9); sun.position.set(300, 400, 150); scene.add(sun);
   var amb = new T.AmbientLight(0x204a70, 0.5); scene.add(amb);
+  var lights = { hemi: hemi, sun: sun, amb: amb };
   function resize() { var w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
   window.addEventListener('resize', resize); resize();
   var M = new T.Matrix4(), Q = new T.Quaternion(), V = new T.Vector3(), SC = new T.Vector3();
@@ -1002,15 +1518,15 @@ var OC = globalThis.OC || (globalThis.OC = {});
       if (x < OC.MANGROVE.x1 && z > OC.MANGROVE.z0 && z < OC.MANGROVE.z1) c.setRGB(0.35, 0.30, 0.20);
       if (OC.gauss(x, z, OC.DEADZONE.x, OC.DEADZONE.z, OC.DEADZONE.r) > 0.4 && d > OC.DEADZONE.minD) c.setRGB(0.20, 0.16, 0.10);
       OC.VENTS.forEach(function (v) { if (OC.gauss(x, z, v.x, v.z, 9) > 0.3) c.setRGB(0.12, 0.10, 0.10); });
-      var n = Math.sin(x * 0.9) * Math.cos(z * 1.1) * 0.03; c.r += n; c.g += n; c.b += n;
+      var n = Math.sin(x * 0.9) * Math.cos(z * 1.1) * 0.03 + Math.sin(x * 0.13 + z * 0.21) * Math.cos(x * 0.07 - z * 0.11) * 0.05; c.r += n; c.g += n; c.b += n;
       colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
     }
     geo.setAttribute('color', new T.BufferAttribute(colors, 3)); geo.computeVertexNormals();
-    scene.add(new T.Mesh(geo, new T.MeshLambertMaterial({ vertexColors: true })));
+    oceanMats.floor = OCEAN.floorMaterial(); oceanMats.floor.userData.u.uCaustics.value = QL.caustics; scene.add(new T.Mesh(geo, oceanMats.floor));
     var wallMat = new T.MeshBasicMaterial({ color: 0x06253a, transparent: true, opacity: 0.35, side: T.DoubleSide });
     [[W / 2, 0, 0, W, 0], [W / 2, 0, L, W, 0], [0, 0, L / 2, L, Math.PI / 2], [W, 0, L / 2, L, Math.PI / 2]].forEach(function (a) { var m = new T.Mesh(new T.PlaneGeometry(a[3], OC.DMAX), wallMat); m.position.set(a[0], -OC.DMAX / 2, a[2]); m.rotation.y = a[4]; scene.add(m); });
-    var surf = new T.Mesh(new T.PlaneGeometry(W * 3, L * 3, 1, 1), new T.MeshBasicMaterial({ color: 0x5fb0ea, transparent: true, opacity: 0.32, side: T.DoubleSide, depthWrite: false }));
-    surf.rotation.x = -Math.PI / 2; surf.position.set(W / 2, 0, L / 2); scene.add(surf);
+    oceanMats.surf = OCEAN.surfaceMaterial(); var surf = new T.Mesh(new T.PlaneGeometry(W * 3, L * 3, QL.surfSeg, QL.surfSeg), oceanMats.surf);
+    surf.rotation.x = -Math.PI / 2; surf.position.set(W / 2, 0, L / 2); surf.renderOrder = 5; scene.add(surf);
     var th = new T.Mesh(new T.PlaneGeometry(W, L), new T.MeshBasicMaterial({ color: 0x1a4a7a, transparent: true, opacity: 0.07, side: T.DoubleSide, depthWrite: false })); th.rotation.x = -Math.PI / 2; th.position.set(W / 2, -OC.THERMO, L / 2); scene.add(th);
   })();
 
@@ -1040,8 +1556,9 @@ var OC = globalThis.OC || (globalThis.OC = {});
     var sarg = inst(new T.SphereGeometry(1, 6, 4), lam(0x7a6a1a, { transparent: true, opacity: 0.85 }), 220);
     OC.SARGASSUM.forEach(function (s) { for (var i = 0; i < 44; i++) { var a = R() * 6.28, r = Math.sqrt(R()) * s.r; put(sarg, s.x + Math.cos(a) * r, -0.3 - R() * 0.6, s.z + Math.sin(a) * r, 1.5 + R() * 2, 0.5 + R() * 0.6, 1.5 + R() * 2, R() * 3); } });
     // reefs: rock rubble
-    var rubbleGeo = new T.DodecahedronGeometry(1, 0), rubbleMat = lam(0x9a7a6a), rubble = inst(rubbleGeo, rubbleMat, 260);
-    OC.REEFS.forEach(function (rf) { for (var i = 0; i < 130; i++) { var a = R() * 6.28, r = Math.sqrt(R()) * rf.r; var x = rf.x + Math.cos(a) * r, z = rf.z + Math.sin(a) * r, s = 0.5 + R() * 1.4; put(rubble, x, -floorAt(x, z) + s * 0.3, z, s, s * (0.5 + R() * 0.6), s, R() * 3, R(), R()); } var cl = rf.cleaner, cm = new T.Mesh(new T.TorusGeometry(1.6, 0.18, 8, 24), new T.MeshBasicMaterial({ color: 0x7ff8ff })); cm.position.set(cl.x, -cl.d, cl.z); cm.rotation.x = Math.PI / 2; scene.add(cm); sway.push({ ring: cm }); });
+    function rockGeo(seed) { var g = new T.IcosahedronGeometry(1, QL.rays ? 2 : 1), pa = g.attributes.position, v = new T.Vector3(); for (var i = 0; i < pa.count; i++) { v.set(pa.getX(i), pa.getY(i), pa.getZ(i)); var n = 1 + 0.22 * Math.sin(v.x * 3.1 + seed) * Math.cos(v.z * 2.7 - seed) + 0.12 * Math.sin(v.y * 5.3 + v.x * 2 + seed * 2); v.multiplyScalar(n); pa.setXYZ(i, v.x, v.y * 0.75, v.z); } g.computeVertexNormals(); return g; }
+    var rubbleGeo = rockGeo(1.3), rubbleMat = lam(0x8a7262), rubble = inst(rubbleGeo, rubbleMat, 260);
+    OC.REEFS.forEach(function (rf) { for (var i = 0; i < 130; i++) { var a = R() * 6.28, r = Math.sqrt(R()) * rf.r; var x = rf.x + Math.cos(a) * r, z = rf.z + Math.sin(a) * r, s = 0.5 + R() * 1.4; put(rubble, x, -floorAt(x, z) + s * 0.3, z, s, s * (0.5 + R() * 0.6), s, R() * 3, R(), R()); } var cl = rf.cleaner, cm = new T.Mesh(new T.TorusGeometry(1.6, 0.12, 8, 24), new T.MeshBasicMaterial({ color: 0x7ff8ff, transparent: true, opacity: 0.45 })); cm.position.set(cl.x, -cl.d, cl.z); cm.rotation.x = Math.PI / 2; scene.add(cm); sway.push({ ring: cm }); });
     // plants (176 individual instances by type)
     var P = OC.PLANTS, cnt = {}; P.forEach(function (p) { cnt[p.type] = (cnt[p.type] || 0) + 1; });
     var brain = inst(new T.SphereGeometry(1, 10, 8), lam(0xd8b060), cnt['coral-brain'] || 1);
@@ -1051,7 +1568,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
     var whip = inst((function () { var g = new T.CylinderGeometry(0.05, 0.09, 1, 4); g.translate(0, 0.5, 0); return g; })(), lam(0xf0d060), (cnt['seawhip'] || 1) * 4);
     var anemBase = inst(new T.SphereGeometry(1, 8, 6, 0, 6.283, 0, 1.6), lam(0x60c0a0), cnt['anemone'] || 1), anemTent = inst((function () { var g = new T.CylinderGeometry(0.04, 0.08, 1, 4); g.translate(0, 0.5, 0); return g; })(), lam(0xa0f0d0), (cnt['anemone'] || 1) * 10);
     var sponge = inst((function () { var g = new T.CylinderGeometry(0.45, 0.35, 1, 7, 1, true); g.translate(0, 0.5, 0); return g; })(), lam(0xf08040, { side: T.DoubleSide }), (cnt['sponge'] || 1) * 3);
-    var algae = inst(new T.DodecahedronGeometry(1, 0), lam(0x5a8a3a), cnt['algae-rock'] || 1);
+    var algae = inst(rockGeo(2.9), lam(0x5a8a3a), cnt['algae-rock'] || 1);
     var tube = inst((function () { var g = new T.CylinderGeometry(0.08, 0.1, 1, 5); g.translate(0, 0.5, 0); return g; })(), lam(0xf0f0f0), (cnt['tube-worm'] || 1) * 6), tubeTip = inst(new T.SphereGeometry(0.14, 5, 4), new T.MeshBasicMaterial({ color: 0xff3030 }), (cnt['tube-worm'] || 1) * 6);
     P.forEach(function (p) {
       var y = -p.d, k; var hit = { x: p.x, y: y, z: p.z, r: p.r, id: p.id, name: p.type }; featureHits.push(hit);
@@ -1088,7 +1605,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
     var rockMat = lam(0x3a3f48);
     OC.CAVES.forEach(function (c) {
       var g = new T.Group(); g.position.set(c.x, -c.d, c.z);
-      for (var k = 0; k < 8; k++) { var rk = new T.Mesh(new T.DodecahedronGeometry(c.r * (0.5 + R() * 0.5), 0), rockMat); var a = R() * 6.28; rk.position.set(Math.cos(a) * c.r * 0.9, (R() - 0.3) * c.r, Math.sin(a) * c.r * 0.9); rk.rotation.set(R() * 3, R() * 3, R() * 3); g.add(rk); }
+      for (var k = 0; k < 8; k++) { var rk = new T.Mesh(rockGeo(R() * 9).scale(c.r * (0.5 + R() * 0.5), c.r * (0.4 + R() * 0.4), c.r * (0.5 + R() * 0.5)), rockMat); var a = R() * 6.28; rk.position.set(Math.cos(a) * c.r * 0.9, (R() - 0.3) * c.r, Math.sin(a) * c.r * 0.9); rk.rotation.set(R() * 3, R() * 3, R() * 3); g.add(rk); }
       var mouth = new T.Mesh(new T.SphereGeometry(c.r * 0.75, 12, 10), new T.MeshBasicMaterial({ color: 0x010204 })); g.add(mouth);
       scene.add(g); featureHits.push({ x: c.x, y: -c.d, z: c.z, r: c.r, id: c.id, name: 'cave (max size ' + c.maxSize + ')' });
     });
@@ -1100,69 +1617,23 @@ var OC = globalThis.OC || (globalThis.OC = {});
       var pts = new T.Points(pg, new T.PointsMaterial({ color: 0x555555, size: 1.6, transparent: true, opacity: 0.55, depthWrite: false })); scene.add(pts); sway.push({ smoke: pts, base: -fl + 5, x: v.x, z: v.z });
       featureHits.push({ x: v.x, y: -fl + 3, z: v.z, r: 5, id: v.id, name: 'hydrothermal vent' });
     });
-    // biolum
+    // bioluminescence & dead zone
     (function () { var b = OC.BIOLUM, n = 900, pos = new Float32Array(n * 3); for (var k = 0; k < n; k++) { var a = R() * 6.28, r = Math.sqrt(R()) * b.r; var x = b.x + Math.cos(a) * r, z = b.z + Math.sin(a) * r; var fl = floorAt(x, z); pos[k * 3] = x; pos[k * 3 + 1] = -(b.minD + R() * Math.max(2, fl - b.minD - 1)); pos[k * 3 + 2] = z; } var g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); var p = new T.Points(g, new T.PointsMaterial({ color: 0x9a7cff, size: 0.9, transparent: true, opacity: 0.8, blending: T.AdditiveBlending, depthWrite: false })); scene.add(p); sway.push({ glow: p }); })();
     (function () { var dz = OC.DEADZONE, m = new T.Mesh(new T.SphereGeometry(dz.r, 16, 12), new T.MeshBasicMaterial({ color: 0x5a3a10, transparent: true, opacity: 0.13, depthWrite: false })); m.position.set(dz.x, -(dz.minD + 12), dz.z); m.scale.y = 0.5; scene.add(m); })();
-    // tokovi
+    // currents
     OC.CURRENTS.forEach(function (c) {
       var n = 140, pos = new Float32Array(n * 3), items = [];
       for (var k = 0; k < n; k++) items.push({ t: R(), off: (R() - 0.5) * 2, d: R() });
       var g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3));
-      var p = new T.Points(g, new T.PointsMaterial({ color: 0x9fe8ff, size: 0.7, transparent: true, opacity: 0.5, blending: T.AdditiveBlending, depthWrite: false })); scene.add(p); sway.push({ cur: p, c: c, items: items });
+      var p = new T.Points(g, new T.PointsMaterial({ color: 0x9fe8ff, size: 0.35, map: OCEAN.softDot(), transparent: true, opacity: 0.35, blending: T.AdditiveBlending, depthWrite: false })); scene.add(p); sway.push({ cur: p, c: c, items: items });
     });
   })();
-  var snow = (function () { var n = 1600, pos = new Float32Array(n * 3); for (var i = 0; i < n; i++) { pos[i * 3] = (Math.random() - 0.5) * 120; pos[i * 3 + 1] = (Math.random() - 0.5) * 120; pos[i * 3 + 2] = (Math.random() - 0.5) * 120; } var g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); var p = new T.Points(g, new T.PointsMaterial({ color: 0xbfe8ff, size: 0.12, transparent: true, opacity: 0.35, depthWrite: false })); scene.add(p); return p; })();
+  var snow = OCEAN.makeSnow(QL.snow); scene.add(snow);
+  var rays = OCEAN.makeRays(QL.rays); scene.add(rays);
+  var bubbles = OCEAN.makeBubbles(QL.bubbles); scene.add(bubbles);
 
-  // ── 3D Models ────────────────────────────────────────────────────────────
-  function fishModel(colorHex, len, opts) {
-    opts = opts || {}; var g = new T.Group(); var mat = lam(colorHex);
-    var body = new T.Mesh(new T.SphereGeometry(0.5, 14, 10), mat); body.scale.set((opts.flat ? 0.9 : 0.42) * len, (opts.flat ? 0.12 : opts.tall ? 0.9 : 0.5) * len, len * (opts.long ? 1.6 : 1)); g.add(body);
-    var tail = new T.Mesh(new T.ConeGeometry(0.28 * len, 0.45 * len, 3), mat); tail.rotation.order = 'YXZ'; tail.rotation.x = -Math.PI / 2; tail.scale.set(0.25, 1, 1); tail.position.z = -0.62 * len * (opts.long ? 1.6 : 1); if (!opts.flat) g.add(tail);
-    var dorsal = new T.Mesh(new T.ConeGeometry(0.16 * len, (opts.shark ? 0.55 : 0.3) * len, 3), mat); dorsal.scale.set(0.25, 1, 1); dorsal.position.set(0, 0.3 * len, -0.05 * len); if (!opts.flat) g.add(dorsal);
-    if (opts.hammer) { var hm = new T.Mesh(new T.BoxGeometry(0.9 * len, 0.1 * len, 0.18 * len), mat); hm.position.set(0, 0, 0.45 * len); g.add(hm); }
-    if (opts.beak) { var bk = new T.Mesh(new T.ConeGeometry(0.08 * len, 0.3 * len, 6), mat); bk.rotation.x = Math.PI / 2; bk.position.set(0, -0.02 * len, 0.6 * len); g.add(bk); }
-    if (opts.sword) { var sw = new T.Mesh(new T.ConeGeometry(0.04 * len, 0.8 * len, 5), mat); sw.rotation.x = Math.PI / 2; sw.position.set(0, 0, 0.85 * len); g.add(sw); }
-    if (opts.belly) { var be = new T.Mesh(new T.SphereGeometry(0.5, 10, 8), lam(opts.belly)); be.scale.set(0.36 * len, 0.3 * len, 0.8 * len); be.position.y = -0.12 * len; g.add(be); }
-    if (opts.flat) { var tl = new T.Mesh(new T.CylinderGeometry(0.03 * len, 0.01 * len, 0.9 * len, 4), mat); tl.rotation.x = Math.PI / 2; tl.position.z = -0.9 * len; g.add(tl); }
-    if (opts.spines) for (var s = 0; s < 7; s++) { var sp = new T.Mesh(new T.ConeGeometry(0.03 * len, 0.5 * len, 4), lam(0xffffff)); sp.position.set(Math.sin(s) * 0.2 * len, 0.3 * len, (s - 3) * 0.1 * len); sp.rotation.z = Math.sin(s * 2) * 0.8; g.add(sp); }
-    var eyeMat = new T.MeshBasicMaterial({ color: 0x111111 }); [-1, 1].forEach(function (sgn) { var e = new T.Mesh(new T.SphereGeometry(0.05 * len, 8, 6), eyeMat); e.position.set(sgn * (opts.hammer ? 0.44 : 0.14) * len, 0.08 * len, (opts.hammer ? 0.45 : 0.36) * len); g.add(e); });
-    var hit = new T.Mesh(new T.SphereGeometry(Math.max(1.5, len * 0.8), 8, 6), new T.MeshBasicMaterial({ visible: false })); g.add(hit);
-    g.userData.tail = tail; g.userData.hit = hit; g.userData.mat = mat; g.userData.body = body;
-    return g;
-  }
-  var PAL = { sardine: 0xc8d8e8, anchovy: 0xb8c8d8, mackerel: 0x4a8aa8, snapper: 0xe07060, tuna: 0x3a5a8a, squid: 0xe8c0c8, shrimp: 0xf0b0a0, krill: 0xf0a0a0, 'flying fish': 0x80b0e0, 'salp chain': 0xd0f0ff, crab: 0xc84a2a, 'hermit crab': 0xb08050, lobster: 0x8a3a2a, 'sea urchin': 0x2a1a3a, clam: 0xd8d0c0, scallop: 0xe8a080, 'sea cucumber': 0x5a4a2a, starfish: 0xf07030, nudibranch: 0xf040c0, seahorse: 0xe8c060, 'tube worms': 0xffffff, parrotfish: 0x30c0a0, surgeonfish: 0x3060e0, wrasse: 0x60d070, goatfish: 0xf0d080, triggerfish: 0x6a6a30, cuttlefish: 0xa08870, pufferfish: 0xe8d060, lionfish: 0xd04030, 'sea snake': 0x202830, stingray: 0x7a7060, 'eagle ray': 0x3a3a40, 'conger eel': 0x6a7070, moray: 0x5a7a40, octopus: 0xb06040, grouper: 0x7a5a3a, barracuda: 0xa0b0c0, swordfish: 0x4a6a9a, anglerfish: 0x1a1a1a, 'sea turtle': 0x5a7a3a, 'manta ray': 0x1a1a22, sunfish: 0x9a9aa0, whale: 0x4a5a70, seal: 0x7a7068, dolphin: 0x8a98a8, 'man-o-war': 0xa0c0ff, 'great white': 0x6a7680, 'tiger shark': 0x7a7a60, hammerhead: 0x8a8a80, 'bull shark': 0x6a6a60, 'reef shark': 0x8a9090, orca: 0x101014 };
-  function npcModel(name) {
-    var sp = SP[name], sz = sp.size, len = 1.6 + 1.0 * Math.min(sz, 6) + (sz > 6 ? (sz - 6) * 0.8 : 0), col = PAL[name] || 0x889, g, i, m;
-    function lines(n, length) { var lp = []; for (var k = 0; k < n; k++) { var a = k / n * 6.28; lp.push(Math.cos(a) * 0.3, 0, Math.sin(a) * 0.3, Math.cos(a) * 0.9, -length, Math.sin(a) * 0.9); } var lg = new T.BufferGeometry(); lg.setAttribute('position', new T.BufferAttribute(new Float32Array(lp), 3)); return new T.LineSegments(lg, new T.LineBasicMaterial({ color: col })); }
-    switch (name) {
-      case 'crab': case 'hermit crab': case 'lobster': case 'shrimp': g = new T.Group(); m = new T.Mesh(new T.BoxGeometry(1, 0.35, 0.7), lam(col)); g.add(m); var lg = lines(8, 0.5); lg.rotation.x = Math.PI / 2; lg.scale.set(1.2, 1, 1); g.add(lg); g.scale.setScalar(0.8 + sz); break;
-      case 'sea urchin': g = new T.Group(); m = new T.Mesh(new T.IcosahedronGeometry(0.4, 1), lam(col)); g.add(m); for (i = 0; i < 14; i++) { var sp2 = new T.Mesh(new T.ConeGeometry(0.03, 0.9, 4), lam(0x1a1020)); var a = i * 2.4, b = i * 0.7; sp2.position.set(Math.cos(a) * Math.sin(b) * 0.4, Math.cos(b) * 0.4, Math.sin(a) * Math.sin(b) * 0.4); sp2.lookAt(sp2.position.clone().multiplyScalar(3)); sp2.rotateX(Math.PI / 2); g.add(sp2); } break;
-      case 'clam': case 'scallop': g = new T.Group(); m = new T.Mesh(new T.SphereGeometry(0.5, 8, 6, 0, 6.283, 0, 1.57), lam(col)); m.scale.set(1.2, 0.5, 1); g.add(m); break;
-      case 'sea cucumber': g = new T.Group(); m = new T.Mesh(new T.SphereGeometry(0.5, 8, 6), lam(col)); m.scale.set(0.5, 0.4, 1.8); g.add(m); break;
-      case 'starfish': g = new T.Group(); for (i = 0; i < 5; i++) { var arm = new T.Mesh(new T.ConeGeometry(0.22, 1, 4), lam(col)); arm.rotation.z = -Math.PI / 2; arm.rotation.y = i / 5 * 6.28; arm.position.set(Math.cos(i / 5 * 6.28) * 0.5, 0.1, -Math.sin(i / 5 * 6.28) * 0.5); arm.rotation.set(Math.PI / 2, 0, -i / 5 * 6.28 - Math.PI / 2); g.add(arm); } break;
-      case 'nudibranch': case 'seahorse': g = new T.Group(); m = new T.Mesh(new T.SphereGeometry(0.3, 6, 5), lam(col)); m.scale.set(0.6, name === 'seahorse' ? 2.2 : 0.6, name === 'seahorse' ? 0.6 : 1.4); g.add(m); break;
-      case 'tube worms': g = new T.Group(); for (i = 0; i < 5; i++) { var tb = new T.Mesh(new T.CylinderGeometry(0.08, 0.1, 1.2, 5), lam(0xf0f0f0)); tb.position.set((i - 2) * 0.3, 0.6, (i % 2) * 0.3); g.add(tb); var tip = new T.Mesh(new T.SphereGeometry(0.13, 5, 4), new T.MeshBasicMaterial({ color: 0xff3030 })); tip.position.set((i - 2) * 0.3, 1.2, (i % 2) * 0.3); g.add(tip); } break;
-      case 'octopus': case 'cuttlefish': case 'squid': g = new T.Group(); m = new T.Mesh(new T.SphereGeometry(0.5, 10, 8), lam(col)); m.scale.set(0.8, name === 'squid' ? 0.6 : 0.8, name === 'squid' ? 2.2 : 1); g.add(m); var ten = lines(8, 1.6); ten.position.y = -0.2; if (name !== 'octopus') { ten.rotation.x = -Math.PI / 2; ten.position.set(0, 0, 0.6); } g.add(ten); g.scale.setScalar(0.8 + sz); break;
-      case 'man-o-war': g = new T.Group(); m = new T.Mesh(new T.SphereGeometry(0.6, 10, 8), lam(col, { transparent: true, opacity: 0.55 })); m.scale.set(1, 0.7, 1.6); g.add(m); var tn = lines(6, 5); g.add(tn); break;
-      case 'stingray': case 'eagle ray': case 'manta ray': g = fishModel(col, len, { flat: true }); break;
-      case 'sea turtle': g = new T.Group(); m = new T.Mesh(new T.SphereGeometry(0.5, 10, 8, 0, 6.283, 0, 1.57), lam(col)); m.scale.set(len * 0.5, len * 0.25, len * 0.6); g.add(m); var hd = new T.Mesh(new T.SphereGeometry(0.12 * len, 8, 6), lam(0x7a8a4a)); hd.position.set(0, 0.03 * len, 0.38 * len); g.add(hd); [-1, 1].forEach(function (sg) { var fl = new T.Mesh(new T.BoxGeometry(0.4 * len, 0.04 * len, 0.18 * len), lam(0x7a8a4a)); fl.position.set(sg * 0.4 * len, 0, 0.1 * len); fl.rotation.y = sg * 0.4; g.add(fl); }); g.userData.hit = new T.Mesh(new T.SphereGeometry(len, 6, 4), new T.MeshBasicMaterial({ visible: false })); g.add(g.userData.hit); break;
-      case 'sunfish': g = fishModel(col, len, { tall: true }); break;
-      case 'conger eel': case 'moray': case 'sea snake': g = fishModel(col, len * 0.8, { long: true }); break;
-      case 'swordfish': g = fishModel(col, len, { sword: true }); break;
-      case 'dolphin': g = fishModel(col, len, { beak: true, belly: 0xd8e0e8 }); break;
-      case 'orca': g = fishModel(col, len, { shark: true, belly: 0xffffff }); break;
-      case 'hammerhead': g = fishModel(col, len, { shark: true, hammer: true }); break;
-      case 'great white': case 'tiger shark': case 'bull shark': case 'reef shark': g = fishModel(col, len, { shark: true, belly: name === 'great white' ? 0xe8ecf0 : null }); break;
-      case 'lionfish': g = fishModel(col, len, { spines: true }); break;
-      case 'pufferfish': g = new T.Group(); m = new T.Mesh(new T.IcosahedronGeometry(0.55, 0), lam(col)); g.add(m); g.scale.setScalar(0.8 + sz); break;
-      case 'anglerfish': g = fishModel(col, len); var lure = new T.Mesh(new T.SphereGeometry(0.12, 6, 5), new T.MeshBasicMaterial({ color: 0xbfffdf })); lure.position.set(0, 0.5 * len, 0.5 * len); g.add(lure); g.userData.lure = lure; break;
-      case 'seal': g = fishModel(col, len, { belly: 0xb0a898 }); break;
-      case 'whale': g = fishModel(col, len, { belly: 0xb8c0c8 }); break;
-      default: g = fishModel(col, len);
-    }
-    if (!g.userData.hit) { var hit = new T.Mesh(new T.SphereGeometry(Math.max(1.2, len * 0.7), 6, 4), new T.MeshBasicMaterial({ visible: false })); g.add(hit); g.userData.hit = hit; }
-    g.userData.len = len; return g;
-  }
+  // ── 3D Models (CR procedural meshes + vertex-shader swimming) ────────────
+  function npcModel(name) { return CR.creature(name); }
   function makeSprite(w, h) { var cv = document.createElement('canvas'); cv.width = w; cv.height = h; var tx = new T.CanvasTexture(cv); var sp = new T.Sprite(new T.SpriteMaterial({ map: tx, transparent: true, depthTest: false })); sp.userData = { cv: cv, tx: tx, key: '' }; sp.center.set(0.5, 0); return sp; }
   function drawLabel(sp, f) {
     var key = [f.n, f.model, Math.round(f.hp), Math.round(f.en), f.sz, f.hid, f.bleed, f.suspect, f.cheat, f.alive, f.poison, f.cmdN].join('|'); if (sp.userData.key === key) return; sp.userData.key = key;
@@ -1194,27 +1665,44 @@ var OC = globalThis.OC || (globalThis.OC = {});
 
   // ── Dynamic objects ──────────────────────────────────────────────────────
   var fishObjs = {}, npcObjs = {}, schoolObjs = {}, plankObjs = {}, carrionObjs = {}, bloomObjs = {};
-  var tinyGeo = new T.ConeGeometry(0.12, 0.6, 4); tinyGeo.rotateX(Math.PI / 2);
-  function ensureFish(f) { var o = fishObjs[f.id]; if (o) return o; var len = 1.6 + 1.0 * f.sz, g = fishModel(COL[f.color] || 0x888888, 1); g.scale.setScalar(len); var label = makeSprite(384, 128), bubble = makeSprite(512, 192); scene.add(g); scene.add(label); scene.add(bubble); o = fishObjs[f.id] = { g: g, label: label, bubble: bubble, len: len, id: f.id }; g.userData.hit.userData.pick = { kind: 'fish', id: f.id }; return o; }
-  function ensureNpc(a) { var o = npcObjs[a.id]; if (o) return o; var g = npcModel(a.sp); scene.add(g); o = npcObjs[a.id] = { g: g, sp: a.sp, id: a.id, tag: null }; g.userData.hit.userData.pick = { kind: 'npc', id: a.id }; return o; }
-  function ensureSchool(a) { var o = schoolObjs[a.id]; if (o) return o; var sp = SP[a.sp], n = sp.size < 0.05 ? 90 : 60, s = 0.6 + sp.size * 1.2, im = new T.InstancedMesh(tinyGeo, lam(PAL[a.sp] || 0xc8d8e8), n), ph = []; for (var i = 0; i < n; i++) ph.push({ a: Math.random() * 6.28, r: 1 + Math.random() * (sp.size > 1 ? 8 : 5), y: (Math.random() - 0.5) * 3, w: 0.6 + Math.random() * 0.5 }); scene.add(im); o = schoolObjs[a.id] = { im: im, ph: ph, s: s, nmax: sp.n }; return o; }
+  function ensureFish(f) { var o = fishObjs[f.id]; if (o) return o; var g = CR.player(f.color, 1), len = CR.playerLen(f.sz); g.scale.setScalar(len / CR.playerLen(1)); var label = makeSprite(384, 128), bubble = makeSprite(512, 192); scene.add(g); scene.add(label); scene.add(bubble); o = fishObjs[f.id] = { g: g, label: label, bubble: bubble, len: len, len0: CR.playerLen(1), id: f.id, ph: 0, pp: 0 }; g.userData.hit.userData.pick = { kind: 'fish', id: f.id }; return o; }
+  var protoCache = {};
+  function proto(name) { var p = protoCache[name]; if (!p) { var g = CR.creature(name, true); p = protoCache[name] = { geo: g.userData.mesh.geometry, mat: g.userData.mat, len: g.userData.len, mode: g.userData.mode }; } return p; }
+  function ensureNpc(a) { var o = npcObjs[a.id]; if (o) return o; var g = npcModel(a.sp); scene.add(g); o = npcObjs[a.id] = { g: g, sp: a.sp, id: a.id, tag: null, ph: a.h, pp: 0 }; g.userData.hit.userData.pick = { kind: 'npc', id: a.id }; return o; }
+  // polarized school: individuals swim forward with subtle phase oscillation; tightens into a ball when fleeing
+  function ensureSchool(a) {
+    var o = schoolObjs[a.id]; if (o) return o; var sp = SP[a.sp], L = CR.lenOf(a.sp), tiny = L < 0.1;
+    var n = Math.round((tiny ? 260 : L < 0.3 ? 170 : L < 1 ? 70 : 24) * QL.school), i, ph = [];
+    var R = L > 1 ? 9 : L > 0.3 ? 4.5 : 2.6;
+    for (i = 0; i < n; i++) { var u = Math.random(), v = Math.random(), w = Math.random(); ph.push({ x: (u - 0.5) * 2 * R, y: (v - 0.5) * R * 0.5, z: (w - 0.5) * 2 * R * 1.4, s: 0.8 + Math.random() * 0.4, ph: Math.random() * 6.28, w1: 0.4 + Math.random() * 0.6, w2: 0.3 + Math.random() * 0.5 }); }
+    if (tiny) { var pos = new Float32Array(n * 3), g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); var pts = new T.Points(g, new T.PointsMaterial({ color: a.sp === 'krill' ? 0xffb0a0 : 0xffd8c8, size: 0.12, transparent: true, opacity: 0.85, depthWrite: false })); pts.frustumCulled = false; scene.add(pts); return schoolObjs[a.id] = { pts: pts, ph: ph, nmax: sp.n, R: R }; }
+    var pr = proto(a.sp), geo = pr.geo.clone(), phases = new Float32Array(n); for (i = 0; i < n; i++) phases[i] = ph[i].ph; geo.setAttribute('aPhase', new T.InstancedBufferAttribute(phases, 1));
+    var mat = pr.mat.clone(); mat.userData.u = pr.mat.userData.u; mat.onBeforeCompile = pr.mat.onBeforeCompile; mat.customProgramCacheKey = pr.mat.customProgramCacheKey;
+    var im = new T.InstancedMesh(geo, mat, n); im.frustumCulled = false; scene.add(im);
+    return schoolObjs[a.id] = { im: im, ph: ph, nmax: sp.n, R: R, u: pr.mat.userData.u, len: pr.len };
+  }
   function ensurePlank(p) { var o = plankObjs[p.id]; if (o) return o; var n = 160, pos = new Float32Array(n * 3); for (var i = 0; i < n; i++) { var a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * p.r; pos[i * 3] = Math.cos(a) * r; pos[i * 3 + 1] = (Math.random() - 0.5) * p.r * 0.7; pos[i * 3 + 2] = Math.sin(a) * r; } var g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); var pt = new T.Points(g, new T.PointsMaterial({ color: 0x9fe87a, size: 0.22, transparent: true, opacity: 0.7, depthWrite: false })); scene.add(pt); o = plankObjs[p.id] = { pt: pt }; return o; }
-  function ensureBloom(j) { var o = bloomObjs[j.id]; if (o) return o; var grp = new T.Group(), items = []; var bell = new T.SphereGeometry(0.7, 10, 8, 0, 6.283, 0, 1.6), bm = lam(0xffa0d0, { transparent: true, opacity: 0.45, side: T.DoubleSide }); for (var i = 0; i < 36; i++) { var g = new T.Group(); g.add(new T.Mesh(bell, bm)); var lp = []; for (var k = 0; k < 5; k++) { var a = k / 5 * 6.28; lp.push(Math.cos(a) * 0.4, 0, Math.sin(a) * 0.4, Math.cos(a) * 0.6, -3 - Math.random() * 2, Math.sin(a) * 0.6); } var lg = new T.BufferGeometry(); lg.setAttribute('position', new T.BufferAttribute(new Float32Array(lp), 3)); g.add(new T.LineSegments(lg, new T.LineBasicMaterial({ color: 0xffc0e0, transparent: true, opacity: 0.5 }))); var a2 = Math.random() * 6.28, r2 = Math.sqrt(Math.random()); items.push({ g: g, ox: Math.cos(a2) * r2, oz: Math.sin(a2) * r2, oy: (Math.random() - 0.5), ph: Math.random() * 6.28 }); grp.add(g); } scene.add(grp); return bloomObjs[j.id] = { grp: grp, items: items }; }
-  function ensureCarrion(k) { var o = carrionObjs[k.id]; if (o) return o; var g = fishModel(k.sz > 15 ? 0x5a5a60 : 0x8a8a80, 1, k.sz > 15 ? { belly: 0x9a9a90 } : {}); g.scale.setScalar(1.6 + k.sz); g.rotation.z = Math.PI; scene.add(g); return carrionObjs[k.id] = { g: g }; }
+  function ensureBloom(j) {
+    var o = bloomObjs[j.id]; if (o) return o; var n = Math.round(40 * Math.max(0.5, QL.school)), pr = proto('jellyfish bloom'), geo = pr.geo.clone(), phases = new Float32Array(n), items = [], i;
+    for (i = 0; i < n; i++) { phases[i] = Math.random() * 6.28; var a2 = Math.random() * 6.28, r2 = Math.sqrt(Math.random()); items.push({ ox: Math.cos(a2) * r2, oz: Math.sin(a2) * r2, oy: (Math.random() - 0.5), ph: phases[i], s: 0.7 + Math.random() * 0.8 }); }
+    geo.setAttribute('aPhase', new T.InstancedBufferAttribute(phases, 1)); var mat = pr.mat.clone(); mat.userData.u = pr.mat.userData.u; mat.onBeforeCompile = pr.mat.onBeforeCompile; mat.customProgramCacheKey = pr.mat.customProgramCacheKey; mat.transparent = true; mat.opacity = 0.55; mat.depthWrite = false;
+    var im = new T.InstancedMesh(geo, mat, n); im.frustumCulled = false; scene.add(im); return bloomObjs[j.id] = { im: im, items: items, u: pr.mat.userData.u };
+  }
+  function ensureCarrion(k) { var o = carrionObjs[k.id]; if (o) return o; var g = CR.carcass(k.sz); scene.add(g); return carrionObjs[k.id] = { g: g }; }
 
   // ── State / interpolation ────────────────────────────────────────────────
   var A = null, B = null, tA = 0, tB = 0, LAG = 650, live = { ok: false, demo: false, lastErr: '' }, lastFeedN = 0, lastGen = null;
   function index(s) { s.idx = { fish: {}, npcs: {} }; s.fish.forEach(function (f) { s.idx.fish[f.id] = f; }); s.npcs.forEach(function (a) { s.idx.npcs[a.id] = a; }); return s; }
   function pushState(s) {
     index(s); var now = performance.now(); A = B; tA = tB; B = s; tB = now; if (!A) { A = s; tA = now - 500; }
-    if (lastGen !== null && s.gen !== lastGen) { for (var id in fishObjs) { scene.remove(fishObjs[id].g); scene.remove(fishObjs[id].label); scene.remove(fishObjs[id].bubble); } fishObjs = {}; for (id in carrionObjs) scene.remove(carrionObjs[id].g); carrionObjs = {}; for (id in npcObjs) { scene.remove(npcObjs[id].g); if (npcObjs[id].tag) scene.remove(npcObjs[id].tag); } npcObjs = {}; for (id in schoolObjs) scene.remove(schoolObjs[id].im); schoolObjs = {}; $('end').style.display = 'none'; lastFeedN = 0; }
-    lastGen = s.gen; updateUI(s);
+    if (lastGen !== null && s.gen !== lastGen) { for (var id in fishObjs) { scene.remove(fishObjs[id].g); scene.remove(fishObjs[id].label); scene.remove(fishObjs[id].bubble); } fishObjs = {}; for (id in carrionObjs) scene.remove(carrionObjs[id].g); carrionObjs = {}; for (id in npcObjs) { scene.remove(npcObjs[id].g); if (npcObjs[id].tag) scene.remove(npcObjs[id].tag); } npcObjs = {}; for (id in schoolObjs) scene.remove(schoolObjs[id].im || schoolObjs[id].pts); schoolObjs = {}; for (id in bloomObjs) scene.remove(bloomObjs[id].im); bloomObjs = {}; $('end').style.display = 'none'; lastFeedN = 0; }
+    lastGen = s.gen; if (s.tide) OC._tide = s.tide; updateUI(s);
   }
   function lerpA(a, b, t) { var d = ((b - a) % 360 + 540) % 360 - 180; return a + d * t; }
   function prev(listKey, id) { return (A && A.idx && A.idx[listKey][id]) || null; }
 
   // ── Camera ───────────────────────────────────────────────────────────────
-  var cam = { mode: 'free', yaw: 2.4, pitch: -0.25, pos: new T.Vector3(520, -20, 520), follow: null, followNpc: null, dist: 16, oyaw: 0.6, opitch: 0.3 }, sharkIdx = -1;
+  var cam = { mode: 'free', yaw: -2.2, pitch: -0.12, pos: new T.Vector3(255, -14, 300), follow: null, followNpc: null, dist: 16, oyaw: 0.6, opitch: 0.3 }, sharkIdx = -1;
   var keys = {}, drag = null;
   window.addEventListener('keydown', function (e) { if (e.target.tagName === 'INPUT') return; keys[e.code] = true; var k = e.key; if (k >= '0' && k <= '9') { var idx = k === '0' ? 9 : (+k - 1); var f = (B && B.fish[idx]); if (f) selectFish(f.id, true); } if (k === 'f' || k === 'F') { if (cam.follow) setMode(cam.mode === 'follow' ? 'free' : 'follow'); } if (k === 'h' || k === 'H') { document.querySelectorAll('.panel,#mini').forEach(function (p) { p.style.visibility = p.style.visibility === 'hidden' ? '' : 'hidden'; }); } });
   window.addEventListener('keyup', function (e) { keys[e.code] = false; });
@@ -1226,12 +1714,22 @@ var OC = globalThis.OC || (globalThis.OC = {});
   var ray = new T.Raycaster(), mouse = new T.Vector2();
   function pick(e) { mouse.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1); ray.setFromCamera(mouse, camera); var hits = [], id; for (id in fishObjs) if (fishObjs[id].g.visible) hits.push(fishObjs[id].g.userData.hit); for (id in npcObjs) if (npcObjs[id].g.visible) hits.push(npcObjs[id].g.userData.hit); var r = ray.intersectObjects(hits, false); if (r.length) { var p = r[0].object.userData.pick; if (p.kind === 'fish') selectFish(p.id, true); else followNpc(p.id); } }
   function selectFish(id, follow) { cam.follow = id; cam.followNpc = null; if (follow) setMode('follow'); updateUI(B); }
+  window.OA = { followSpecies: function (sp, dist) { if (!B) return false; var ids = Object.keys(B.idx.npcs).filter(function (k) { return B.idx.npcs[k].sp === sp; }); if (!ids.length) return false; followNpc(ids[0]); if (dist) cam.dist = dist; return ids[0]; }, cam: cam, state: function () { return B; }, dbg: { npcObjs: npcObjs, fishObjs: fishObjs, camera: camera, scene: scene, renderer: renderer, fps: function () { return fpsN / Math.max(0.001, fpsT); } } };
+  var qsFollow = qs.get('follow');
+  if (qsFollow) {
+    if (/^\d+$/.test(qsFollow)) {
+      setTimeout(function () { var f = B && B.fish[+qsFollow - 1]; if (f) selectFish(f.id, true); }, 1500);
+    } else {
+      var _fi = setInterval(function () { if (window.OA.followSpecies(qsFollow, parseFloat(qs.get('dist')) || 0)) clearInterval(_fi); }, 500);
+    }
+  }
   function followNpc(id) { cam.followNpc = id; cam.mode = 'npc'; ['free', 'follow', 'over', 'shark'].forEach(function (k) { $('b-' + k).classList.toggle('on', k === 'shark'); }); var a = B && B.idx.npcs[id]; if (a) toast(spLabel(a.sp) + ' (' + a.id + ') — ' + stateText(a)); updateUI(B); }
   function setMode(m) { cam.mode = m; ['free', 'follow', 'over', 'shark'].forEach(function (k) { $('b-' + k).classList.toggle('on', k === m); }); if (m === 'over') { cam.pos.set(W / 2, 420, L + 420); cam.yaw = Math.PI; cam.pitch = -0.72; cam.mode = 'free'; $('b-over').classList.add('on'); } }
   function nextShark() { if (!B) return; var sh = B.npcs.filter(function (a) { return SP[a.sp].kind === 'shark'; }); if (!sh.length) { toast('No sharks'); return; } sharkIdx = (sharkIdx + 1) % sh.length; followNpc(sh[sharkIdx].id); }
   function updateCamera(dt) {
     if (cam.mode === 'follow' || cam.mode === 'npc') {
-      var o = cam.mode === 'npc' ? npcObjs[cam.followNpc] : fishObjs[cam.follow], tgt = o && o.g.visible && o.g;
+      var o = cam.mode === 'npc' ? npcObjs[cam.followNpc] : fishObjs[cam.follow], tgt = o && (o.g.visible || cam.mode === 'npc') && o.g;
+      if (!tgt && cam.mode === 'npc' && B && B.idx.npcs[cam.followNpc]) { var sa = B.idx.npcs[cam.followNpc], so = schoolObjs[cam.followNpc]; tgt = { position: new T.Vector3(sa.x, -sa.d, sa.z), userData: { len: so ? so.R * 1.5 : 3 } }; o = { g: tgt }; }
       if (tgt) { var off = new T.Vector3(Math.sin(cam.oyaw) * Math.cos(cam.opitch), Math.sin(cam.opitch), Math.cos(cam.oyaw) * Math.cos(cam.opitch)).multiplyScalar(cam.dist + (o.g.userData.len || 3) * 1.6); var want = tgt.position.clone().add(off); want.y = Math.min(want.y, 2); want.y = Math.max(want.y, -floorAt(OC.clamp(want.x, 0, W), OC.clamp(want.z, 0, L)) + 1); cam.pos.lerp(want, 1 - Math.pow(0.001, dt)); camera.position.copy(cam.pos); camera.lookAt(tgt.position); return; }
     }
     var sp = (keys.ShiftLeft || keys.ShiftRight ? 110 : 24) * dt, dir = camDir(), right = new T.Vector3(dir.z, 0, -dir.x).normalize();
@@ -1246,7 +1744,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
   function fmt(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); }
   function esc(s) { return (s === undefined || s === null ? '' : String(s)).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function toast(m) { var t = $('toast'); t.textContent = m; t.style.opacity = 1; clearTimeout(t._h); t._h = setTimeout(function () { t.style.opacity = 0; }, 3000); }
-  function stateText(a) { return a.st === 'hunt' ? 'HUNTING ' + (a.tg || '') : a.st === 'scavenge' ? 'scavenging' : a.st === 'rest' ? 'resting (full)' : a.st === 'patrol' ? 'patrolling' : a.st === 'flee' ? 'fleeing' : a.st === 'forage' ? 'foraging' : a.st === 'idle' ? 'idle' : a.st || ''; }
+  function stateText(a) { return a.st === 'hunt' ? 'HUNTING ' + (a.tg || '') : a.st === 'circle' ? 'circling ' + (a.tg || '') : a.st === 'scavenge' ? 'scavenging' : a.st === 'rest' ? 'resting (full)' : a.st === 'patrol' ? 'patrolling' : a.st === 'flee' ? 'fleeing' : a.st === 'forage' ? 'foraging' : a.st === 'idle' ? 'idle' : a.st || ''; }
   function ago(ms, now) { if (!ms) return '—'; var s = Math.max(0, Math.round((now - ms) / 1000)); return s < 60 ? s + 's ago' : Math.floor(s / 60) + 'm ago'; }
   var showSpecies = false;
   function updateUI(s) {
@@ -1278,6 +1776,8 @@ var OC = globalThis.OC || (globalThis.OC = {});
   function zoneOf(f) { var z = []; var hi = OC.hideInfo(f); if (hi.src) z.push(hi.src); var rf = OC.reefAt(f.x, f.z, f.d); if (rf && z.indexOf(rf.id) < 0) z.push(rf.id); var v = OC.ventAt(f.x, f.z, f.d); if (v.dist < 14) z.push('vent'); if (OC.inBiolum(f.x, f.z, f.d)) z.push('glowing water'); if (OC.inDeadzone(f.x, f.z, f.d)) z.push('dead zone'); if (f.d < 4) z.push('surface'); var cu = OC.currentAt(f.x, f.z, f.d); if (cu.id) z.push('current ' + cu.id); return z.length ? z.join(', ') : 'open water'; }
   $('b-free').onclick = function () { setMode('free'); }; $('b-follow').onclick = function () { if (!cam.follow && B && B.fish[0]) cam.follow = B.fish[0].id; if (cam.follow) setMode('follow'); else toast('No fish to follow'); }; $('b-over').onclick = function () { setMode('over'); }; $('b-shark').onclick = nextShark;
   $('b-species').onclick = function () { showSpecies = !showSpecies; this.classList.toggle('on', showSpecies); $('species').style.display = showSpecies ? 'block' : 'none'; $('insp').style.top = showSpecies ? '' : '258px'; if (showSpecies) $('insp').style.display = 'none'; updateUI(B); };
+  ['low', 'med', 'high'].forEach(function (q) { var b = $('q-' + q); if (!b) return; b.classList.toggle('on', OCEAN.qname === q); b.onclick = function () { OCEAN.setQuality(q); location.reload(); }; });
+  var fpsN = 0, fpsT = 0;
   var showLabels = true, showWhy = true; $('b-labels').onclick = function () { showLabels = !showLabels; this.classList.toggle('on', showLabels); }; $('b-why').onclick = function () { showWhy = !showWhy; this.classList.toggle('on', showWhy); };
   $('b-demo').onclick = function () { setDemo(!live.demo); };
   $('url').value = API; $('url').onchange = function () { API = this.value.trim() || DEFAULT_API; try { localStorage.setItem('ocean.api', API); } catch (e) { } fails = 0; if (live.demo) setDemo(false); };
@@ -1346,7 +1846,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
     var fishSeen = see.filter(function (s) { return s.kind === 'fish'; }), bigger = fishSeen.filter(function (s) { return s.size > you.size * 1.2; }), smaller = fishSeen.filter(function (s) { return s.size < you.size / 1.6; });
     var pred = see.filter(function (s) { return /shark|orca|barracuda|grouper|dolphin|seal/.test(s.kind) && s.size > you.size * 1.4; })[0];
     var food = see.filter(function (s) { return /school|plankton|carcass|crab|shrimp|snail|urchin|scallop|clam|salp/.test(s.kind) && !(s.kind === 'plankton cloud' && you.size > 2.5) && !(/mackerel|snapper|tuna/.test(s.kind) && you.size < 1.5); })[0];
-    if (pred && pred.dist < 45) { b.act = 'flee'; b.target = pred.id; b.speed = 'sprint'; b.dur = 15; b.why = pred.kind + ' at ' + Math.round(pred.dist) + ' m — sprinting away.'; return b; }
+    if (pred && pred.dist < 45) { b.act = 'flee'; b.target = pred.id; b.speed = 'sprint'; b.dur = 15; b.why = spLabel(pred.kind) + ' at ' + Math.round(pred.dist) + ' m — sprinting away.'; return b; }
     if (pol === 'random') { b.act = 'swim'; b.heading = R() * 360; b.pitch = (R() - 0.5) * 40; b.speed = 'cruise'; b.dur = 20; b.why = 'Swimming randomly to see what turns up.'; return b; }
     if (pol === 'camper') { if (you.zone.join().indexOf('reef') < 0) { b.act = 'swim'; b.goto = [200, 260, 14]; b.speed = 'cruise'; b.dur = 60; b.why = 'Heading to the reef to take cover.'; } else { b.act = you.energy < you.energyMax * 0.5 ? 'feed' : 'hide'; b.dur = 60; b.why = b.act === 'feed' ? 'Hungry, picking snails off the reef.' : 'Hidden in the reef, lying low.'; } return b; }
     if (bigger.length && bigger[0].dist < 25) { if (pol === 'smart') { var k = OC.KELP[1]; b.act = 'swim'; b.goto = [k.x, k.z, 18]; b.speed = 'sprint'; b.why = 'Larger fish ' + bigger[0].name + ' nearby — heading into kelp for cover.'; } else { b.act = 'flee'; b.target = bigger[0].id; b.speed = 'sprint'; b.dur = 12; b.why = 'Fleeing from ' + bigger[0].name + ' (size ' + bigger[0].size + ').'; } return b; }
@@ -1374,9 +1874,10 @@ var OC = globalThis.OC || (globalThis.OC = {});
       s.fish.forEach(function (f) {
         var o = ensureFish(f), a = prev('fish', f.id) || f;
         var x = OC.lerp(a.x, f.x, alpha), z = OC.lerp(a.z, f.z, alpha), d = OC.lerp(a.d, f.d, alpha), h = lerpA(a.h, f.h, alpha), p = OC.lerp(a.p, f.p, alpha);
-        var len = 1.6 + 1.0 * f.sz; o.g.scale.setScalar(len); o.g.userData.len = len; o.g.position.set(x, -d, z); rotFish(o.g, h, p);
-        o.g.userData.tail.rotation.y = Math.sin(ts * (4 + f.spd * 3) + f.id.length) * (0.15 + Math.min(0.5, f.spd * 0.12));
+        var len = CR.playerLen(f.sz); o.g.scale.setScalar(len / o.len0); o.g.userData.len = len; o.len = len; o.g.position.set(x, -d, z); rotFish(o.g, h, p);
+        var tr = ((h - o.ph + 540) % 360 - 180) / Math.max(dt, 0.001); o.ph = h; CR.animate(o.g, ts, f.alive ? f.spd : 0, tr);
         var mat = o.g.userData.mat; var op = f.hid ? 0.35 : 1; mat.transparent = op < 1; mat.opacity = op; o.g.visible = f.alive; mat.emissive.setHex(f.bleed ? 0x401010 : f.poison ? 0x103010 : 0x000000);
+        if (f.bleed && Math.random() < 0.05) OCEAN.emitBubbles(bubbles, x, -d, z, 1, 0.5, 0.6);
         var dc = camera.position.distanceTo(o.g.position), sc = OC.clamp(dc * 0.09, 1.2, 12);
         o.label.visible = showLabels && f.alive; o.label.position.set(x, -d + len * 0.5, z); o.label.scale.set(sc * 3, sc, 1); drawLabel(o.label, f);
         o.bubble.visible = showWhy && f.alive && !!f.why && dc < 110; o.bubble.position.set(x, -d + len * 0.5 + sc, z); o.bubble.scale.set(sc * 2.7, sc, 1); drawBubble(o.bubble, f.why || '');
@@ -1386,31 +1887,44 @@ var OC = globalThis.OC || (globalThis.OC = {});
         var sp = SP[a.sp];
         if (sp.kind === 'school') {
           seenS[a.id] = 1; var o = ensureSchool(a), pa = prev('npcs', a.id) || a; var cx = OC.lerp(pa.x, a.x, alpha), cz = OC.lerp(pa.z, a.z, alpha), cd = OC.lerp(pa.d, a.d, alpha);
-          var vis = Math.min(o.ph.length, Math.ceil(a.n / o.nmax * o.ph.length)); o.im.visible = a.n > 0 && camera.position.distanceTo(V.set(cx, -cd, cz)) < 260;
-          if (!o.im.visible) return;
-          for (var i = 0; i < o.ph.length; i++) { var ph = o.ph[i]; if (i >= vis) { M.makeScale(0, 0, 0); o.im.setMatrixAt(i, M); continue; } var an = ph.a + ts * ph.w; V.set(cx + Math.cos(an) * ph.r, -cd + ph.y + Math.sin(ts * 1.3 + ph.a) * 0.5, cz + Math.sin(an) * ph.r); Q.setFromEuler(new T.Euler(0, Math.atan2(-Math.sin(an), Math.cos(an)) + Math.PI, 0)); SC.set(o.s, o.s, o.s); M.compose(V, Q, SC); o.im.setMatrixAt(i, M); } o.im.instanceMatrix.needsUpdate = true; return;
+          var ch = lerpA(pa.h, a.h, alpha), spS = SP[a.sp], fleeing = a.spd > spS.speed * 1.4, sq = fleeing ? 0.45 : 1;
+          var vis = Math.min(o.ph.length, Math.ceil(a.n / o.nmax * o.ph.length)), obj = o.im || o.pts, dcs = camera.position.distanceTo(V.set(cx, -cd, cz)); obj.visible = a.n > 0 && dcs < (o.im ? 240 : 160);
+          if (!obj.visible) return;
+          var hr = ch * D2R, sh = Math.sin(hr), chh = Math.cos(hr), yaw = Math.atan2(sh, -chh), spin = fleeing ? ts * 1.5 : 0;
+          if (o.pts) { var pa2 = o.pts.geometry.attributes.position; for (var i = 0; i < o.ph.length; i++) { var q = o.ph[i]; if (i >= vis) { pa2.setXYZ(i, 0, 50, 0); continue; } var ox = q.x * sq + Math.sin(ts * q.w1 + q.ph) * 0.4, oz = q.z * sq + Math.cos(ts * q.w2 + q.ph) * 0.4, oy = q.y * sq + Math.sin(ts * 0.7 + q.ph) * 0.3; pa2.setXYZ(i, cx + ox * chh + oz * sh, -cd + oy, cz - ox * sh + oz * chh); } pa2.needsUpdate = true; return; }
+          o.u.uTime.value = ts; o.u.uFreq.value = 3 + a.spd * 2.2; o.u.uAmp.value = 0.05 + Math.min(0.06, a.spd * 0.02);
+          for (var i = 0; i < o.ph.length; i++) { var ph = o.ph[i]; if (i >= vis) { M.makeScale(0, 0, 0); o.im.setMatrixAt(i, M); continue; }
+            var lx = ph.x * sq + Math.sin(ts * ph.w1 + ph.ph) * 0.5, lz = ph.z * sq + Math.cos(ts * ph.w2 + ph.ph) * 0.6, ly = ph.y * sq + Math.sin(ts * 0.8 + ph.ph) * 0.35;
+            if (spin) { var ca = Math.cos(spin + ph.ph), sa = Math.sin(spin + ph.ph); var rx = lx * ca - lz * sa; lz = lx * sa + lz * ca; lx = rx; }
+            V.set(cx + lx * chh + lz * sh, -cd + ly, cz - lx * sh + lz * chh);
+            var dyaw = yaw + Math.sin(ts * ph.w1 + ph.ph) * 0.25 + (spin ? ph.ph : 0); Q.setFromEuler(new T.Euler(Math.sin(ts * 0.8 + ph.ph) * 0.1, dyaw, 0)); SC.set(ph.s, ph.s, ph.s); M.compose(V, Q, SC); o.im.setMatrixAt(i, M); }
+          o.im.instanceMatrix.needsUpdate = true; return;
         }
         seenN[a.id] = 1; var n = ensureNpc(a), pb = prev('npcs', a.id) || a;
         var x = OC.lerp(pb.x, a.x, alpha), z = OC.lerp(pb.z, a.z, alpha), d = OC.lerp(pb.d, a.d, alpha), h = lerpA(pb.h, a.h, alpha);
+        var horiz = Math.hypot(a.x - pb.x, a.z - pb.z), pitchT = (pb !== a && horiz + Math.abs(a.d - pb.d) > 0.05) ? Math.atan2(a.d - pb.d, Math.max(0.3, horiz)) / D2R : 0; n.pp += (OC.clamp(pitchT, -60, 60) - n.pp) * Math.min(1, dt * 2.5);
         n.g.position.set(x, -d, z);
-        if (sp.kind === 'static' || sp.buried || a.sp === 'crab' || a.sp === 'lobster' || a.sp === 'hermit crab') n.g.rotation.set(0, (h || 0) * D2R, 0); else rotFish(n.g, h, 0);
-        if (sp.kind === 'drift' || a.sp === 'man-o-war') n.g.position.y += Math.sin(ts + x) * 0.2;
-        if (n.g.userData.tail) n.g.userData.tail.rotation.y = Math.sin(ts * (3 + a.spd * 2) + x) * (0.1 + Math.min(0.4, a.spd * 0.08));
+        var ground = sp.kind === 'static' || sp.buried || a.sp === 'crab' || a.sp === 'lobster' || a.sp === 'hermit crab' || a.sp === 'octopus' || a.sp === 'sea urchin' || a.sp === 'starfish';
+        if (ground) n.g.rotation.set(0, Math.atan2(Math.sin((h || 0) * D2R), -Math.cos((h || 0) * D2R)), 0); else rotFish(n.g, h, n.pp);
+        if (sp.kind === 'drift' || a.sp === 'man-o-war') { n.g.position.y += Math.sin(ts + x) * 0.2; if (a.sp === 'man-o-war') n.g.position.y = 0.15; }
+        if (a.sp === 'whale') { if (a.breach) { var bt = ((ts * 0.5) % 1); n.g.position.y += Math.sin(bt * Math.PI) * 9; n.g.rotation.x = -0.9 * Math.sin(bt * Math.PI); if (bt > 0.55 && Math.random() < 0.3) OCEAN.emitBubbles(bubbles, x + (Math.random() - 0.5) * 14, -0.5, z + (Math.random() - 0.5) * 14, 6, 6, 2); } if (a.blow && Math.random() < 0.5) OCEAN.emitBubbles(bubbles, x, -1, z, 3, 2, 3); if (a.lunge && Math.random() < 0.3) OCEAN.emitBubbles(bubbles, x, -d, z, 2, 6, 1); }
+        if (sp.breathes && d < 1.5 && Math.random() < 0.08) OCEAN.emitBubbles(bubbles, x, -0.5, z, 1, 1, 1);
+        var trn = ((h - n.ph + 540) % 360 - 180) / Math.max(dt, 0.001); n.ph = h; CR.animate(n.g, ts, ground ? 0 : a.spd, trn);
         if (n.g.userData.mat) n.g.userData.mat.emissive.setHex(a.bl ? 0x401010 : 0x000000);
-        var dc = camera.position.distanceTo(n.g.position); n.g.visible = dc < (sp.size > 3 ? 420 : 200);
-        var wantTag = showLabels && n.g.visible && (sp.kind === 'shark' || sp.kind === 'pack' || (dc < 35 && sp.kind !== 'school') || cam.followNpc === a.id);
+        var dc = camera.position.distanceTo(n.g.position); n.g.visible = cam.followNpc === a.id || dc < (sp.size > 3 ? 420 : CR.lenOf(a.sp) < 0.3 ? 90 : 200);
+        var wantTag = showLabels && n.g.visible && !(cam.followNpc === a.id && dc < CR.lenOf(a.sp) * 3 + 4) && (sp.kind === 'shark' || sp.kind === 'pack' || (dc < 35 && sp.kind !== 'school' && CR.lenOf(a.sp) >= 0.3) || cam.followNpc === a.id);
         if (wantTag) { if (!n.tag) { n.tag = makeSprite(384, 128); scene.add(n.tag); } var sc = OC.clamp(dc * 0.08, 1.2, 14); n.tag.visible = true; n.tag.position.set(x, -d + (n.g.userData.len || 2) * 0.5, z); n.tag.scale.set(sc * 3, sc, 1); drawTag(n.tag, spLabel(a.sp).toUpperCase() + (a.hp !== undefined ? ' · hp ' + a.hp : ''), (sp.kind === 'shark' || sp.kind === 'pack' || sp.prey ? stateText(a) : 'size ' + sp.size) + (a.n !== undefined ? ' · ' + a.n : ''), a.sp === 'orca' ? '#ff6a6a' : sp.kind === 'shark' ? '#ffe0a0' : sp.prey ? '#ffc0a0' : '#bfe8ff'); }
         else if (n.tag) n.tag.visible = false;
       });
       for (id in npcObjs) if (!seenN[id]) { scene.remove(npcObjs[id].g); if (npcObjs[id].tag) scene.remove(npcObjs[id].tag); delete npcObjs[id]; if (cam.followNpc === id) { cam.followNpc = null; setMode('free'); } }
-      for (id in schoolObjs) if (!seenS[id]) { scene.remove(schoolObjs[id].im); delete schoolObjs[id]; }
+      for (id in schoolObjs) if (!seenS[id]) { scene.remove(schoolObjs[id].im || schoolObjs[id].pts); delete schoolObjs[id]; }
       s.plankton.forEach(function (q) { var o = ensurePlank(q); o.pt.visible = q.amt > 1; o.pt.position.set(q.x, -q.d, q.z); o.pt.material.opacity = 0.2 + 0.6 * q.amt / 100; o.pt.rotation.y = ts * 0.05; });
-      s.blooms.forEach(function (j) { var o = ensureBloom(j); o.grp.position.set(j.x, -j.d, j.z); var vis = Math.ceil(j.n / 40 * o.items.length); o.items.forEach(function (it, i) { it.g.visible = i < vis; it.g.position.set(it.ox * j.r, it.oy * 14 + Math.sin(ts * 0.8 + it.ph) * 1.2, it.oz * j.r); it.g.scale.y = 0.85 + 0.25 * Math.sin(ts * 2 + it.ph); }); });
+      s.blooms.forEach(function (j) { var o = ensureBloom(j); o.u.uTime.value = ts; var vis = Math.ceil(j.n / 40 * o.items.length); o.im.visible = camera.position.distanceTo(V.set(j.x, -j.d, j.z)) < 300; if (!o.im.visible) return; o.items.forEach(function (it, i) { if (i >= vis) { M.makeScale(0, 0, 0); o.im.setMatrixAt(i, M); return; } V.set(j.x + it.ox * j.r, -j.d + it.oy * 14 + Math.sin(ts * 0.4 + it.ph) * 1.5, j.z + it.oz * j.r); Q.setFromEuler(new T.Euler(Math.sin(ts * 0.3 + it.ph) * 0.2, it.ph, Math.cos(ts * 0.25 + it.ph) * 0.2)); SC.set(it.s, it.s, it.s); M.compose(V, Q, SC); o.im.setMatrixAt(i, M); }); o.im.instanceMatrix.needsUpdate = true; });
       var seenK = {}; s.carrion.forEach(function (k) { var o = ensureCarrion(k); seenK[k.id] = 1; o.g.position.set(k.x, -k.d, k.z); }); for (id in carrionObjs) if (!seenK[id]) { scene.remove(carrionObjs[id].g); delete carrionObjs[id]; }
-      var camD = Math.max(0, -camera.position.y), Lc = (s.light || 1) * Math.exp(-camD / 42), above = camera.position.y > 0;
-      var fc = new T.Color().setRGB(0.02 + 0.10 * Lc, 0.10 + 0.35 * Lc, 0.20 + 0.45 * Lc); if (above) fc.setRGB(0.55, 0.75, 0.95);
-      scene.fog.color.copy(fc); scene.background = fc; scene.fog.density = above ? 0.0012 : 0.005 + 0.018 * (1 - Lc) + (OC.inBiolum(camera.position.x, camera.position.z, camD) ? 0.004 : 0);
-      hemi.intensity = 0.25 + 0.8 * (s.light || 1); sun.intensity = 0.2 + 0.9 * (s.light || 1); amb.intensity = 0.35 + 0.3 * (s.light || 1);
+      var LI = OCEAN.lighting(s, camera, OC.DAY_SEC, lights, oceanMats);
+      scene.fog.color.copy(LI.fog); scene.background = LI.fog; scene.fog.density = LI.density + (!LI.above && OC.inBiolum(camera.position.x, camera.position.z, LI.camD) ? 0.004 : 0);
+      oceanMats.floor.userData.u.uTime.value = ts; oceanMats.surf.userData.u.uTime.value = ts;
+      OCEAN.updateRays(rays, camera, LI.sunDir, LI.light, ts);
       if ((labelTick++ % 6) === 0) drawMini(s);
     }
     sway.forEach(function (o) {
@@ -1420,12 +1934,13 @@ var OC = globalThis.OC || (globalThis.OC = {});
       else if (o.glow) { o.glow.material.opacity = 0.55 + 0.35 * Math.sin(ts * 1.7); o.glow.rotation.y = ts * 0.02; }
       else if (o.cur) { var c = o.c, pb = o.cur.geometry.attributes.position; for (var m = 0; m < o.items.length; m++) { var it2 = o.items[m]; if (c.kind === 'seg') { var len = Math.hypot(c.bx - c.ax, c.bz - c.az); it2.t += dt * c.v / len; if (it2.t > 1) it2.t -= 1; var ux = (c.bx - c.ax) / len, uz = (c.bz - c.az) / len; pb.setXYZ(m, c.ax + ux * len * it2.t - uz * it2.off * c.w, -(c.d0 + it2.d * (c.d1 - c.d0)), c.az + uz * len * it2.t + ux * it2.off * c.w); } else { it2.d -= dt * 0.02; if (it2.d < 0) it2.d += 1; pb.setXYZ(m, c.x + Math.cos(it2.off * 3.14) * c.r * it2.t, -(5 + it2.d * 60), c.z + Math.sin(it2.off * 3.14) * c.r * it2.t); } } pb.needsUpdate = true; }
     });
-    snow.position.copy(camera.position); snow.rotation.y = ts * 0.01;
-    renderer.render(scene, camera);
+    if (!B) { var LI0 = OCEAN.lighting(null, camera, OC.DAY_SEC, lights, oceanMats); scene.fog.color.copy(LI0.fog); scene.background = LI0.fog; scene.fog.density = LI0.density; oceanMats.floor.userData.u.uTime.value = ts; oceanMats.surf.userData.u.uTime.value = ts; }
+    OCEAN.updateSnow(snow, camera, dt, ts); OCEAN.updateBubbles(bubbles, dt, ts);
+    sway.forEach(function (o) { if (o.smoke && Math.random() < 0.15) OCEAN.emitBubbles(bubbles, o.x, o.base - 3, o.z, 1, 1.5, 1.2); });
+    renderer.render(scene, camera); fpsN++; fpsT += dt;
   }
   setMode('free');
   if (qs.get('cam')) { var cq = qs.get('cam').split(',').map(Number); if (cq.length >= 5) { cam.pos.set(cq[0], cq[1], cq[2]); cam.yaw = cq[3]; cam.pitch = cq[4]; } }
-  if (qs.get('follow')) { setTimeout(function () { var f = B && B.fish[+qs.get('follow') - 1]; if (f) selectFish(f.id, true); }, 1500); }
   if (qs.get('shark')) setTimeout(nextShark, 1500);
   if (qs.get('species') === '1') setTimeout(function () { $('b-species').click(); }, 1200);
   if (qs.get('demo') === '1') setDemo(true); else poll();
