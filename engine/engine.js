@@ -19,6 +19,13 @@
   function relAngle(target, heading) { var r = norm360(target - heading); return r > 180 ? r - 360 : r; }
   function dist3(a, b) { var dx = a.x - b.x, dz = a.z - b.z, dd = a.d - b.d; return Math.sqrt(dx * dx + dz * dz + dd * dd); }
   function distH(a, b) { var dx = a.x - b.x, dz = a.z - b.z; return Math.sqrt(dx * dx + dz * dz); }
+  function segDist3(ax, az, ad, bx, bz, bd, px, pz, pd) {
+    var vx = bx - ax, vz = bz - az, vd = bd - ad, l2 = vx * vx + vz * vz + vd * vd;
+    if (l2 < 1e-6) { var dx0 = px - ax, dz0 = pz - az, dd0 = pd - ad; return Math.sqrt(dx0 * dx0 + dz0 * dz0 + dd0 * dd0); }
+    var t = clamp(((px - ax) * vx + (pz - az) * vz + (pd - ad) * vd) / l2, 0, 1);
+    var dx = px - (ax + vx * t), dz = pz - (az + vz * t), dd = pd - (ad + vd * t);
+    return Math.sqrt(dx * dx + dz * dz + dd * dd);
+  }
   function turnToward(cur, want, maxStep) { var r = relAngle(want, cur); if (Math.abs(r) <= maxStep) return norm360(want); return norm360(cur + (r > 0 ? maxStep : -maxStep)); }
   OC.bearing = bearing; OC.relAngle = relAngle; OC.dist3 = dist3;
   function hpMax(sz) { return Math.round(80 + 40 * sz); }
@@ -50,7 +57,7 @@
     if (sp.prey && sp.prey.dmg) return Math.round(sp.prey.dmg * (0.85 + 0.15 * f.sz / Math.max(0.1, sp.size)));
     return Math.max(5, Math.round(4 + 5 * f.sz));
   }
-  function fishTurn(f) { return Math.max(36, 150 / Math.sqrt(Math.max(0.25, f.sz))); }
+  function fishTurn(f) { return Math.max(92, 190 / Math.pow(Math.max(0.25, f.sz), 0.35)); }
   function r1(v) { return Math.round(v * 10) / 10; }
   function r2(v) { return Math.round(v * 100) / 100; }
   function tSec(g) { return g.tick * DT; }
@@ -112,7 +119,7 @@
     var sp = SP[name], px = r1(pos.x), pz = r1(pos.z), pd = r1(pos.d);
     var n = {
       id: 'a' + (g.nextA++), sp: name, x: px, z: pz, d: pd, p: 0, h: Math.round(rnd(g) * 360), spd: 0,
-      hp: sp.hp || hpMax(sp.size), alive: true, st: 'idle', tg: null, tm: 0, sat: 0,
+      hp: sp.hp || hpMax(sp.size), alive: true, st: 'idle', tg: null, tm: 0, sat: 0, cool: 0, breath: 0,
       hx: px, hz: pz, hd: pd, rt: 0, wp: 0, sprint: 0, tired: 0, bleed: 0, ph: Math.round(rnd(g) * 100)
     };
     if (sp.kind === 'school') n.n = sp.n;
@@ -559,8 +566,8 @@
   function npcDie(g, a, by) {
     var sp = SP[a.sp]; a.alive = false; a.rt = g.famine ? 0 : (sp.respawn || 0);
     g.carrion.push({ id: 'k' + (g.nextK++), x: a.x, z: a.z, d: a.d, sz: sp.size, en: 30 * sp.size, age: 0, of: a.id });
-    if (by && by.n) by.npcKills++;
-    addFeed(g, (by && by.n ? by.n + ' killed a ' : 'a ') + a.sp + (by && by.n ? '' : ' died'));
+    if (by && by.n) { by.npcKills++; addFeed(g, by.n + ' killed a ' + a.sp); }
+    else if (!by || !by.sp) addFeed(g, 'a ' + a.sp + ' died');
   }
   function applyDefense(g, f, a, sp) {
     var d = sp.defense; if (!d) return false; var mh = (sp.food && sp.food.minHunter) || 0;
@@ -585,11 +592,12 @@
     else if (d.type === 'pinch') hurt(g, attacker, d.dmg, 'bite', 'ppinch:' + defender.id, defender.n + ' pinched you: -' + d.dmg + ' hp', defender);
     else if (d.type === 'ink' && rnd(g) < 0.55) { attacker.ink = Math.max(attacker.ink, 40); ev(attacker, 'pink', defender.n + ' blasted an ink cloud in your face!'); }
   }
-  function tryBite(g, f, tgt) {
+  function tryBite(g, f, tgt, prevPos) {
     if (f.cool > 0 || !tgt) return false;
-    var o = tgt.o, r = fishReach(f) + (f.lunge > 0 ? 2.5 : 0), dd = dist3(f, o), mul = f.lunge > 0 ? 1.5 : 1, dmg;
+    var o = tgt.o, r = fishReach(f) + (f.lunge > 0 ? 2.5 : 0), dd = prevPos ? segDist3(prevPos.x, prevPos.z, prevPos.d, f.x, f.z, f.d, o.x, o.z, o.d) : dist3(f, o), mul = f.lunge > 0 ? 1.5 : 1, dmg;
     var rr = tgt.kind === 'npc' && SP[o.sp].kind === 'school' ? r + 6 : tgt.kind === 'plankton' ? r + o.r : tgt.kind === 'carrion' ? r + 2 + (o.sz > 15 ? 6 : 0) : r;
-    if (dd > rr || !inFront(f, o, tgt.kind === 'fish' ? 70 : 110)) return false;
+    var cone = (tgt.kind === 'fish' && dd > r * 0.72) ? 85 : 120;
+    if (dd > rr || (!inFront(f, o, cone) && dd > r * 0.78)) return false;
     if (tgt.kind === 'fish') {
       f.cool = C.BITE_CD; f.bites++; f.hid = false;
       var osp = fishSp(o), shellMul = osp && osp.defense && osp.defense.type === 'shell' ? 0.55 : 1;
@@ -712,11 +720,16 @@
     if (cmd.act === 'hide') speedMode = 'rest';
     if (cmd.act === 'feed' && speedMode === 'rest') speedMode = 'slow';
     if (f.held > 0) { speedMode = 'rest'; f.held--; }
-    var tr = fishTurn(f) * DT; f.h = turnToward(f.h, wantH, tr); f.p = turnToward(f.p, wantP, tr); if (f.p > 180) f.p -= 360;
+    var angErr = Math.abs(relAngle(wantH, f.h));
+    var tr = fishTurn(f) * ((cmd.act === 'hunt' || f.lunge > 0) ? 1.35 : 1) * DT;
+    f.h = turnToward(f.h, wantH, tr); f.p = turnToward(f.p, wantP, tr); if (f.p > 180) f.p -= 360;
     var cold = f.d > OC.THERMO, mul = SPEEDS[speedMode] || 0, base = fishCruise(f);
     if (speedMode === 'sprint') { if (f.st > 0) { f.st = Math.max(0, f.st - 25 * DT); if (fsp) mul = fishSprint(f) / Math.max(0.1, base); } else mul = SPEEDS.fast; }
     else if (!OC.inDeadzone(f.x, f.z, f.d)) f.st = Math.min(100, f.st + (speedMode === 'fast' ? 2 : 8) * DT * (cold ? 0.7 : 1));
     var spd = base * mul * (cold && !(fsp && fsp.habitat && fsp.habitat.zone === 'abyss') ? 0.88 : 1);
+    if ((cmd.act === 'hunt' || cmd.act === 'feed') && tgt && dist3(f, tgt.o) < 24 && angErr > 32) {
+      spd *= clamp(1 - (angErr - 28) / 145, 0.36, 1);
+    }
     var kelp = OC.kelpAt(f.x, f.z, f.d); if (kelp) spd *= f.sz > 4 ? 0.5 : 0.75;
     if (OC.mangroveAt(f.x, f.z, f.d)) spd *= f.sz > 1.5 ? 0.4 : 0.8;
     if (f.inJelly) spd *= 0.85; if (f.held > 0) spd = 0;
@@ -724,6 +737,7 @@
     f.spd = spd;
     var cur = OC.currentAt(f.x, f.z, f.d), hr = f.h * D2R, pr = f.p * D2R;
     var vx = Math.sin(hr) * Math.cos(pr) * spd + cur.x, vz = -Math.cos(hr) * Math.cos(pr) * spd + cur.z, vd = Math.sin(pr) * spd + cur.d;
+    var fx0 = f.x, fz0 = f.z, fd0 = f.d;
     var nx = clamp(f.x + vx * DT, 1, OC.W - 1), nz = clamp(f.z + vz * DT, 1, OC.L - 1), nd = f.d + vd * DT;
 
     // Keep players out of dry sandy beaches & mountains (floorAt < 1.2m)
@@ -769,9 +783,36 @@
     if (!f.alive) return;
     var mHp = fishHpMax(f);
     OC.REEFS.forEach(function (rf) { var cw = rf.cleaner; if (f.spd < 0.5 && dist3(f, cw) < 4 && f.hp < mHp) { f.hp = Math.min(mHp, f.hp + 1.5 * DT); f.bleed = 0; f.poison = 0; ev(f, 'clean', 'cleaner wrasses are picking at your wounds: hp ' + Math.round(f.hp), 1.5 * DT); } });
-    if (cmd.act === 'hunt' && tgt && tgt.kind !== 'place') tryBite(g, f, tgt);
-    else if (cmd.act === 'feed') { if (!tgt || !tryBite(g, f, tgt)) { var nf = nearestFood(g, f); if (nf) tryBite(g, f, nf); } }
-    else if (f.lunge > 0 || (cmd.act === 'swim' && cmd.target)) { var lt = findTarget(g, cmd.target); if (lt) tryBite(g, f, lt); }
+    var prevPos = { x: fx0, z: fz0, d: fd0 };
+    if (cmd.act === 'hunt' && tgt && tgt.kind !== 'place') tryBite(g, f, tgt, prevPos);
+    else if (cmd.act === 'feed') { if (!tgt || !tryBite(g, f, tgt, prevPos)) { var nf = nearestFood(g, f); if (nf) tryBite(g, f, nf, prevPos); } }
+    else if (f.lunge > 0 || (cmd.act === 'swim' && cmd.target)) { var lt = findTarget(g, cmd.target); if (lt) tryBite(g, f, lt, prevPos); }
+    // Contact/ramming harm: fast predators/sharks/large fish plowing straight into edible prey deal immediate bite/swallow!
+    if (f.cool <= 0 && f.spd > 0.7 && (f.role === 'shark' || f.role === 'predator' || f.role === 'dolphin' || f.sz >= 1.8)) {
+      var cr = fishReach(f) + (f.lunge > 0 ? 1.8 : 0.4), hitT = null, hbd = 1e9;
+      for (i = 0; i < g.fish.length; i++) {
+        var fo = g.fish[i]; if (fo === f || !fo.alive) continue;
+        if (f.role === 'shark' && fo.role === 'shark') continue;
+        if (fo.sz >= f.sz * 0.95 && f.role !== 'shark' && f.role !== 'predator') continue;
+        var fsd = segDist3(fx0, fz0, fd0, f.x, f.z, f.d, fo.x, fo.z, fo.d);
+        if (fsd <= cr && fsd < hbd && (inFront(f, fo, 95) || fsd <= cr * 0.65)) { hbd = fsd; hitT = { kind: 'fish', o: fo }; }
+      }
+      if (!hitT && g.npcs) {
+        var box = cr + 6;
+        for (i = 0; i < g.npcs.length; i++) {
+          var na = g.npcs[i]; if (!na.alive) continue;
+          if (Math.abs(f.x - na.x) > box || Math.abs(f.z - na.z) > box) continue;
+          var nsp = SP[na.sp]; if (!nsp.food || !nsp.food.e) continue;
+          var isSch = nsp.kind === 'school';
+          if (isSch) { if (na.n <= 0 || (nsp.food.minHunter && f.sz < nsp.food.minHunter)) continue; }
+          else if (nsp.size * 1.15 > f.sz && nsp.size > 0.8) continue;
+          var ncr = cr + (isSch ? 4.5 : 0);
+          var nsd = segDist3(fx0, fz0, fd0, f.x, f.z, f.d, na.x, na.z, na.d);
+          if (nsd <= ncr && nsd < hbd && (inFront(f, na, 105) || nsd <= cr * 0.75)) { hbd = nsd; hitT = { kind: 'npc', o: na }; }
+        }
+      }
+      if (hitT) tryBite(g, f, hitT, prevPos);
+    }
     if (cmd.act === 'feed' && f.cool <= 0) {
       if ((OC.reefAt(f.x, f.z, f.d) || OC.seagrassAt(f.x, f.z, f.d) || OC.mangroveAt(f.x, f.z, f.d)) && (f.sz <= 1.6 || f.role === 'crab' || OC.HERBIVORES[f.species])) { f.cool = 4; gain(g, f, f.role === 'crab' ? 1.3 : 0.65, 'snail', 'you are picking snails, algae, and worms off the bottom'); }
       else if (vn.dist < 10 && vn.dist > 4) { f.cool = 4; gain(g, f, 0.9, 'mat', 'you are grazing the bacterial mat'); }
@@ -781,7 +822,13 @@
   // ── Lifelike NPC Movement & Steering ─────────────────────────────────────
   function moveNpc(g, a, sp, wantH, spd, wantD, opts) {
     opts = opts || {};
-    var prevD = a.d, turnAmt = (opts.turn || 90) * DT;
+    var prevD = a.d, baseTurn = opts.turn || 90;
+    if (opts.chase && opts.faceH === undefined) {
+      var err = Math.abs(relAngle(wantH, a.h));
+      baseTurn = baseTurn * (1 + clamp(err / 85, 0, 1.05));
+      if (err > 24) spd *= clamp(1 - (err - 20) / 145, 0.34, 1);
+    }
+    var turnAmt = baseTurn * DT;
     if (opts.faceH !== undefined) {
       a.h = turnToward(a.h, opts.faceH, turnAmt);
     } else {
@@ -812,32 +859,50 @@
     a.p = (a.p || 0) + (tgtP - (a.p || 0)) * 0.35;
   }
 
-  function detectPrey(g, a, sp, candidates) {
+  function detectPrey(g, a, sp, candidates, allowWild) {
     var pr = sp.prey, best = null, bd = 1e9, i, ph = OC.phaseName(tSec(g)), twilight = ph === 'dusk' || ph === 'dawn';
     var act = twilight ? 1.25 : pr.active === 'any' ? 1 : (pr.active === 'night' ? (isNight(g) ? 1 : 0.45) : (isDay(g) ? 1 : 0.45));
     var isApexShark = (sp.kind === 'shark' && a.sp !== 'orca');
     for (i = 0; i < candidates.length; i++) {
       var f = candidates[i], fsz = f.sz || SP[f.sp].size; if (!f.alive) continue;
-      if (f.sp && !(pr.huntsSharks && SP[f.sp].kind === 'shark') && !(pr.huntsNpc && pr.huntsNpc.indexOf(f.sp) >= 0)) continue;
+      if (f.sp) {
+        var fsp = SP[f.sp];
+        if (fsp.kind === 'school' && f.n <= 0) continue;
+        var explicitOk = (pr.huntsSharks && fsp.kind === 'shark') || (pr.huntsNpc && pr.huntsNpc.indexOf(f.sp) >= 0);
+        if (!explicitOk) {
+          if (pr.huntsSharks) continue;
+          if (!allowWild) continue;
+          if (fsp.kind === 'shark' || fsp.kind === 'kraken' || fsp.kind === 'static' || fsp.kind === 'drift') continue;
+          if (f.sp === 'whale' || f.sp === 'whale calf' || f.sp === 'whale shark' || f.sp === 'dolphin') continue;
+          if (fsp.defense && ['poison', 'venom', 'sting', 'spines'].indexOf(fsp.defense.type) >= 0) continue;
+        }
+      }
       // Sharks treat shark-role player agents as packmates unless provoked!
       if (!f.sp && isApexShark && f.role === 'shark' && !(a._hostileTo && a._hostileTo[f.id] > g.tick)) continue;
-      var isFishAgent = (!f.sp && (f.role === 'fish' || !f.role));
+      // Dolphins focus on baitfish/squid/small prey rather than harassing healthy player swimmers
+      if (!f.sp && sp.kind === 'pack' && fsz > 0.75 && f.bleed <= 0 && !(a._hostileTo && a._hostileTo[f.id] > g.tick)) continue;
+      var isFishAgent = (!f.sp && (f.role === 'fish' || !f.role) && sp.kind !== 'pack');
       if (!isFishAgent && fsz > pr.max && !pr.aggressive) continue;
       if (isFishAgent && sp.kind === 'shark' && fsz > pr.max * 1.45 && !pr.aggressive) continue;
       if (pr.minPrey && fsz < pr.minPrey) continue; if (pr.ignoreAbove && fsz >= pr.ignoreAbove) continue; if (pr.timid && fsz >= pr.timid) continue;
       var rng = pr.range * act * ((pr.prefer && f.sp && pr.prefer.indexOf(f.sp) >= 0) ? 3.5 : isFishAgent ? 1.45 : 1);
-      var maxBox = Math.max(rng * 2.2, pr.smell || 100);
+      var maxBox = f.sp ? Math.min(rng * 1.45, 50) : Math.max(rng * 2.2, pr.smell || 100);
       if (Math.abs(a.x - f.x) > maxBox || Math.abs(a.z - f.z) > maxBox) continue;
       var dd = dist3(a, f), det = false;
-      var hi = hideInfo(f, g.tick);
-      if (pr.detect.indexOf('vision') >= 0 && dd < rng * visMul(g, f, a, pr.detect)) det = true;
-      if (!det && pr.detect.indexOf('lateral') >= 0 && f.spd > 0.8 && dd < (isFishAgent ? 34 : 28) && !hi.solid) det = true;
-      if (!det && pr.detect.indexOf('smell') >= 0 && f.bleed > 0 && dd < (pr.smell || 100)) det = true;
-      if (!det && pr.detect.indexOf('echo') >= 0 && dd < rng && !hi.solid) det = true;
-      if (!det && pr.detect.indexOf('electro') >= 0 && dd < (pr.electro || 16) && !hi.solid) det = true;
-      if (det && hi.solid && !(pr.detect.indexOf('vision') >= 0 && hideInfo(a, g.tick).src === hi.src)) det = false;
+      if (dd > maxBox && f.bleed <= 0) continue;
+      if (pr.detect.indexOf('smell') >= 0 && f.bleed > 0 && dd < (pr.smell || 100)) det = true;
+      var hi = null;
+      if (!det) {
+        if (dd > Math.max(rng * 1.8, isFishAgent ? 36 : 30, pr.electro || 16)) continue;
+        hi = (f.sp && SP[f.sp].kind === 'school') ? { solid: false, mult: 1 } : hideInfo(f, g.tick);
+        if (pr.detect.indexOf('vision') >= 0 && dd < rng * (f.sp && SP[f.sp].kind === 'school' ? 1 : visMul(g, f, a, pr.detect))) det = true;
+        if (!det && pr.detect.indexOf('lateral') >= 0 && f.spd > 0.8 && dd < (isFishAgent ? 34 : 28) && !hi.solid) det = true;
+        if (!det && pr.detect.indexOf('echo') >= 0 && dd < rng && !hi.solid) det = true;
+        if (!det && pr.detect.indexOf('electro') >= 0 && dd < (pr.electro || 16) && !hi.solid) det = true;
+        if (det && hi.solid && !(pr.detect.indexOf('vision') >= 0 && hideInfo(a, g.tick).src === hi.src)) det = false;
+      }
       if (det && a.ban && a.ban.id === f.id && a.ban.until > g.tick) det = false;
-      var ed = (pr.prefer && f.sp && pr.prefer.indexOf(f.sp) >= 0) ? dd * 0.01 : isFishAgent ? dd * 0.35 : dd;
+      var ed = (pr.prefer && f.sp && pr.prefer.indexOf(f.sp) >= 0) ? dd * 0.01 : isFishAgent ? dd * 0.25 : (f.bleed > 0 ? dd * 0.45 : dd * 1.2);
       if (det && ed < bd) { bd = ed; best = f; }
     }
     return best;
@@ -846,19 +911,39 @@
   function npcAttack(g, a, sp, f) {
     var pr = sp.prey, fsz = f.sz || SP[f.sp].size;
     if (f.sp) {
-      var dmg = pr.dmg * 2; f.hp -= dmg; f.bleed = 80;
-      if (f.hp <= 0) { npcDie(g, f, a); addFeed(g, 'the ' + a.sp + ' killed the ' + f.sp); a.sat = pr.satiety; a.st = 'rest'; a.tg = null; }
-      a.cool = 8; return;
+      var tSp = SP[f.sp];
+      if (tSp.kind === 'school') {
+        var biteN = Math.min(f.n || 0, Math.max(2, Math.round(sp.size * 2.1)));
+        if (biteN > 0) {
+          f.n = Math.max(0, f.n - biteN);
+          f.tm = 28; f.st = 'flee';
+          if (tSp.size >= 0.45) g.carrion.push({ id: 'k' + (g.nextK++), x: f.x, z: f.z, d: f.d, sz: tSp.size, en: Math.round(12 * tSp.size * biteN), age: 0, of: f.id });
+          if (f.n <= 0) { f.alive = false; f.rt = g.famine ? 0 : 360; a.tg = null; }
+          a.sat = Math.min(pr.satiety, (a.sat || 0) + Math.round(18 + biteN * tSp.size * 12));
+          if (a.sat >= pr.satiety * 0.6) { a.st = 'rest'; a.tg = null; }
+        }
+        a.cool = 6; return;
+      }
+      var swNpc = pr.swallow && fsz <= pr.swallow;
+      var dmg = swNpc ? (f.hp + 99) : pr.dmg * 2;
+      f.hp -= dmg; f.bleed = 80;
+      if (f.hp <= 0) {
+        npcDie(g, f, a);
+        if (fsz >= 1.1 || sp.kind === 'shark' || sp.kind === 'pack') addFeed(g, 'the ' + a.sp + ' caught ' + (/^[aeiou]/i.test(f.sp) ? 'an ' : 'a ') + f.sp);
+        a.sat = Math.round(pr.satiety * 1.05); a.st = 'rest'; a.tg = null;
+      }
+      a.cool = 5; return;
     }
     // Check player's natural species defense (spines, poison, ink, pinch, shell)
     var fsp = fishSp(f), shellMul = (fsp && fsp.defense && fsp.defense.type === 'shell') ? 0.55 : 1;
-    if (fsz <= (pr.swallow || 0) && (!fsp || fsp.size <= (pr.swallow || 0))) {
+    if (fsz <= (pr.swallow || 0) && (!fsp || fsp.size <= (pr.swallow || 0) * 1.15) && (fsz < 0.78 || f.hp <= fishHpMax(f) * 0.55)) {
       kill(g, f, 'was swallowed by a ' + a.sp); f.hp = 0; ev(f, 'npcswal', 'a ' + a.sp + ' swallowed you');
       a.sat = sp.kind === 'shark' ? Math.min(40, pr.satiety) : pr.satiety; a.st = sp.kind === 'shark' ? 'rest' : 'idle'; a.tg = null;
       if (a.pk) g.npcs.forEach(function (o) { if (o.pk === a.pk) { o.sat = Math.min(40, pr.satiety * 0.6); o.st = 'rest'; o.tg = null; } });
       return;
     }
-    var hitDmg = Math.max(2, Math.round(pr.dmg * shellMul));
+    var sizeMul = sp.size > fsz * 1.45 ? 1.35 : 1;
+    var hitDmg = Math.max(2, Math.round(pr.dmg * shellMul * sizeMul));
     hurt(g, f, hitDmg, 'npc', 'npcbite:' + a.sp, 'a ' + a.sp + ' bit you: -' + hitDmg + ' hp', a);
     if (fsp && fsp.defense) {
       var df = fsp.defense;
@@ -867,7 +952,7 @@
     }
     if (!f.alive) { a.sat = sp.kind === 'shark' ? Math.min(40, pr.satiety) : pr.satiety; a.st = sp.kind === 'shark' ? 'rest' : 'idle'; a.tg = null; }
     else if (pr.hold) { f.held = pr.hold; ev(f, 'held', 'the ' + a.sp + ' is holding you with its tentacles/jaws'); }
-    a.cool = 8;
+    a.cool = 5;
   }
 
   // ── Schooling fish & squid shoals ────────────────────────────────────────
@@ -1098,7 +1183,7 @@
     if (a.sat <= 0 && g._preds) {
       cands = g.fish.concat(g._preds.filter(function (o) { return o !== a && o.sp !== 'whale' && o.sp !== 'whale calf' && SP[o.sp].size <= 7 && dist3(a, o) < 75; }));
     }
-    var prey = a.sat > 0 ? null : detectPrey(g, a, sp, cands);
+    var prey = a.sat > 0 ? null : detectPrey(g, a, sp, cands, true);
     // Low-HP ink burst retreat deeper into abyss
     if (a.hp < sp.hp * 0.35 && a.tm <= 0) {
       a.st = 'jet'; a.tm = 32; a.ink = g.tick;
@@ -1126,7 +1211,9 @@
       }
       var pulseH = 0.72 + 0.68 * Math.pow(Math.max(0, Math.sin(g.tick * 0.6 + a.ph)), 2);
       var hSpd = (dd < 34 ? sp.sprint : sp.speed * 1.45) * pulseH;
-      moveNpc(g, a, sp, bearing(a.x, a.z, prey.x, prey.z), hSpd, prey.d, { turn: 135 });
+      var kx0 = a.x, kz0 = a.z, kd0 = a.d;
+      moveNpc(g, a, sp, bearing(a.x, a.z, prey.x, prey.z), hSpd, prey.d, { turn: 145, chase: true });
+      if (a.cool <= 0 && segDist3(kx0, kz0, kd0, a.x, a.z, a.d, prey.x, prey.z, prey.d) < tentReach) npcAttack(g, a, sp, prey);
       return;
     }
     a.st = 'patrol'; a.tg = null;
@@ -1196,6 +1283,13 @@
       }
     }
     var prey = a.sat > 0 ? null : detectPrey(g, a, sp, g.fish);
+    if (!prey && a.sat <= 0 && a.tg) {
+      var stT = findTarget(g, a.tg);
+      if (stT && stT.o.alive && (!stT.o.n || stT.o.n > 0) && dist3(a, stT.o) < sp.prey.range * 1.6) prey = stT.o;
+    }
+    if (!prey && a.sat <= 0 && g._prey && ((g.tick + a.ph) & 3) === 0) {
+      prey = detectPrey(g, a, sp, g._prey, true);
+    }
     if (!prey && a.sat <= 0 && g._schools) {
       var bs = null, bd = 1e9;
       for (var i = 0; i < g._schools.length; i++) {
@@ -1205,15 +1299,20 @@
         }
       }
       if (bs) {
-        moveNpc(g, a, sp, bearing(a.x, a.z, bs.x, bs.z), sp.speed * 1.35, bs.d, { turn: 130 });
-        if (bd < 6 && rnd(g) < 0.06) { bs.n = Math.max(0, bs.n - 1); bs.tm = 20; if (rnd(g) < 0.25) a.sat = sp.prey.satiety * 0.3; }
+        moveNpc(g, a, sp, bearing(a.x, a.z, bs.x, bs.z), sp.speed * 1.35, bs.d, { turn: 130, chase: true });
+        if (bd < 6 && a.cool <= 0) { npcAttack(g, a, sp, bs); }
         a.st = 'forage'; return;
       }
     }
     if (prey) {
-      a.st = 'hunt'; a.tg = prey.id; var dd = dist3(a, prey);
-      if (dd < reach(sp.size) + 0.6 && a.cool <= 0) npcAttack(g, a, sp, prey);
-      else moveNpc(g, a, sp, bearing(a.x, a.z, prey.x, prey.z), dd < 25 ? (sp.sprint || sp.speed * 2) : sp.speed * 1.25, prey.d, { turn: 165 });
+      a.st = 'hunt'; a.tg = prey.id;
+      var strikeR = reach(sp.size) + (prey.sp && SP[prey.sp].kind === 'school' ? 3.5 : 0.8);
+      var dd = dist3(a, prey);
+      if (dd < strikeR && a.cool <= 0) { npcAttack(g, a, sp, prey); return; }
+      var ax0 = a.x, az0 = a.z, ad0 = a.d;
+      var spd = a.cool > 0 ? sp.speed * 0.85 : (dd < 25 ? (sp.sprint || sp.speed * 2) : sp.speed * 1.25);
+      moveNpc(g, a, sp, bearing(a.x, a.z, prey.x, prey.z), spd, prey.d, { turn: 175, chase: true });
+      if (a.cool <= 0 && segDist3(ax0, az0, ad0, a.x, a.z, a.d, prey.x, prey.z, prey.d) <= strikeR) npcAttack(g, a, sp, prey);
       return;
     }
     a.st = 'patrol'; a.tg = null;
@@ -1222,21 +1321,22 @@
     moveNpc(g, a, sp, bearing(a.x, a.z, a.wpt.x, a.wpt.z) + Math.sin(g.tick * 0.08 + a.ph) * 10, sp.speed * cruiseM, a.wpt.d + Math.sin(g.tick * 0.05 + a.ph) * 2.5, { turn: 95 });
   }
 
-  // ── Smart Dolphin Pod AI: Porpoising, Baitball Herding & Pincer Flanking ──
+  // ── Smart Dolphin Pod AI: Smooth Gliding, One-Shot Porpoising & Baitball Herding ──
   function stepPack(g, a, sp) {
     var members = [], leader = null, i;
     for (i = 0; i < g.npcs.length; i++) { var o = g.npcs[i]; if (o.pk === a.pk && o.alive) members.push(o); }
     leader = members[0] || a;
     var myIdx = members.indexOf(a);
     if (a.cool > 0) a.cool--; if (a.sat > 0) a.sat--;
-    if (a.breath === undefined) a.breath = Math.floor(rnd(g) * 240);
+    if (a.breath === undefined) a.breath = Math.floor(rnd(g) * 200);
     a.breath++;
 
-    // Graceful pod porpoise / surfacing breath every ~40-60s
-    if (a.breath > 200 && a.st !== 'hunt') {
+    // Smooth single-arc porpoising breath (never loops repeatedly)
+    if (a.breath > 240 && a.st !== 'hunt') {
       a.st = 'porpoise';
-      moveNpc(g, a, sp, a.h + 4, sp.speed * 1.25, 0.3, { turn: 90, allowSurface: true });
-      if (a.d < 1.1) { a.breath = 0; a.breach = g.tick; }
+      var pH = (a === leader && leader.wpt) ? bearing(a.x, a.z, leader.wpt.x, leader.wpt.z) : leader.h;
+      moveNpc(g, a, sp, pH, sp.speed * 1.15, 0.35, { turn: 75, allowSurface: true });
+      if (a.d < 1.05) { a.breath = -Math.floor(rnd(g) * 60); a.breach = g.tick; }
       return;
     }
 
@@ -1244,54 +1344,70 @@
     if (leader && leader.tg && leader.st === 'hunt') shared = findTarget(g, leader.tg);
     var prey = (shared && shared.o.alive) ? shared.o : (a.sat > 0 ? null : detectPrey(g, a, sp, g.fish));
     if (prey && (prey.sz || 0) <= sp.prey.max) {
-      a.st = 'hunt'; a.tg = prey.id; var dd = dist3(a, prey);
-      // Predictive intercept + flanking pincer!
-      var leadT = Math.min(2.0, dd / Math.max(2, sp.sprint));
+      a.st = 'hunt'; a.tg = prey.id; var dd = dist3(a, prey), strikeR = reach(sp.size) + 0.95;
+      var leadT = Math.min(1.6, dd / Math.max(2, sp.sprint));
       var px = prey.x + Math.sin((prey.h || 0) * D2R) * (prey.spd || 0) * leadT;
       var pz = prey.z - Math.cos((prey.h || 0) * D2R) * (prey.spd || 0) * leadT;
       var tx = px, tz = pz;
-      if (dd > 11 && myIdx > 0) {
-        var flank = (myIdx % 2 === 1 ? 1 : -1) * 75;
+      if (dd > 12 && myIdx > 0) {
+        var flank = (myIdx % 2 === 1 ? 1 : -1) * 65;
         var fb = norm360(bearing(prey.x, prey.z, a.x, a.z) + flank);
-        tx = px + Math.sin(fb * D2R) * 8; tz = pz - Math.cos(fb * D2R) * 8;
+        tx = px + Math.sin(fb * D2R) * 7; tz = pz - Math.cos(fb * D2R) * 7;
       }
-      if (dd < reach(sp.size) + 0.7 && a.cool <= 0) npcAttack(g, a, sp, prey);
-      else moveNpc(g, a, sp, bearing(a.x, a.z, tx, tz), dd < 32 ? sp.sprint : sp.speed * 1.35, prey.d, { turn: 190 });
+      if (dd <= strikeR && a.cool <= 0) { npcAttack(g, a, sp, prey); return; }
+      var dx0 = a.x, dz0 = a.z, dd0 = a.d;
+      var dSpd = a.cool > 0 ? sp.speed * 0.85 : (dd < 32 ? sp.sprint : sp.speed * 1.32);
+      moveNpc(g, a, sp, bearing(a.x, a.z, tx, tz), dSpd, prey.d, { turn: 185, chase: true });
+      if (a.cool <= 0 && segDist3(dx0, dz0, dd0, a.x, a.z, a.d, prey.x, prey.z, prey.d) <= strikeR) npcAttack(g, a, sp, prey);
       return;
     }
 
-    // Cooperative baitball herding when schools nearby!
+    // Cooperative smooth baitball herding when schools nearby!
     if (a.sat <= 0 && g._schools) {
-      var bs = null, bsd = 75;
+      var bs = null, bsd = 48;
       for (i = 0; i < g._schools.length; i++) {
         var sc = g._schools[i];
-        if (sc.alive && sc.n > 20 && SP[sc.sp].size <= 0.7) {
+        if (sc.alive && sc.n > 12 && SP[sc.sp].size <= 0.7) {
           var q = dist3(a, sc); if (q < bsd) { bsd = q; bs = sc; }
         }
       }
       if (bs) {
         a.st = 'herd';
-        var orbAng = g.tick * 0.14 + myIdx * (TAU / Math.max(1, members.length));
-        var ring = bsd < 16 && (g.tick % 40) < 10 ? 1.5 : 11; // tighten & dart through!
+        var orbAng = g.tick * 0.065 + myIdx * (TAU / Math.max(1, members.length));
+        var ring = 9.0 + 4.5 * Math.cos(g.tick * 0.09 + myIdx * 1.4);
         var hx = bs.x + Math.cos(orbAng) * ring, hz = bs.z + Math.sin(orbAng) * ring;
-        moveNpc(g, a, sp, bearing(a.x, a.z, hx, hz), sp.speed * 1.3, bs.d, { turn: 165 });
-        if (bsd < 6 && rnd(g) < 0.08) { bs.n = Math.max(0, bs.n - 2); bs.tm = 24; if (rnd(g) < 0.2) a.sat = 40; }
+        var bx0 = a.x, bz0 = a.z, bd0 = a.d;
+        moveNpc(g, a, sp, bearing(a.x, a.z, hx, hz), sp.speed * 1.15, bs.d, { turn: 110, chase: true });
+        if (a.cool <= 0 && segDist3(bx0, bz0, bd0, a.x, a.z, a.d, bs.x, bs.z, bs.d) < 5.5) {
+          var gulp = Math.min(bs.n, 3);
+          bs.n = Math.max(0, bs.n - gulp); bs.tm = 24;
+          a.cool = 6; a.sat = Math.min(sp.prey.satiety, (a.sat || 0) + 60);
+          if (bs.n <= 0) { bs.alive = false; bs.rt = g.famine ? 0 : 360; }
+        }
         return;
       }
     }
 
-    // Scenic coordinated pod cruise
+    // Smooth coordinated pod patrol across deep open pelagic lanes
     a.st = 'patrol'; a.tg = null;
     if (a === leader) {
-      if (!a.wpt || distH(a, a.wpt) < 12) { var p = spawnPos(g, sp, Math.floor(rnd(g) * 6)); a.wpt = { x: p.x, z: p.z, d: clamp(p.d, 3, 22) }; }
-      var wH = bearing(a.x, a.z, a.wpt.x, a.wpt.z) + Math.sin(g.tick * 0.06 + a.ph) * 12;
-      moveNpc(g, a, sp, wH, sp.speed * (0.9 + 0.2 * Math.sin(g.tick * 0.1)), a.wpt.d + Math.sin(g.tick * 0.12) * 3, { turn: 100 });
+      if (!a.wpt || distH(a, a.wpt) < 18 || floorAt(a.wpt.x, a.wpt.z) < 14) {
+        var p = spawnPos(g, sp, Math.floor(rnd(g) * 6));
+        a.wpt = { x: p.x, z: p.z, d: clamp(p.d, 4, 22) };
+      }
+      var wH = bearing(a.x, a.z, a.wpt.x, a.wpt.z) + Math.sin(g.tick * 0.035 + a.ph) * 6;
+      moveNpc(g, a, sp, wH, sp.speed * (0.94 + 0.08 * Math.sin(g.tick * 0.05 + a.ph)), a.wpt.d + Math.sin(g.tick * 0.04 + a.ph) * 2.0, { turn: 75 });
     } else {
       var side = myIdx % 2 === 1 ? 1 : -1, rank = Math.ceil(myIdx / 2);
-      var ang = leader.h + 148 * side;
-      var lx = leader.x + Math.sin(ang * D2R) * (5 + rank * 3.5), lz = leader.z - Math.cos(ang * D2R) * (5 + rank * 3.5);
+      var ang = leader.h + 146 * side;
+      var lx = leader.x + Math.sin(ang * D2R) * (5.5 + rank * 3.8), lz = leader.z - Math.cos(ang * D2R) * (5.5 + rank * 3.8);
+      var axAhead = lx + Math.sin(leader.h * D2R) * 4.5, azAhead = lz - Math.cos(leader.h * D2R) * 4.5;
       var ld = distH(a, { x: lx, z: lz });
-      moveNpc(g, a, sp, ld > 2.5 ? bearing(a.x, a.z, lx, lz) : leader.h, ld > 14 ? sp.speed * 1.55 : sp.speed * 1.02, clamp(leader.d + Math.sin(g.tick * 0.15 + myIdx) * 1.4, 0.8, 30), { turn: 120 });
+      var slotBear = bearing(a.x, a.z, axAhead, azAhead);
+      var blend = clamp((ld - 1.2) / 10, 0, 1);
+      var smoothH = norm360(leader.h + relAngle(slotBear, leader.h) * blend);
+      var matchSpd = clamp(leader.spd * (0.88 + ld * 0.035), sp.speed * 0.78, sp.sprint * 0.92);
+      moveNpc(g, a, sp, smoothH, matchSpd, clamp(leader.d + Math.sin(g.tick * 0.06 + myIdx) * 1.2, 1.2, 28), { turn: 95 });
     }
   }
 
@@ -1307,39 +1423,55 @@
       else moveNpc(g, a, sp, a.h + 6, 0.7, rp[2], { turn: 40 });
       return;
     }
-    var cands = g.fish;
-    if (pr.huntsSharks) cands = g.fish.concat(g.npcs.filter(function (o) { return o.alive && (SP[o.sp].kind === 'shark' || (pr.huntsNpc && pr.huntsNpc.indexOf(o.sp) >= 0)) && o !== a && o.pk !== a.pk; }));
-    var prey = detectPrey(g, a, sp, cands);
+    var prey;
+    if (pr.huntsSharks) {
+      var oCands = g.fish.concat(g.npcs.filter(function (o) { return o.alive && (SP[o.sp].kind === 'shark' || (pr.huntsNpc && pr.huntsNpc.indexOf(o.sp) >= 0)) && o !== a && o.pk !== a.pk; }));
+      prey = detectPrey(g, a, sp, oCands, false);
+    } else {
+      prey = detectPrey(g, a, sp, g.fish, false);
+      if (!prey && a.tg) {
+        var stS = findTarget(g, a.tg);
+        if (stS && stS.o.alive && (!stS.o.n || stS.o.n > 0) && dist3(a, stS.o) < pr.range * 1.6) {
+          var sSp = stS.o.sp ? SP[stS.o.sp] : null;
+          if (!sSp || (sSp.kind !== 'shark' && sSp.kind !== 'kraken')) prey = stS.o;
+        }
+      }
+      if (!prey && g._prey && ((g.tick + a.ph) & 3) === 0) prey = detectPrey(g, a, sp, g._prey, true);
+    }
     if (!prey && a.pk) {
       for (i = 0; i < g.npcs.length; i++) { var m = g.npcs[i]; if (m !== a && m.alive && m.pk === a.pk && m.st === 'hunt' && m.tg) { var t = findTarget(g, m.tg); if (t && t.o.alive && dist3(a, t.o) < 120) { prey = t.o; break; } } }
     }
     if (prey) {
       var dd = dist3(a, prey);
-      if (!prey.sp && a.circ === undefined && dd < 28 && dd > reach(sp.size) + 4 && a.sprint <= 0) a.circ = 24;
-      if (a.circ > 0) {
-        a.circ--; a.st = 'circle'; a.tg = prey.id;
-        var cb = bearing(a.x, a.z, prey.x, prey.z);
-        moveNpc(g, a, sp, cb + 75, sp.speed * 1.1, prey.d + 2, { turn: 95 });
-        if (a.circ % 8 === 0 && !prey.sp) ev(prey, 'circled:' + a.sp, 'a ' + a.sp + ' is circling you at ' + Math.round(dd) + ' m');
-        return;
-      }
-      if (a.circ === 0) a.circ = -1;
-      if (a.tg === prey.id) { a.chase = (a.chase || 0) + 1; if (a.chase > 240) { a.ban = { id: prey.id, until: g.tick + 600 }; a.chase = 0; a.tg = null; a.st = 'patrol'; return; } } else a.chase = 0;
+      var pSp = prey.sp ? SP[prey.sp] : null;
+      var strikeR = reach(sp.size) + (pSp && pSp.kind === 'school' ? 4.2 : 1.0);
+      if (a.tg === prey.id) { a.chase = (a.chase || 0) + 1; if (a.chase > 240) { a.ban = { id: prey.id, until: g.tick + 500 }; a.chase = 0; a.tg = null; a.st = 'patrol'; return; } } else a.chase = 0;
       a.st = 'hunt'; a.tg = prey.id; a.tm = 40;
-      var tx = prey.x, tz = prey.z;
+      if (dd <= strikeR && a.cool <= 0) { npcAttack(g, a, sp, prey); return; }
+      var leadT = Math.min(1.4, dd / Math.max(3, sp.sprint || sp.speed));
+      var tx = prey.x + Math.sin((prey.h || 0) * D2R) * (prey.spd || 0) * leadT;
+      var tz = prey.z - Math.cos((prey.h || 0) * D2R) * (prey.spd || 0) * leadT;
       if (a.pk && dd > 15) {
-        var packMembers = g.npcs.filter(function (o) { return o.pk === a.pk; }), idx = packMembers.indexOf(a), off = (idx - 1) * 70;
+        var packMembers = g.npcs.filter(function (o) { return o.pk === a.pk; }), idx = packMembers.indexOf(a), off = (idx - 1) * 65;
         var b0 = bearing(prey.x, prey.z, a.x, a.z) + off;
-        tx = prey.x + Math.sin(b0 * D2R) * 10; tz = prey.z - Math.cos(b0 * D2R) * 10;
+        tx = prey.x + Math.sin(b0 * D2R) * 9; tz = prey.z - Math.cos(b0 * D2R) * 9;
       }
       if (dd < 30 && a.sprint <= 0 && a.tired <= 0) a.sprint = sp.sprintT;
-      var spd = a.sprint > 0 ? sp.sprint : (a.tired > 0 ? sp.speed * 0.55 : sp.speed * 1.18);
-      if (dd < reach(sp.size) + 1 && a.cool <= 0) npcAttack(g, a, sp, prey);
-      else moveNpc(g, a, sp, bearing(a.x, a.z, tx, tz), spd, prey.d, { turn: 115 });
+      var spd = a.cool > 0 ? sp.speed * 0.88 : (a.sprint > 0 ? sp.sprint : (a.tired > 0 ? sp.speed * 0.6 : sp.speed * 1.22));
+      var sx0 = a.x, sz0 = a.z, sd0 = a.d;
+      moveNpc(g, a, sp, bearing(a.x, a.z, tx, tz), spd, prey.d, { turn: 165, chase: true });
+      if (a.cool <= 0 && segDist3(sx0, sz0, sd0, a.x, a.z, a.d, prey.x, prey.z, prey.d) <= strikeR) { npcAttack(g, a, sp, prey); return; }
+      // Opportunistic ram-bite if plowing directly through a fish agent or school mid-chase
+      if (a.cool <= 0) {
+        for (i = 0; i < g.fish.length; i++) {
+          var rf = g.fish[i]; if (!rf.alive || rf === prey || rf.role === 'shark' || rf.sz > pr.max * 1.45) continue;
+          if (segDist3(sx0, sz0, sd0, a.x, a.z, a.d, rf.x, rf.z, rf.d) <= reach(sp.size) * 0.9) { npcAttack(g, a, sp, rf); return; }
+        }
+      }
       return;
     }
-    if (a.st === 'hunt' && a.tm > 0 && a.tg) { var lt = findTarget(g, a.tg); if (lt && lt.o.alive) { moveNpc(g, a, sp, bearing(a.x, a.z, lt.o.x, lt.o.z), sp.speed, lt.o.d); return; } }
-    if (a.circ !== undefined && a.tm <= 0) delete a.circ;
+    if (a.st === 'hunt' && a.tm > 0 && a.tg) { var lt = findTarget(g, a.tg); if (lt && lt.o.alive) { moveNpc(g, a, sp, bearing(a.x, a.z, lt.o.x, lt.o.z), sp.speed, lt.o.d, { turn: 140, chase: true }); return; } }
+    if (a.circ !== undefined) delete a.circ;
     if (sp.scavenge || pr.smell) {
       var bk = null, bq = 1e9;
       for (i = 0; i < g.carrion.length; i++) { var k = g.carrion[i]; var q = dist3(a, k), rng = (pr.smell || 100) * (k.sz > 15 ? 2.5 : 1); if (q < rng && q < bq && floorAt(k.x, k.z) >= (sp.shallowOK || 14)) { bq = q; bk = k; } }
@@ -1455,17 +1587,22 @@
   function stepNpcs(g) {
     var i, j;
     // Fast per-tick caches for hunters & packs
-    g._schools = []; g._preds = [];
+    g._schools = []; g._preds = []; g._prey = [];
     for (i = 0; i < g.npcs.length; i++) {
       var q = g.npcs[i]; if (!q.alive) continue;
       var qsp = SP[q.sp];
-      if (qsp.kind === 'school') g._schools.push(q);
-      else if (qsp.kind === 'shark' || qsp.kind === 'hunter' || qsp.kind === 'pack' || qsp.kind === 'kraken') g._preds.push(q);
+      if (qsp.kind === 'school') { g._schools.push(q); if (q.n > 0 && qsp.size >= 0.12) g._prey.push(q); }
+      else if (qsp.kind === 'shark' || qsp.kind === 'hunter' || qsp.kind === 'pack' || qsp.kind === 'kraken') {
+        g._preds.push(q);
+        if (qsp.kind === 'hunter' && qsp.food && qsp.food.e > 0) g._prey.push(q);
+      } else if (qsp.food && qsp.food.e > 0 && qsp.kind !== 'static' && qsp.kind !== 'drift' && q.sp !== 'whale' && q.sp !== 'whale calf' && q.sp !== 'whale shark' && !(qsp.defense && ['poison', 'venom', 'sting', 'spines'].indexOf(qsp.defense.type) >= 0)) {
+        g._prey.push(q);
+      }
     }
     for (i = 0; i < g.npcs.length; i++) {
       var a = g.npcs[i], sp = SP[a.sp];
       if (!a.alive) {
-        if (a.rt > 0 && !g.famine) { a.rt--; if (a.rt <= 0) { a.alive = true; a.hp = sp.hp || hpMax(sp.size); a.x = a.hx; a.z = a.hz; a.d = a.hd; if (sp.kind === 'school') a.n = sp.n; } }
+        if (a.rt > 0 && !g.famine) { a.rt--; if (a.rt <= 0) { a.alive = true; a.hp = sp.hp || hpMax(sp.size); a.x = a.hx; a.z = a.hz; a.d = a.hd; a.cool = 0; a.sat = 0; a.bleed = 0; a.sprint = 0; a.tired = 0; a.tm = 0; if (sp.kind === 'school') a.n = sp.n; } }
         continue;
       }
       if (a.bleed > 0) a.bleed--;
@@ -1536,7 +1673,7 @@
       g.npcs.forEach(function (o) { if (o.sp === 'orca') { o.alive = false; o.rt = 0; } });
       addFeed(g, 'the orcas have moved on');
     }
-    delete g._schools; delete g._preds;
+    delete g._schools; delete g._preds; delete g._prey;
   }
 
   OC.stepOnce = function (g) {
@@ -1609,7 +1746,7 @@
         if (a.p && Math.abs(a.p) > 0.5) o.p = r1(a.p);
         if (a.n !== undefined) o.n = a.n; if (a.tg) o.tg = a.tg; if (a.bleed > 0) o.bl = 1;
         if (a.ink && g.tick - a.ink < 14) o.ink = 1;
-        if (a.breach && g.tick - a.breach < 32) o.breach = 1;
+        if (a.breach && g.tick - a.breach < (a.sp === 'whale' ? 14 : 7)) o.breach = g.tick - a.breach + 1;
         if (a.hp !== undefined && (sp.kind === 'shark' || sp.kind === 'kraken')) o.hp = Math.round(a.hp);
         if (a.sp === 'whale') { if (a.blow && g.tick - a.blow < 40) o.blow = 1; if (a.lunge && g.tick - a.lunge < 8) o.lunge = 1; }
         return o;
