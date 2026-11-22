@@ -30,7 +30,7 @@ def check(name, cond, info=""):
 c, d = call("GET", f"/reset?admin={A}"); check("reset", c == 200 and d.get("status") == "lobby", d)
 c, d = call("GET", "/health"); check("health", c == 200 and d.get("game") == "OCEAN ARENA" and d.get("version") == "v5", d)
 c, d = call("GET", "/chart"); check("chart", c == 200 and len(d.get("features", [])) > 10)
-c, d = call("GET", "/species"); check("species", c == 200 and len(d.get("species", [])) == 53, str(d)[:80])
+c, d = call("GET", "/species"); check("species", c == 200 and len(d.get("species", [])) == 54, str(d)[:80])
 c, d = call("GET", "/rules"); check("rules published", c == 200 and isinstance(d, str) and len(d) > 500, str(d)[:80])
 c, d = call("GET", "/prompt"); check("prompt published", c == 200 and isinstance(d, str) and len(d) > 1000, str(d)[:80])
 c, d = call("GET", "/prompt/en"); check("prompt/en published", c == 200 and isinstance(d, str) and len(d) > 1000, str(d)[:80])

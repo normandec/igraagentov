@@ -133,8 +133,11 @@ var OC = globalThis.OC || (globalThis.OC = {});
   OC.inBiolum = function (x, z, d) { var b = OC.BIOLUM; return d > b.minD && dist2(x, z, b.x, b.z) < b.r * b.r; };
   OC.inDeadzone = function (x, z, d) { var b = OC.DEADZONE; return d > b.minD && dist2(x, z, b.x, b.z) < b.r * b.r; };
   OC.tempAt = function (x, z, d) { var t = 20 - 12 * sstep(OC.THERMO - 8, OC.THERMO + 8, d); var v = OC.ventAt(x, z, d); if (v.dist < 14) t += (34 - t) * (1 - v.dist / 14); if (OC.mangroveAt(x, z, d)) t += 3; return Math.round(t * 10) / 10; };
+  // tidal cycle: current strength oscillates with a 10 min period (engine sets OC._tide each tick, viewer sets it from snapshot)
+  OC.TIDE_SEC = 600; OC._tide = 1;
+  OC.tideAt = function (tSec) { return 0.55 + 0.45 * Math.sin(tSec / OC.TIDE_SEC * Math.PI * 2); };
   OC.currentAt = function (x, z, d) {
-    var cx = 0, cz = 0, cy = 0, id = null;
+    var cx = 0, cz = 0, cy = 0, id = null, tide = OC._tide || 1;
     for (var i = 0; i < OC.CURRENTS.length; i++) {
       var c = OC.CURRENTS[i];
       if (c.kind === 'seg') {
@@ -145,7 +148,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
         var f = c.v * (1 - Math.pow(off / c.w, 2)); cx += vx * f; cz += vz * f; id = id || c.id;
       } else { var q = dist2(x, z, c.x, c.z); if (q < c.r * c.r && d < 80) { cy -= c.v * (1 - q / (c.r * c.r)); id = id || c.id; } }
     }
-    return { x: cx, z: cz, d: cy, id: id };
+    return { x: cx * tide, z: cz * tide, d: cy * tide, id: id };
   };
   OC.dayLight = function (tSec) { var ph = (tSec / OC.DAY_SEC) % 1; var sun = Math.cos(ph * Math.PI * 2); return clamp(0.06 + 0.94 * sstep(-0.25, 0.35, sun), 0.06, 1); };
   OC.phaseName = function (tSec) { var ph = (tSec / OC.DAY_SEC) % 1; if (ph < 0.2 || ph > 0.8) return 'day'; if (ph < 0.3) return 'dusk'; if (ph < 0.7) return 'night'; return 'dawn'; };

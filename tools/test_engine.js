@@ -9,13 +9,14 @@ new Function(
 )();
 var OC = globalThis.OC, C = OC.CONST;
 assert.strictEqual(OC.VERSION, 'v5', 'expected OC.VERSION === v5');
-assert.strictEqual(OC.SPECIES_LIST.length, 53, 'expected 53 species');
+assert.strictEqual(OC.SPECIES_LIST.length, 54, 'expected 54 species');
 assert.strictEqual(OC.PLANTS.length, 176, 'expected 176 plants');
+assert.strictEqual(typeof OC.tideAt(0), 'number', 'expected OC.tideAt');
 
 var N = +(process.argv[2] || 10), MIN = +(process.argv[3] || 25), SEED = +(process.argv[4] || 42);
 var POL = ['random', 'random', 'feeder', 'feeder', 'feeder', 'hunter', 'hunter', 'camper', 'smart', 'smart'];
 var g = OC.newGame(1, SEED);
-assert.strictEqual(g.npcs.length, 358, 'expected 358 initial NPCs');
+assert.strictEqual(g.npcs.length, 359, 'expected 359 initial NPCs');
 for (var i = 0; i < N; i++) OC.addFish(g, 'bot' + (i + 1), POL[i % POL.length], ['sand', 'kelp', 'blue', 'dark', 'silver', 'red', 'orange'][i % 7], 'k' + i);
 var now = 1000000; OC.start(g, now);
 var rs = { rs: SEED * 31 + 7 }; function R() { return OC.rnd(rs); }
@@ -131,10 +132,13 @@ for (var t = 0; t < ticks && g.status === 'running'; t++) {
   });
 }
 var snap = OC.snapshot(g, now);
-console.log('status', g.status, 'tick', g.tick, 'cmds', cmds, 'errs', errs, 'npcs', snap.npcs.length, 'plants', OC.PLANTS.length, 'json KB', Math.round(JSON.stringify(g).length / 1024), 'snap KB', Math.round(JSON.stringify(snap).length / 1024));
+assert.strictEqual(typeof snap.tide, 'number', 'expected snapshot.tide');
+var kinds = {}; g.npcs.forEach(function (a) { kinds[a.sp] = (kinds[a.sp] || 0) + 1; });
+console.log('status', g.status, 'tick', g.tick, 'cmds', cmds, 'errs', errs, 'npcs', snap.npcs.length, 'species', Object.keys(kinds).length, 'plants', OC.PLANTS.length, 'tide', snap.tide, 'carrion', g.carrion.length, 'json KB', Math.round(JSON.stringify(g).length / 1024), 'snap KB', Math.round(JSON.stringify(snap).length / 1024));
 (g.ranks || []).forEach(function (r) {
   var f = g.fish.find(function (x) { return x.id === r.id; });
   console.log((r.alive ? 'ALIVE ' : 'dead  '), r.name.padEnd(6), r.model.padEnd(7), 'sz', r.size.toFixed(2), 'hp', Math.round(f.hp), 'en', Math.round(f.en), 'kills', r.kills, 'npc', r.animalsEaten, 'ate', r.eaten, 'score', r.score, r.cause || '', 'suspect=' + r.suspect);
 });
+console.log('feed tail:'); g.feed.slice(-10).forEach(function (e) { console.log('  ', e.t, e.txt); });
 var m = OC.perceive(g, g.fish[8], now); console.log('sample /me keys', Object.keys(m), 'see', m.see.length, 'events', m.events.slice(0, 5));
 if (g.status === 'finished' && errs === 0) console.log('TEST OK'); else { console.log('TEST FAIL'); process.exit(1); }

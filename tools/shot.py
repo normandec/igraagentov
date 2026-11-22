@@ -23,6 +23,7 @@ async def main():
             await pg.wait_for_timeout(800)
         status = await pg.evaluate("document.getElementById('t-status').textContent")
         await pg.screenshot(path=out)
+        errs = [e for e in errs if "GL Driver" not in e]
         print("status:", status)
         print("console:", errs[:10] or "0 errors")
         await b.close()
