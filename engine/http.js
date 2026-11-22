@@ -38,9 +38,10 @@
     var now = Date.now(), lastErr = null, maxTries = soft ? 1 : 12;
     for (var tries = 0; tries < maxTries; tries++) {
       var st = await dbLoad(); var g = st.doc;
-      lobbyTick(g, now); OC.advance(g, now);
-      var out = await fn(g, now);
-      if (out.dirty === false && g.status !== 'running') return out.res;
+      var wasStatus = g.status;
+      lobbyTick(g, now); var adv = OC.advance(g, now);
+      var out = await fn(g, now, adv);
+      if (out.dirty === false && adv === 0 && g.status === wasStatus) return out.res;
       try { if (await dbSave(g, st.rev)) return out.res; } catch (e) { lastErr = e; }
       if (soft) return out.res;
       await new Promise(function (r) { setTimeout(r, 50 + tries * 60 + Math.random() * 150); });
@@ -121,9 +122,16 @@
 
       if (seg === 'state') {
         var ip = ipOf(req);
-        return resp(await withState(async function (g, now) {
-          var dirty = g.status === 'running';
-          if (ip && !adm) { g.stateHits[ip] = (g.stateHits[ip] || 0) + 1; dirty = true; g.fish.forEach(function (f) { if (f.ip === ip && !f.cheat) { f.cheat = true; OC.addFeed(g, f.n + ' peeked at the spectator feed (flagged)'); } }); }
+        return resp(await withState(async function (g, now, adv) {
+          var dirty = false;
+          if (ip && !adm && g.status === 'running') {
+            var isPlayer = g.fish.some(function (f) { return f.ip === ip; });
+            if (!g.stateHits[ip] || isPlayer || adv > 0) {
+              g.stateHits[ip] = (g.stateHits[ip] || 0) + 1;
+              dirty = true;
+            }
+            if (isPlayer) g.fish.forEach(function (f) { if (f.ip === ip && !f.cheat) { f.cheat = true; OC.addFeed(g, f.n + ' peeked at the spectator feed (flagged)'); } });
+          }
           var snap = OC.snapshot(g, now); return { dirty: dirty, res: snap };
         }, true));
       }

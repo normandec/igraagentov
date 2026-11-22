@@ -600,20 +600,20 @@ var OC = globalThis.OC || (globalThis.OC = {});
 
     // ── Marine Mammals (smart Dolphins, Seals, Orcas) ────────────────────────
     'seal':           { size: 1.8,  kind: 'hunter', habitat: { zone: 'kelp',     d0: 2,  d1: 28 }, count: 4, speed: 3.6, sprint: 8.8, breathes: true, hp: 150, food: { e: 75, catchP: 0.35, minHunter: 5.0 }, prey: { max: 2.2, minPrey: 0.4, range: 30, detect: ['vision'], dmg: 15, active: 'day', satiety: 100 }, respawn: 720 },
-    'dolphin':        { size: 2.8,  kind: 'pack',   habitat: { zone: 'pelagic',  d0: 3,  d1: 35 }, count: 6, packs: 2, speed: 5.2, sprint: 11.2, breathes: true, hp: 230, food: { e: 110, catchP: 0.25, minHunter: 6.5 }, prey: { max: 2.6, minPrey: 0.5, range: 52, detect: ['vision', 'echo'], dmg: 19, active: 'any', satiety: 120 }, respawn: 800 },
+    'dolphin':        { size: 2.8,  kind: 'pack',   habitat: { zone: 'pelagic',  d0: 3,  d1: 35 }, count: 6, packs: 2, speed: 5.2, sprint: 11.2, breathes: true, hp: 230, food: { e: 110, catchP: 0.25, minHunter: 6.5 }, prey: { max: 1.5, minPrey: 0.12, range: 46, detect: ['vision', 'echo'], dmg: 14, active: 'any', satiety: 160 }, respawn: 800 },
     'man-o-war':      { size: 0.3,  kind: 'drift',  habitat: { zone: 'surface',  d0: 0.2, d1: 1.5 }, count: 10, speed: 0.2, food: { e: 0 }, defense: { type: 'sting', dmg: 10, perSec: true, touch: true, touchR: 3 }, respawn: 480 },
 
     // ── Sharks & Apex Predators (10 species, 23 active hunters!) ─────────────
-    'great white':    { size: 6.0,  kind: 'shark',  habitat: { zone: 'pelagic',  d0: 6,  d1: 65 }, count: 2, speed: 3.8, sprint: 11.2, sprintT: 36, tiredT: 80, shallowOK: 16, hp: 650, scavenge: true, food: { e: 240, catchP: 0.2, minHunter: 10 }, prey: { max: 5.5, minPrey: 0.9, range: 48, detect: ['vision', 'lateral', 'smell', 'electro'], smell: 120, electro: 18, dmg: 44, swallow: 1.5, active: 'any', satiety: 160 }, waypoints: [[250, 290, 22], [395, 175, 20], [450, 340, 28], [240, 420, 35], [320, 280, 24]], rest: [320, 320, 34] },
-    'tiger shark':    { size: 5.0,  kind: 'shark',  habitat: { zone: 'pelagic',  d0: 6,  d1: 55 }, count: 2, speed: 3.6, sprint: 10.2, sprintT: 30, tiredT: 80, shallowOK: 12, hp: 520, scavenge: true, food: { e: 200, catchP: 0.25, minHunter: 9 }, prey: { max: 5.5, minPrey: 0.7, range: 44, detect: ['vision', 'lateral', 'smell', 'electro'], smell: 110, electro: 16, dmg: 38, swallow: 1.4, active: 'night', satiety: 150 }, waypoints: [[184, 232, 13], [472, 345, 17], [320, 130, 13], [140, 516, 10], [320, 320, 34]], rest: [340, 340, 38] },
-    'hammerhead':     { size: 4.0,  kind: 'shark',  habitat: { zone: 'pelagic',  d0: 10, d1: 50 }, count: 3, speed: 3.5, sprint: 9.8,  sprintT: 26, tiredT: 70, shallowOK: 16, hp: 360, food: { e: 160, catchP: 0.25, minHunter: 7.5 }, prey: { max: 3.6, minPrey: 0.6, range: 40, detect: ['vision', 'lateral', 'electro'], electro: 34, dmg: 30, swallow: 1.2, active: 'any', satiety: 130 }, waypoints: [[280, 220, 20], [440, 290, 24], [320, 380, 30], [200, 340, 24]], rest: [360, 280, 30] },
-    'bull shark':     { size: 3.2,  kind: 'shark',  habitat: { zone: 'coastal',  d0: 3,  d1: 28 }, count: 3, speed: 3.4, sprint: 9.5,  sprintT: 24, tiredT: 60, shallowOK: 4,  hp: 300, food: { e: 130, catchP: 0.30, minHunter: 6 }, prey: { max: 3.8, minPrey: 0.6, range: 36, detect: ['vision', 'lateral', 'smell', 'electro'], smell: 95, electro: 16, dmg: 29, swallow: 1.1, active: 'any', satiety: 110 }, waypoints: [[95, 275, 7], [135, 120, 9], [145, 510, 9], [520, 278, 9], [468, 120, 9]], rest: [190, 300, 14] },
-    'reef shark':     { size: 1.8,  kind: 'shark',  habitat: { zone: 'reef',     d0: 5,  d1: 24 }, count: 6, speed: 3.2, sprint: 8.6,  sprintT: 20, tiredT: 55, shallowOK: 5,  hp: 150, food: { e: 80,  catchP: 0.38, minHunter: 4 }, prey: { max: 2.2, minPrey: 0.5, range: 30, detect: ['vision', 'lateral', 'electro'], electro: 14, dmg: 18, swallow: 0.85, active: 'any', satiety: 85 }, waypoints: [[184, 232, 11], [472, 345, 14], [320, 130, 11], [248, 292, 16]], rest: [184, 244, 14] },
-    'mako shark':     { size: 3.6,  kind: 'shark',  habitat: { zone: 'pelagic',  d0: 5,  d1: 55 }, count: 2, speed: 5.5, sprint: 15.0, sprintT: 28, tiredT: 75, shallowOK: 16, hp: 340, food: { e: 155, catchP: 0.25, minHunter: 7 }, prey: { max: 3.6, minPrey: 0.7, range: 46, detect: ['vision', 'lateral', 'smell'], smell: 90, dmg: 32, swallow: 1.2, active: 'any', satiety: 120 }, waypoints: [[230, 210, 16], [420, 200, 18], [440, 380, 26], [240, 380, 22]], rest: [320, 260, 26] },
-    'blue shark':     { size: 3.0,  kind: 'shark',  habitat: { zone: 'pelagic',  d0: 8,  d1: 60 }, count: 2, speed: 4.4, sprint: 10.6, sprintT: 24, tiredT: 65, shallowOK: 16, hp: 270, scavenge: true, food: { e: 125, catchP: 0.28, minHunter: 6 }, prey: { max: 3.0, minPrey: 0.6, range: 42, detect: ['vision', 'smell', 'lateral'], smell: 105, dmg: 25, swallow: 1.0, active: 'any', satiety: 110 }, waypoints: [[280, 180, 22], [470, 260, 26], [340, 400, 32], [190, 330, 24]], rest: [320, 300, 30] },
-    'lemon shark':    { size: 2.8,  kind: 'shark',  habitat: { zone: 'coastal',  d0: 3,  d1: 22 }, count: 2, speed: 3.8, sprint: 9.6,  sprintT: 22, tiredT: 60, shallowOK: 4,  hp: 240, food: { e: 115, catchP: 0.30, minHunter: 5.5 }, prey: { max: 2.8, minPrey: 0.5, range: 34, detect: ['vision', 'lateral', 'electro'], electro: 18, dmg: 23, swallow: 1.0, active: 'any', satiety: 100 }, waypoints: [[126, 115, 7], [470, 112, 7], [526, 278, 8], [140, 512, 8]], rest: [130, 120, 8] },
-    'thresher shark': { size: 4.5,  kind: 'shark',  habitat: { zone: 'pelagic',  d0: 15, d1: 85 }, count: 2, speed: 4.8, sprint: 12.2, sprintT: 26, tiredT: 70, shallowOK: 22, hp: 390, food: { e: 175, catchP: 0.25, minHunter: 8 }, prey: { max: 4.0, minPrey: 0.7, range: 44, detect: ['vision', 'lateral'], dmg: 34, swallow: 1.2, active: 'any', satiety: 130 }, waypoints: [[300, 260, 35], [420, 330, 42], [280, 400, 45], [220, 300, 32]], rest: [320, 340, 45] },
-    'goblin shark':   { size: 3.5,  kind: 'shark',  habitat: { zone: 'abyss',    d0: 45, d1: 135 }, count: 2, speed: 3.2, sprint: 9.2,  sprintT: 20, tiredT: 70, shallowOK: 35, hp: 310, food: { e: 140, catchP: 0.30, minHunter: 6.5 }, prey: { max: 3.8, minPrey: 0.6, range: 36, detect: ['electro', 'lateral'], electro: 36, dmg: 31, swallow: 1.1, active: 'any', satiety: 120 }, waypoints: [[360, 425, 80], [405, 460, 95], [340, 470, 75], [220, 445, 58]], rest: [380, 450, 92] },
+    'great white':    { size: 6.0,  kind: 'shark',  habitat: { zone: 'pelagic',  d0: 6,  d1: 65 }, count: 2, speed: 3.8, sprint: 11.2, sprintT: 36, tiredT: 80, shallowOK: 16, hp: 650, scavenge: true, food: { e: 240, catchP: 0.2, minHunter: 10 }, prey: { max: 5.5, minPrey: 0.4, range: 48, detect: ['vision', 'lateral', 'smell', 'electro'], smell: 120, electro: 18, dmg: 48, swallow: 1.25, active: 'any', satiety: 190 }, waypoints: [[250, 290, 22], [395, 175, 20], [450, 340, 28], [240, 420, 35], [320, 280, 24]], rest: [320, 320, 34] },
+    'tiger shark':    { size: 5.0,  kind: 'shark',  habitat: { zone: 'pelagic',  d0: 6,  d1: 55 }, count: 2, speed: 3.6, sprint: 10.2, sprintT: 30, tiredT: 80, shallowOK: 12, hp: 520, scavenge: true, food: { e: 200, catchP: 0.25, minHunter: 9 }, prey: { max: 5.5, minPrey: 0.4, range: 44, detect: ['vision', 'lateral', 'smell', 'electro'], smell: 110, electro: 16, dmg: 42, swallow: 1.15, active: 'night', satiety: 180 }, waypoints: [[184, 232, 13], [472, 345, 17], [320, 130, 13], [140, 516, 10], [320, 320, 34]], rest: [340, 340, 38] },
+    'hammerhead':     { size: 4.0,  kind: 'shark',  habitat: { zone: 'pelagic',  d0: 10, d1: 50 }, count: 3, speed: 3.5, sprint: 9.8,  sprintT: 26, tiredT: 70, shallowOK: 16, hp: 360, food: { e: 160, catchP: 0.25, minHunter: 7.5 }, prey: { max: 3.6, minPrey: 0.3, range: 40, detect: ['vision', 'lateral', 'electro'], electro: 34, dmg: 34, swallow: 1.0, active: 'any', satiety: 160 }, waypoints: [[280, 220, 20], [440, 290, 24], [320, 380, 30], [200, 340, 24]], rest: [360, 280, 30] },
+    'bull shark':     { size: 3.2,  kind: 'shark',  habitat: { zone: 'coastal',  d0: 3,  d1: 28 }, count: 3, speed: 3.4, sprint: 9.5,  sprintT: 24, tiredT: 60, shallowOK: 4,  hp: 300, food: { e: 130, catchP: 0.30, minHunter: 6 }, prey: { max: 3.8, minPrey: 0.3, range: 36, detect: ['vision', 'lateral', 'smell', 'electro'], smell: 95, electro: 16, dmg: 35, swallow: 0.95, active: 'any', satiety: 150 }, waypoints: [[95, 275, 7], [135, 120, 9], [145, 510, 9], [520, 278, 9], [468, 120, 9]], rest: [190, 300, 14] },
+    'reef shark':     { size: 1.8,  kind: 'shark',  habitat: { zone: 'reef',     d0: 5,  d1: 24 }, count: 6, speed: 3.2, sprint: 8.6,  sprintT: 20, tiredT: 55, shallowOK: 5,  hp: 150, food: { e: 80,  catchP: 0.38, minHunter: 4 }, prey: { max: 2.2, minPrey: 0.15, range: 30, detect: ['vision', 'lateral', 'electro'], electro: 14, dmg: 26, swallow: 0.85, active: 'any', satiety: 130 }, waypoints: [[184, 232, 11], [472, 345, 14], [320, 130, 11], [248, 292, 16]], rest: [184, 244, 14] },
+    'mako shark':     { size: 3.6,  kind: 'shark',  habitat: { zone: 'pelagic',  d0: 5,  d1: 55 }, count: 2, speed: 5.5, sprint: 15.0, sprintT: 28, tiredT: 75, shallowOK: 16, hp: 340, food: { e: 155, catchP: 0.25, minHunter: 7 }, prey: { max: 3.6, minPrey: 0.2, range: 46, detect: ['vision', 'lateral', 'smell'], smell: 90, dmg: 36, swallow: 1.0, active: 'any', satiety: 155 }, waypoints: [[230, 210, 16], [420, 200, 18], [440, 380, 26], [240, 380, 22]], rest: [320, 260, 26] },
+    'blue shark':     { size: 3.0,  kind: 'shark',  habitat: { zone: 'pelagic',  d0: 8,  d1: 60 }, count: 2, speed: 4.4, sprint: 10.6, sprintT: 24, tiredT: 65, shallowOK: 16, hp: 270, scavenge: true, food: { e: 125, catchP: 0.28, minHunter: 6 }, prey: { max: 3.0, minPrey: 0.15, range: 42, detect: ['vision', 'smell', 'lateral'], smell: 105, dmg: 30, swallow: 0.9, active: 'any', satiety: 145 }, waypoints: [[280, 180, 22], [470, 260, 26], [340, 400, 32], [190, 330, 24]], rest: [320, 300, 30] },
+    'lemon shark':    { size: 2.8,  kind: 'shark',  habitat: { zone: 'coastal',  d0: 3,  d1: 22 }, count: 2, speed: 3.8, sprint: 9.6,  sprintT: 22, tiredT: 60, shallowOK: 4,  hp: 240, food: { e: 115, catchP: 0.30, minHunter: 5.5 }, prey: { max: 2.8, minPrey: 0.15, range: 34, detect: ['vision', 'lateral', 'electro'], electro: 18, dmg: 28, swallow: 0.9, active: 'any', satiety: 140 }, waypoints: [[126, 115, 7], [470, 112, 7], [526, 278, 8], [140, 512, 8]], rest: [130, 120, 8] },
+    'thresher shark': { size: 4.5,  kind: 'shark',  habitat: { zone: 'pelagic',  d0: 15, d1: 85 }, count: 2, speed: 4.8, sprint: 12.2, sprintT: 26, tiredT: 70, shallowOK: 22, hp: 390, food: { e: 175, catchP: 0.25, minHunter: 8 }, prey: { max: 4.0, minPrey: 0.15, range: 44, detect: ['vision', 'lateral'], dmg: 36, swallow: 1.0, active: 'any', satiety: 165 }, waypoints: [[300, 260, 35], [420, 330, 42], [280, 400, 45], [220, 300, 32]], rest: [320, 340, 45] },
+    'goblin shark':   { size: 3.5,  kind: 'shark',  habitat: { zone: 'abyss',    d0: 45, d1: 135 }, count: 2, speed: 3.2, sprint: 9.2,  sprintT: 20, tiredT: 70, shallowOK: 35, hp: 310, food: { e: 140, catchP: 0.30, minHunter: 6.5 }, prey: { max: 3.8, minPrey: 0.16, range: 36, detect: ['electro', 'lateral'], electro: 36, dmg: 32, swallow: 0.95, active: 'any', satiety: 150 }, waypoints: [[360, 425, 80], [405, 460, 95], [340, 470, 75], [220, 445, 58]], rest: [380, 450, 92] },
     'orca':           { size: 8.0,  kind: 'shark',  habitat: { zone: 'event',    d0: 4,  d1: 60 }, count: 0, speed: 5.8, sprint: 13.0, sprintT: 40, tiredT: 60, shallowOK: 12, hp: 900, pack: true, food: { e: 0 }, prey: { max: 16.0, minPrey: 1.2, range: 62, detect: ['vision', 'echo'], dmg: 55, huntsSharks: true, huntsNpc: ['seal', 'dolphin', 'whale calf'], prefer: ['whale calf'], aggressive: true, active: 'any', satiety: 200 }, waypoints: [[180, 260, 18], [320, 180, 20], [460, 320, 25], [280, 440, 30]], rest: [320, 280, 22] }
   };
 
@@ -810,6 +810,13 @@ var OC = globalThis.OC || (globalThis.OC = {});
   function relAngle(target, heading) { var r = norm360(target - heading); return r > 180 ? r - 360 : r; }
   function dist3(a, b) { var dx = a.x - b.x, dz = a.z - b.z, dd = a.d - b.d; return Math.sqrt(dx * dx + dz * dz + dd * dd); }
   function distH(a, b) { var dx = a.x - b.x, dz = a.z - b.z; return Math.sqrt(dx * dx + dz * dz); }
+  function segDist3(ax, az, ad, bx, bz, bd, px, pz, pd) {
+    var vx = bx - ax, vz = bz - az, vd = bd - ad, l2 = vx * vx + vz * vz + vd * vd;
+    if (l2 < 1e-6) { var dx0 = px - ax, dz0 = pz - az, dd0 = pd - ad; return Math.sqrt(dx0 * dx0 + dz0 * dz0 + dd0 * dd0); }
+    var t = clamp(((px - ax) * vx + (pz - az) * vz + (pd - ad) * vd) / l2, 0, 1);
+    var dx = px - (ax + vx * t), dz = pz - (az + vz * t), dd = pd - (ad + vd * t);
+    return Math.sqrt(dx * dx + dz * dz + dd * dd);
+  }
   function turnToward(cur, want, maxStep) { var r = relAngle(want, cur); if (Math.abs(r) <= maxStep) return norm360(want); return norm360(cur + (r > 0 ? maxStep : -maxStep)); }
   OC.bearing = bearing; OC.relAngle = relAngle; OC.dist3 = dist3;
   function hpMax(sz) { return Math.round(80 + 40 * sz); }
@@ -841,7 +848,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
     if (sp.prey && sp.prey.dmg) return Math.round(sp.prey.dmg * (0.85 + 0.15 * f.sz / Math.max(0.1, sp.size)));
     return Math.max(5, Math.round(4 + 5 * f.sz));
   }
-  function fishTurn(f) { return Math.max(36, 150 / Math.sqrt(Math.max(0.25, f.sz))); }
+  function fishTurn(f) { return Math.max(92, 190 / Math.pow(Math.max(0.25, f.sz), 0.35)); }
   function r1(v) { return Math.round(v * 10) / 10; }
   function r2(v) { return Math.round(v * 100) / 100; }
   function tSec(g) { return g.tick * DT; }
@@ -903,7 +910,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
     var sp = SP[name], px = r1(pos.x), pz = r1(pos.z), pd = r1(pos.d);
     var n = {
       id: 'a' + (g.nextA++), sp: name, x: px, z: pz, d: pd, p: 0, h: Math.round(rnd(g) * 360), spd: 0,
-      hp: sp.hp || hpMax(sp.size), alive: true, st: 'idle', tg: null, tm: 0, sat: 0,
+      hp: sp.hp || hpMax(sp.size), alive: true, st: 'idle', tg: null, tm: 0, sat: 0, cool: 0, breath: 0,
       hx: px, hz: pz, hd: pd, rt: 0, wp: 0, sprint: 0, tired: 0, bleed: 0, ph: Math.round(rnd(g) * 100)
     };
     if (sp.kind === 'school') n.n = sp.n;
@@ -1350,8 +1357,8 @@ var OC = globalThis.OC || (globalThis.OC = {});
   function npcDie(g, a, by) {
     var sp = SP[a.sp]; a.alive = false; a.rt = g.famine ? 0 : (sp.respawn || 0);
     g.carrion.push({ id: 'k' + (g.nextK++), x: a.x, z: a.z, d: a.d, sz: sp.size, en: 30 * sp.size, age: 0, of: a.id });
-    if (by && by.n) by.npcKills++;
-    addFeed(g, (by && by.n ? by.n + ' killed a ' : 'a ') + a.sp + (by && by.n ? '' : ' died'));
+    if (by && by.n) { by.npcKills++; addFeed(g, by.n + ' killed a ' + a.sp); }
+    else if (!by || !by.sp) addFeed(g, 'a ' + a.sp + ' died');
   }
   function applyDefense(g, f, a, sp) {
     var d = sp.defense; if (!d) return false; var mh = (sp.food && sp.food.minHunter) || 0;
@@ -1376,11 +1383,12 @@ var OC = globalThis.OC || (globalThis.OC = {});
     else if (d.type === 'pinch') hurt(g, attacker, d.dmg, 'bite', 'ppinch:' + defender.id, defender.n + ' pinched you: -' + d.dmg + ' hp', defender);
     else if (d.type === 'ink' && rnd(g) < 0.55) { attacker.ink = Math.max(attacker.ink, 40); ev(attacker, 'pink', defender.n + ' blasted an ink cloud in your face!'); }
   }
-  function tryBite(g, f, tgt) {
+  function tryBite(g, f, tgt, prevPos) {
     if (f.cool > 0 || !tgt) return false;
-    var o = tgt.o, r = fishReach(f) + (f.lunge > 0 ? 2.5 : 0), dd = dist3(f, o), mul = f.lunge > 0 ? 1.5 : 1, dmg;
+    var o = tgt.o, r = fishReach(f) + (f.lunge > 0 ? 2.5 : 0), dd = prevPos ? segDist3(prevPos.x, prevPos.z, prevPos.d, f.x, f.z, f.d, o.x, o.z, o.d) : dist3(f, o), mul = f.lunge > 0 ? 1.5 : 1, dmg;
     var rr = tgt.kind === 'npc' && SP[o.sp].kind === 'school' ? r + 6 : tgt.kind === 'plankton' ? r + o.r : tgt.kind === 'carrion' ? r + 2 + (o.sz > 15 ? 6 : 0) : r;
-    if (dd > rr || !inFront(f, o, tgt.kind === 'fish' ? 70 : 110)) return false;
+    var cone = (tgt.kind === 'fish' && dd > r * 0.72) ? 85 : 120;
+    if (dd > rr || (!inFront(f, o, cone) && dd > r * 0.78)) return false;
     if (tgt.kind === 'fish') {
       f.cool = C.BITE_CD; f.bites++; f.hid = false;
       var osp = fishSp(o), shellMul = osp && osp.defense && osp.defense.type === 'shell' ? 0.55 : 1;
@@ -1503,11 +1511,16 @@ var OC = globalThis.OC || (globalThis.OC = {});
     if (cmd.act === 'hide') speedMode = 'rest';
     if (cmd.act === 'feed' && speedMode === 'rest') speedMode = 'slow';
     if (f.held > 0) { speedMode = 'rest'; f.held--; }
-    var tr = fishTurn(f) * DT; f.h = turnToward(f.h, wantH, tr); f.p = turnToward(f.p, wantP, tr); if (f.p > 180) f.p -= 360;
+    var angErr = Math.abs(relAngle(wantH, f.h));
+    var tr = fishTurn(f) * ((cmd.act === 'hunt' || f.lunge > 0) ? 1.35 : 1) * DT;
+    f.h = turnToward(f.h, wantH, tr); f.p = turnToward(f.p, wantP, tr); if (f.p > 180) f.p -= 360;
     var cold = f.d > OC.THERMO, mul = SPEEDS[speedMode] || 0, base = fishCruise(f);
     if (speedMode === 'sprint') { if (f.st > 0) { f.st = Math.max(0, f.st - 25 * DT); if (fsp) mul = fishSprint(f) / Math.max(0.1, base); } else mul = SPEEDS.fast; }
     else if (!OC.inDeadzone(f.x, f.z, f.d)) f.st = Math.min(100, f.st + (speedMode === 'fast' ? 2 : 8) * DT * (cold ? 0.7 : 1));
     var spd = base * mul * (cold && !(fsp && fsp.habitat && fsp.habitat.zone === 'abyss') ? 0.88 : 1);
+    if ((cmd.act === 'hunt' || cmd.act === 'feed') && tgt && dist3(f, tgt.o) < 24 && angErr > 32) {
+      spd *= clamp(1 - (angErr - 28) / 145, 0.36, 1);
+    }
     var kelp = OC.kelpAt(f.x, f.z, f.d); if (kelp) spd *= f.sz > 4 ? 0.5 : 0.75;
     if (OC.mangroveAt(f.x, f.z, f.d)) spd *= f.sz > 1.5 ? 0.4 : 0.8;
     if (f.inJelly) spd *= 0.85; if (f.held > 0) spd = 0;
@@ -1515,6 +1528,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
     f.spd = spd;
     var cur = OC.currentAt(f.x, f.z, f.d), hr = f.h * D2R, pr = f.p * D2R;
     var vx = Math.sin(hr) * Math.cos(pr) * spd + cur.x, vz = -Math.cos(hr) * Math.cos(pr) * spd + cur.z, vd = Math.sin(pr) * spd + cur.d;
+    var fx0 = f.x, fz0 = f.z, fd0 = f.d;
     var nx = clamp(f.x + vx * DT, 1, OC.W - 1), nz = clamp(f.z + vz * DT, 1, OC.L - 1), nd = f.d + vd * DT;
 
     // Keep players out of dry sandy beaches & mountains (floorAt < 1.2m)
@@ -1560,9 +1574,36 @@ var OC = globalThis.OC || (globalThis.OC = {});
     if (!f.alive) return;
     var mHp = fishHpMax(f);
     OC.REEFS.forEach(function (rf) { var cw = rf.cleaner; if (f.spd < 0.5 && dist3(f, cw) < 4 && f.hp < mHp) { f.hp = Math.min(mHp, f.hp + 1.5 * DT); f.bleed = 0; f.poison = 0; ev(f, 'clean', 'cleaner wrasses are picking at your wounds: hp ' + Math.round(f.hp), 1.5 * DT); } });
-    if (cmd.act === 'hunt' && tgt && tgt.kind !== 'place') tryBite(g, f, tgt);
-    else if (cmd.act === 'feed') { if (!tgt || !tryBite(g, f, tgt)) { var nf = nearestFood(g, f); if (nf) tryBite(g, f, nf); } }
-    else if (f.lunge > 0 || (cmd.act === 'swim' && cmd.target)) { var lt = findTarget(g, cmd.target); if (lt) tryBite(g, f, lt); }
+    var prevPos = { x: fx0, z: fz0, d: fd0 };
+    if (cmd.act === 'hunt' && tgt && tgt.kind !== 'place') tryBite(g, f, tgt, prevPos);
+    else if (cmd.act === 'feed') { if (!tgt || !tryBite(g, f, tgt, prevPos)) { var nf = nearestFood(g, f); if (nf) tryBite(g, f, nf, prevPos); } }
+    else if (f.lunge > 0 || (cmd.act === 'swim' && cmd.target)) { var lt = findTarget(g, cmd.target); if (lt) tryBite(g, f, lt, prevPos); }
+    // Contact/ramming harm: fast predators/sharks/large fish plowing straight into edible prey deal immediate bite/swallow!
+    if (f.cool <= 0 && f.spd > 0.7 && (f.role === 'shark' || f.role === 'predator' || f.role === 'dolphin' || f.sz >= 1.8)) {
+      var cr = fishReach(f) + (f.lunge > 0 ? 1.8 : 0.4), hitT = null, hbd = 1e9;
+      for (i = 0; i < g.fish.length; i++) {
+        var fo = g.fish[i]; if (fo === f || !fo.alive) continue;
+        if (f.role === 'shark' && fo.role === 'shark') continue;
+        if (fo.sz >= f.sz * 0.95 && f.role !== 'shark' && f.role !== 'predator') continue;
+        var fsd = segDist3(fx0, fz0, fd0, f.x, f.z, f.d, fo.x, fo.z, fo.d);
+        if (fsd <= cr && fsd < hbd && (inFront(f, fo, 95) || fsd <= cr * 0.65)) { hbd = fsd; hitT = { kind: 'fish', o: fo }; }
+      }
+      if (!hitT && g.npcs) {
+        var box = cr + 6;
+        for (i = 0; i < g.npcs.length; i++) {
+          var na = g.npcs[i]; if (!na.alive) continue;
+          if (Math.abs(f.x - na.x) > box || Math.abs(f.z - na.z) > box) continue;
+          var nsp = SP[na.sp]; if (!nsp.food || !nsp.food.e) continue;
+          var isSch = nsp.kind === 'school';
+          if (isSch) { if (na.n <= 0 || (nsp.food.minHunter && f.sz < nsp.food.minHunter)) continue; }
+          else if (nsp.size * 1.15 > f.sz && nsp.size > 0.8) continue;
+          var ncr = cr + (isSch ? 4.5 : 0);
+          var nsd = segDist3(fx0, fz0, fd0, f.x, f.z, f.d, na.x, na.z, na.d);
+          if (nsd <= ncr && nsd < hbd && (inFront(f, na, 105) || nsd <= cr * 0.75)) { hbd = nsd; hitT = { kind: 'npc', o: na }; }
+        }
+      }
+      if (hitT) tryBite(g, f, hitT, prevPos);
+    }
     if (cmd.act === 'feed' && f.cool <= 0) {
       if ((OC.reefAt(f.x, f.z, f.d) || OC.seagrassAt(f.x, f.z, f.d) || OC.mangroveAt(f.x, f.z, f.d)) && (f.sz <= 1.6 || f.role === 'crab' || OC.HERBIVORES[f.species])) { f.cool = 4; gain(g, f, f.role === 'crab' ? 1.3 : 0.65, 'snail', 'you are picking snails, algae, and worms off the bottom'); }
       else if (vn.dist < 10 && vn.dist > 4) { f.cool = 4; gain(g, f, 0.9, 'mat', 'you are grazing the bacterial mat'); }
@@ -1572,7 +1613,13 @@ var OC = globalThis.OC || (globalThis.OC = {});
   // ── Lifelike NPC Movement & Steering ─────────────────────────────────────
   function moveNpc(g, a, sp, wantH, spd, wantD, opts) {
     opts = opts || {};
-    var prevD = a.d, turnAmt = (opts.turn || 90) * DT;
+    var prevD = a.d, baseTurn = opts.turn || 90;
+    if (opts.chase && opts.faceH === undefined) {
+      var err = Math.abs(relAngle(wantH, a.h));
+      baseTurn = baseTurn * (1 + clamp(err / 85, 0, 1.05));
+      if (err > 24) spd *= clamp(1 - (err - 20) / 145, 0.34, 1);
+    }
+    var turnAmt = baseTurn * DT;
     if (opts.faceH !== undefined) {
       a.h = turnToward(a.h, opts.faceH, turnAmt);
     } else {
@@ -1603,32 +1650,50 @@ var OC = globalThis.OC || (globalThis.OC = {});
     a.p = (a.p || 0) + (tgtP - (a.p || 0)) * 0.35;
   }
 
-  function detectPrey(g, a, sp, candidates) {
+  function detectPrey(g, a, sp, candidates, allowWild) {
     var pr = sp.prey, best = null, bd = 1e9, i, ph = OC.phaseName(tSec(g)), twilight = ph === 'dusk' || ph === 'dawn';
     var act = twilight ? 1.25 : pr.active === 'any' ? 1 : (pr.active === 'night' ? (isNight(g) ? 1 : 0.45) : (isDay(g) ? 1 : 0.45));
     var isApexShark = (sp.kind === 'shark' && a.sp !== 'orca');
     for (i = 0; i < candidates.length; i++) {
       var f = candidates[i], fsz = f.sz || SP[f.sp].size; if (!f.alive) continue;
-      if (f.sp && !(pr.huntsSharks && SP[f.sp].kind === 'shark') && !(pr.huntsNpc && pr.huntsNpc.indexOf(f.sp) >= 0)) continue;
+      if (f.sp) {
+        var fsp = SP[f.sp];
+        if (fsp.kind === 'school' && f.n <= 0) continue;
+        var explicitOk = (pr.huntsSharks && fsp.kind === 'shark') || (pr.huntsNpc && pr.huntsNpc.indexOf(f.sp) >= 0);
+        if (!explicitOk) {
+          if (pr.huntsSharks) continue;
+          if (!allowWild) continue;
+          if (fsp.kind === 'shark' || fsp.kind === 'kraken' || fsp.kind === 'static' || fsp.kind === 'drift') continue;
+          if (f.sp === 'whale' || f.sp === 'whale calf' || f.sp === 'whale shark' || f.sp === 'dolphin') continue;
+          if (fsp.defense && ['poison', 'venom', 'sting', 'spines'].indexOf(fsp.defense.type) >= 0) continue;
+        }
+      }
       // Sharks treat shark-role player agents as packmates unless provoked!
       if (!f.sp && isApexShark && f.role === 'shark' && !(a._hostileTo && a._hostileTo[f.id] > g.tick)) continue;
-      var isFishAgent = (!f.sp && (f.role === 'fish' || !f.role));
+      // Dolphins focus on baitfish/squid/small prey rather than harassing healthy player swimmers
+      if (!f.sp && sp.kind === 'pack' && fsz > 0.75 && f.bleed <= 0 && !(a._hostileTo && a._hostileTo[f.id] > g.tick)) continue;
+      var isFishAgent = (!f.sp && (f.role === 'fish' || !f.role) && sp.kind !== 'pack');
       if (!isFishAgent && fsz > pr.max && !pr.aggressive) continue;
       if (isFishAgent && sp.kind === 'shark' && fsz > pr.max * 1.45 && !pr.aggressive) continue;
       if (pr.minPrey && fsz < pr.minPrey) continue; if (pr.ignoreAbove && fsz >= pr.ignoreAbove) continue; if (pr.timid && fsz >= pr.timid) continue;
       var rng = pr.range * act * ((pr.prefer && f.sp && pr.prefer.indexOf(f.sp) >= 0) ? 3.5 : isFishAgent ? 1.45 : 1);
-      var maxBox = Math.max(rng * 2.2, pr.smell || 100);
+      var maxBox = f.sp ? Math.min(rng * 1.45, 50) : Math.max(rng * 2.2, pr.smell || 100);
       if (Math.abs(a.x - f.x) > maxBox || Math.abs(a.z - f.z) > maxBox) continue;
       var dd = dist3(a, f), det = false;
-      var hi = hideInfo(f, g.tick);
-      if (pr.detect.indexOf('vision') >= 0 && dd < rng * visMul(g, f, a, pr.detect)) det = true;
-      if (!det && pr.detect.indexOf('lateral') >= 0 && f.spd > 0.8 && dd < (isFishAgent ? 34 : 28) && !hi.solid) det = true;
-      if (!det && pr.detect.indexOf('smell') >= 0 && f.bleed > 0 && dd < (pr.smell || 100)) det = true;
-      if (!det && pr.detect.indexOf('echo') >= 0 && dd < rng && !hi.solid) det = true;
-      if (!det && pr.detect.indexOf('electro') >= 0 && dd < (pr.electro || 16) && !hi.solid) det = true;
-      if (det && hi.solid && !(pr.detect.indexOf('vision') >= 0 && hideInfo(a, g.tick).src === hi.src)) det = false;
+      if (dd > maxBox && f.bleed <= 0) continue;
+      if (pr.detect.indexOf('smell') >= 0 && f.bleed > 0 && dd < (pr.smell || 100)) det = true;
+      var hi = null;
+      if (!det) {
+        if (dd > Math.max(rng * 1.8, isFishAgent ? 36 : 30, pr.electro || 16)) continue;
+        hi = (f.sp && SP[f.sp].kind === 'school') ? { solid: false, mult: 1 } : hideInfo(f, g.tick);
+        if (pr.detect.indexOf('vision') >= 0 && dd < rng * (f.sp && SP[f.sp].kind === 'school' ? 1 : visMul(g, f, a, pr.detect))) det = true;
+        if (!det && pr.detect.indexOf('lateral') >= 0 && f.spd > 0.8 && dd < (isFishAgent ? 34 : 28) && !hi.solid) det = true;
+        if (!det && pr.detect.indexOf('echo') >= 0 && dd < rng && !hi.solid) det = true;
+        if (!det && pr.detect.indexOf('electro') >= 0 && dd < (pr.electro || 16) && !hi.solid) det = true;
+        if (det && hi.solid && !(pr.detect.indexOf('vision') >= 0 && hideInfo(a, g.tick).src === hi.src)) det = false;
+      }
       if (det && a.ban && a.ban.id === f.id && a.ban.until > g.tick) det = false;
-      var ed = (pr.prefer && f.sp && pr.prefer.indexOf(f.sp) >= 0) ? dd * 0.01 : isFishAgent ? dd * 0.35 : dd;
+      var ed = (pr.prefer && f.sp && pr.prefer.indexOf(f.sp) >= 0) ? dd * 0.01 : isFishAgent ? dd * 0.25 : (f.bleed > 0 ? dd * 0.45 : dd * 1.2);
       if (det && ed < bd) { bd = ed; best = f; }
     }
     return best;
@@ -1637,19 +1702,39 @@ var OC = globalThis.OC || (globalThis.OC = {});
   function npcAttack(g, a, sp, f) {
     var pr = sp.prey, fsz = f.sz || SP[f.sp].size;
     if (f.sp) {
-      var dmg = pr.dmg * 2; f.hp -= dmg; f.bleed = 80;
-      if (f.hp <= 0) { npcDie(g, f, a); addFeed(g, 'the ' + a.sp + ' killed the ' + f.sp); a.sat = pr.satiety; a.st = 'rest'; a.tg = null; }
-      a.cool = 8; return;
+      var tSp = SP[f.sp];
+      if (tSp.kind === 'school') {
+        var biteN = Math.min(f.n || 0, Math.max(2, Math.round(sp.size * 2.1)));
+        if (biteN > 0) {
+          f.n = Math.max(0, f.n - biteN);
+          f.tm = 28; f.st = 'flee';
+          if (tSp.size >= 0.45) g.carrion.push({ id: 'k' + (g.nextK++), x: f.x, z: f.z, d: f.d, sz: tSp.size, en: Math.round(12 * tSp.size * biteN), age: 0, of: f.id });
+          if (f.n <= 0) { f.alive = false; f.rt = g.famine ? 0 : 360; a.tg = null; }
+          a.sat = Math.min(pr.satiety, (a.sat || 0) + Math.round(18 + biteN * tSp.size * 12));
+          if (a.sat >= pr.satiety * 0.6) { a.st = 'rest'; a.tg = null; }
+        }
+        a.cool = 6; return;
+      }
+      var swNpc = pr.swallow && fsz <= pr.swallow;
+      var dmg = swNpc ? (f.hp + 99) : pr.dmg * 2;
+      f.hp -= dmg; f.bleed = 80;
+      if (f.hp <= 0) {
+        npcDie(g, f, a);
+        if (fsz >= 1.1 || sp.kind === 'shark' || sp.kind === 'pack') addFeed(g, 'the ' + a.sp + ' caught ' + (/^[aeiou]/i.test(f.sp) ? 'an ' : 'a ') + f.sp);
+        a.sat = Math.round(pr.satiety * 1.05); a.st = 'rest'; a.tg = null;
+      }
+      a.cool = 5; return;
     }
     // Check player's natural species defense (spines, poison, ink, pinch, shell)
     var fsp = fishSp(f), shellMul = (fsp && fsp.defense && fsp.defense.type === 'shell') ? 0.55 : 1;
-    if (fsz <= (pr.swallow || 0) && (!fsp || fsp.size <= (pr.swallow || 0))) {
+    if (fsz <= (pr.swallow || 0) && (!fsp || fsp.size <= (pr.swallow || 0) * 1.15) && (fsz < 0.78 || f.hp <= fishHpMax(f) * 0.55)) {
       kill(g, f, 'was swallowed by a ' + a.sp); f.hp = 0; ev(f, 'npcswal', 'a ' + a.sp + ' swallowed you');
       a.sat = sp.kind === 'shark' ? Math.min(40, pr.satiety) : pr.satiety; a.st = sp.kind === 'shark' ? 'rest' : 'idle'; a.tg = null;
       if (a.pk) g.npcs.forEach(function (o) { if (o.pk === a.pk) { o.sat = Math.min(40, pr.satiety * 0.6); o.st = 'rest'; o.tg = null; } });
       return;
     }
-    var hitDmg = Math.max(2, Math.round(pr.dmg * shellMul));
+    var sizeMul = sp.size > fsz * 1.45 ? 1.35 : 1;
+    var hitDmg = Math.max(2, Math.round(pr.dmg * shellMul * sizeMul));
     hurt(g, f, hitDmg, 'npc', 'npcbite:' + a.sp, 'a ' + a.sp + ' bit you: -' + hitDmg + ' hp', a);
     if (fsp && fsp.defense) {
       var df = fsp.defense;
@@ -1658,7 +1743,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
     }
     if (!f.alive) { a.sat = sp.kind === 'shark' ? Math.min(40, pr.satiety) : pr.satiety; a.st = sp.kind === 'shark' ? 'rest' : 'idle'; a.tg = null; }
     else if (pr.hold) { f.held = pr.hold; ev(f, 'held', 'the ' + a.sp + ' is holding you with its tentacles/jaws'); }
-    a.cool = 8;
+    a.cool = 5;
   }
 
   // ── Schooling fish & squid shoals ────────────────────────────────────────
@@ -1889,7 +1974,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
     if (a.sat <= 0 && g._preds) {
       cands = g.fish.concat(g._preds.filter(function (o) { return o !== a && o.sp !== 'whale' && o.sp !== 'whale calf' && SP[o.sp].size <= 7 && dist3(a, o) < 75; }));
     }
-    var prey = a.sat > 0 ? null : detectPrey(g, a, sp, cands);
+    var prey = a.sat > 0 ? null : detectPrey(g, a, sp, cands, true);
     // Low-HP ink burst retreat deeper into abyss
     if (a.hp < sp.hp * 0.35 && a.tm <= 0) {
       a.st = 'jet'; a.tm = 32; a.ink = g.tick;
@@ -1917,7 +2002,9 @@ var OC = globalThis.OC || (globalThis.OC = {});
       }
       var pulseH = 0.72 + 0.68 * Math.pow(Math.max(0, Math.sin(g.tick * 0.6 + a.ph)), 2);
       var hSpd = (dd < 34 ? sp.sprint : sp.speed * 1.45) * pulseH;
-      moveNpc(g, a, sp, bearing(a.x, a.z, prey.x, prey.z), hSpd, prey.d, { turn: 135 });
+      var kx0 = a.x, kz0 = a.z, kd0 = a.d;
+      moveNpc(g, a, sp, bearing(a.x, a.z, prey.x, prey.z), hSpd, prey.d, { turn: 145, chase: true });
+      if (a.cool <= 0 && segDist3(kx0, kz0, kd0, a.x, a.z, a.d, prey.x, prey.z, prey.d) < tentReach) npcAttack(g, a, sp, prey);
       return;
     }
     a.st = 'patrol'; a.tg = null;
@@ -1987,6 +2074,13 @@ var OC = globalThis.OC || (globalThis.OC = {});
       }
     }
     var prey = a.sat > 0 ? null : detectPrey(g, a, sp, g.fish);
+    if (!prey && a.sat <= 0 && a.tg) {
+      var stT = findTarget(g, a.tg);
+      if (stT && stT.o.alive && (!stT.o.n || stT.o.n > 0) && dist3(a, stT.o) < sp.prey.range * 1.6) prey = stT.o;
+    }
+    if (!prey && a.sat <= 0 && g._prey && ((g.tick + a.ph) & 3) === 0) {
+      prey = detectPrey(g, a, sp, g._prey, true);
+    }
     if (!prey && a.sat <= 0 && g._schools) {
       var bs = null, bd = 1e9;
       for (var i = 0; i < g._schools.length; i++) {
@@ -1996,15 +2090,20 @@ var OC = globalThis.OC || (globalThis.OC = {});
         }
       }
       if (bs) {
-        moveNpc(g, a, sp, bearing(a.x, a.z, bs.x, bs.z), sp.speed * 1.35, bs.d, { turn: 130 });
-        if (bd < 6 && rnd(g) < 0.06) { bs.n = Math.max(0, bs.n - 1); bs.tm = 20; if (rnd(g) < 0.25) a.sat = sp.prey.satiety * 0.3; }
+        moveNpc(g, a, sp, bearing(a.x, a.z, bs.x, bs.z), sp.speed * 1.35, bs.d, { turn: 130, chase: true });
+        if (bd < 6 && a.cool <= 0) { npcAttack(g, a, sp, bs); }
         a.st = 'forage'; return;
       }
     }
     if (prey) {
-      a.st = 'hunt'; a.tg = prey.id; var dd = dist3(a, prey);
-      if (dd < reach(sp.size) + 0.6 && a.cool <= 0) npcAttack(g, a, sp, prey);
-      else moveNpc(g, a, sp, bearing(a.x, a.z, prey.x, prey.z), dd < 25 ? (sp.sprint || sp.speed * 2) : sp.speed * 1.25, prey.d, { turn: 165 });
+      a.st = 'hunt'; a.tg = prey.id;
+      var strikeR = reach(sp.size) + (prey.sp && SP[prey.sp].kind === 'school' ? 3.5 : 0.8);
+      var dd = dist3(a, prey);
+      if (dd < strikeR && a.cool <= 0) { npcAttack(g, a, sp, prey); return; }
+      var ax0 = a.x, az0 = a.z, ad0 = a.d;
+      var spd = a.cool > 0 ? sp.speed * 0.85 : (dd < 25 ? (sp.sprint || sp.speed * 2) : sp.speed * 1.25);
+      moveNpc(g, a, sp, bearing(a.x, a.z, prey.x, prey.z), spd, prey.d, { turn: 175, chase: true });
+      if (a.cool <= 0 && segDist3(ax0, az0, ad0, a.x, a.z, a.d, prey.x, prey.z, prey.d) <= strikeR) npcAttack(g, a, sp, prey);
       return;
     }
     a.st = 'patrol'; a.tg = null;
@@ -2013,21 +2112,22 @@ var OC = globalThis.OC || (globalThis.OC = {});
     moveNpc(g, a, sp, bearing(a.x, a.z, a.wpt.x, a.wpt.z) + Math.sin(g.tick * 0.08 + a.ph) * 10, sp.speed * cruiseM, a.wpt.d + Math.sin(g.tick * 0.05 + a.ph) * 2.5, { turn: 95 });
   }
 
-  // ── Smart Dolphin Pod AI: Porpoising, Baitball Herding & Pincer Flanking ──
+  // ── Smart Dolphin Pod AI: Smooth Gliding, One-Shot Porpoising & Baitball Herding ──
   function stepPack(g, a, sp) {
     var members = [], leader = null, i;
     for (i = 0; i < g.npcs.length; i++) { var o = g.npcs[i]; if (o.pk === a.pk && o.alive) members.push(o); }
     leader = members[0] || a;
     var myIdx = members.indexOf(a);
     if (a.cool > 0) a.cool--; if (a.sat > 0) a.sat--;
-    if (a.breath === undefined) a.breath = Math.floor(rnd(g) * 240);
+    if (a.breath === undefined) a.breath = Math.floor(rnd(g) * 200);
     a.breath++;
 
-    // Graceful pod porpoise / surfacing breath every ~40-60s
-    if (a.breath > 200 && a.st !== 'hunt') {
+    // Smooth single-arc porpoising breath (never loops repeatedly)
+    if (a.breath > 240 && a.st !== 'hunt') {
       a.st = 'porpoise';
-      moveNpc(g, a, sp, a.h + 4, sp.speed * 1.25, 0.3, { turn: 90, allowSurface: true });
-      if (a.d < 1.1) { a.breath = 0; a.breach = g.tick; }
+      var pH = (a === leader && leader.wpt) ? bearing(a.x, a.z, leader.wpt.x, leader.wpt.z) : leader.h;
+      moveNpc(g, a, sp, pH, sp.speed * 1.15, 0.35, { turn: 75, allowSurface: true });
+      if (a.d < 1.05) { a.breath = -Math.floor(rnd(g) * 60); a.breach = g.tick; }
       return;
     }
 
@@ -2035,54 +2135,70 @@ var OC = globalThis.OC || (globalThis.OC = {});
     if (leader && leader.tg && leader.st === 'hunt') shared = findTarget(g, leader.tg);
     var prey = (shared && shared.o.alive) ? shared.o : (a.sat > 0 ? null : detectPrey(g, a, sp, g.fish));
     if (prey && (prey.sz || 0) <= sp.prey.max) {
-      a.st = 'hunt'; a.tg = prey.id; var dd = dist3(a, prey);
-      // Predictive intercept + flanking pincer!
-      var leadT = Math.min(2.0, dd / Math.max(2, sp.sprint));
+      a.st = 'hunt'; a.tg = prey.id; var dd = dist3(a, prey), strikeR = reach(sp.size) + 0.95;
+      var leadT = Math.min(1.6, dd / Math.max(2, sp.sprint));
       var px = prey.x + Math.sin((prey.h || 0) * D2R) * (prey.spd || 0) * leadT;
       var pz = prey.z - Math.cos((prey.h || 0) * D2R) * (prey.spd || 0) * leadT;
       var tx = px, tz = pz;
-      if (dd > 11 && myIdx > 0) {
-        var flank = (myIdx % 2 === 1 ? 1 : -1) * 75;
+      if (dd > 12 && myIdx > 0) {
+        var flank = (myIdx % 2 === 1 ? 1 : -1) * 65;
         var fb = norm360(bearing(prey.x, prey.z, a.x, a.z) + flank);
-        tx = px + Math.sin(fb * D2R) * 8; tz = pz - Math.cos(fb * D2R) * 8;
+        tx = px + Math.sin(fb * D2R) * 7; tz = pz - Math.cos(fb * D2R) * 7;
       }
-      if (dd < reach(sp.size) + 0.7 && a.cool <= 0) npcAttack(g, a, sp, prey);
-      else moveNpc(g, a, sp, bearing(a.x, a.z, tx, tz), dd < 32 ? sp.sprint : sp.speed * 1.35, prey.d, { turn: 190 });
+      if (dd <= strikeR && a.cool <= 0) { npcAttack(g, a, sp, prey); return; }
+      var dx0 = a.x, dz0 = a.z, dd0 = a.d;
+      var dSpd = a.cool > 0 ? sp.speed * 0.85 : (dd < 32 ? sp.sprint : sp.speed * 1.32);
+      moveNpc(g, a, sp, bearing(a.x, a.z, tx, tz), dSpd, prey.d, { turn: 185, chase: true });
+      if (a.cool <= 0 && segDist3(dx0, dz0, dd0, a.x, a.z, a.d, prey.x, prey.z, prey.d) <= strikeR) npcAttack(g, a, sp, prey);
       return;
     }
 
-    // Cooperative baitball herding when schools nearby!
+    // Cooperative smooth baitball herding when schools nearby!
     if (a.sat <= 0 && g._schools) {
-      var bs = null, bsd = 75;
+      var bs = null, bsd = 48;
       for (i = 0; i < g._schools.length; i++) {
         var sc = g._schools[i];
-        if (sc.alive && sc.n > 20 && SP[sc.sp].size <= 0.7) {
+        if (sc.alive && sc.n > 12 && SP[sc.sp].size <= 0.7) {
           var q = dist3(a, sc); if (q < bsd) { bsd = q; bs = sc; }
         }
       }
       if (bs) {
         a.st = 'herd';
-        var orbAng = g.tick * 0.14 + myIdx * (TAU / Math.max(1, members.length));
-        var ring = bsd < 16 && (g.tick % 40) < 10 ? 1.5 : 11; // tighten & dart through!
+        var orbAng = g.tick * 0.065 + myIdx * (TAU / Math.max(1, members.length));
+        var ring = 9.0 + 4.5 * Math.cos(g.tick * 0.09 + myIdx * 1.4);
         var hx = bs.x + Math.cos(orbAng) * ring, hz = bs.z + Math.sin(orbAng) * ring;
-        moveNpc(g, a, sp, bearing(a.x, a.z, hx, hz), sp.speed * 1.3, bs.d, { turn: 165 });
-        if (bsd < 6 && rnd(g) < 0.08) { bs.n = Math.max(0, bs.n - 2); bs.tm = 24; if (rnd(g) < 0.2) a.sat = 40; }
+        var bx0 = a.x, bz0 = a.z, bd0 = a.d;
+        moveNpc(g, a, sp, bearing(a.x, a.z, hx, hz), sp.speed * 1.15, bs.d, { turn: 110, chase: true });
+        if (a.cool <= 0 && segDist3(bx0, bz0, bd0, a.x, a.z, a.d, bs.x, bs.z, bs.d) < 5.5) {
+          var gulp = Math.min(bs.n, 3);
+          bs.n = Math.max(0, bs.n - gulp); bs.tm = 24;
+          a.cool = 6; a.sat = Math.min(sp.prey.satiety, (a.sat || 0) + 60);
+          if (bs.n <= 0) { bs.alive = false; bs.rt = g.famine ? 0 : 360; }
+        }
         return;
       }
     }
 
-    // Scenic coordinated pod cruise
+    // Smooth coordinated pod patrol across deep open pelagic lanes
     a.st = 'patrol'; a.tg = null;
     if (a === leader) {
-      if (!a.wpt || distH(a, a.wpt) < 12) { var p = spawnPos(g, sp, Math.floor(rnd(g) * 6)); a.wpt = { x: p.x, z: p.z, d: clamp(p.d, 3, 22) }; }
-      var wH = bearing(a.x, a.z, a.wpt.x, a.wpt.z) + Math.sin(g.tick * 0.06 + a.ph) * 12;
-      moveNpc(g, a, sp, wH, sp.speed * (0.9 + 0.2 * Math.sin(g.tick * 0.1)), a.wpt.d + Math.sin(g.tick * 0.12) * 3, { turn: 100 });
+      if (!a.wpt || distH(a, a.wpt) < 18 || floorAt(a.wpt.x, a.wpt.z) < 14) {
+        var p = spawnPos(g, sp, Math.floor(rnd(g) * 6));
+        a.wpt = { x: p.x, z: p.z, d: clamp(p.d, 4, 22) };
+      }
+      var wH = bearing(a.x, a.z, a.wpt.x, a.wpt.z) + Math.sin(g.tick * 0.035 + a.ph) * 6;
+      moveNpc(g, a, sp, wH, sp.speed * (0.94 + 0.08 * Math.sin(g.tick * 0.05 + a.ph)), a.wpt.d + Math.sin(g.tick * 0.04 + a.ph) * 2.0, { turn: 75 });
     } else {
       var side = myIdx % 2 === 1 ? 1 : -1, rank = Math.ceil(myIdx / 2);
-      var ang = leader.h + 148 * side;
-      var lx = leader.x + Math.sin(ang * D2R) * (5 + rank * 3.5), lz = leader.z - Math.cos(ang * D2R) * (5 + rank * 3.5);
+      var ang = leader.h + 146 * side;
+      var lx = leader.x + Math.sin(ang * D2R) * (5.5 + rank * 3.8), lz = leader.z - Math.cos(ang * D2R) * (5.5 + rank * 3.8);
+      var axAhead = lx + Math.sin(leader.h * D2R) * 4.5, azAhead = lz - Math.cos(leader.h * D2R) * 4.5;
       var ld = distH(a, { x: lx, z: lz });
-      moveNpc(g, a, sp, ld > 2.5 ? bearing(a.x, a.z, lx, lz) : leader.h, ld > 14 ? sp.speed * 1.55 : sp.speed * 1.02, clamp(leader.d + Math.sin(g.tick * 0.15 + myIdx) * 1.4, 0.8, 30), { turn: 120 });
+      var slotBear = bearing(a.x, a.z, axAhead, azAhead);
+      var blend = clamp((ld - 1.2) / 10, 0, 1);
+      var smoothH = norm360(leader.h + relAngle(slotBear, leader.h) * blend);
+      var matchSpd = clamp(leader.spd * (0.88 + ld * 0.035), sp.speed * 0.78, sp.sprint * 0.92);
+      moveNpc(g, a, sp, smoothH, matchSpd, clamp(leader.d + Math.sin(g.tick * 0.06 + myIdx) * 1.2, 1.2, 28), { turn: 95 });
     }
   }
 
@@ -2098,39 +2214,55 @@ var OC = globalThis.OC || (globalThis.OC = {});
       else moveNpc(g, a, sp, a.h + 6, 0.7, rp[2], { turn: 40 });
       return;
     }
-    var cands = g.fish;
-    if (pr.huntsSharks) cands = g.fish.concat(g.npcs.filter(function (o) { return o.alive && (SP[o.sp].kind === 'shark' || (pr.huntsNpc && pr.huntsNpc.indexOf(o.sp) >= 0)) && o !== a && o.pk !== a.pk; }));
-    var prey = detectPrey(g, a, sp, cands);
+    var prey;
+    if (pr.huntsSharks) {
+      var oCands = g.fish.concat(g.npcs.filter(function (o) { return o.alive && (SP[o.sp].kind === 'shark' || (pr.huntsNpc && pr.huntsNpc.indexOf(o.sp) >= 0)) && o !== a && o.pk !== a.pk; }));
+      prey = detectPrey(g, a, sp, oCands, false);
+    } else {
+      prey = detectPrey(g, a, sp, g.fish, false);
+      if (!prey && a.tg) {
+        var stS = findTarget(g, a.tg);
+        if (stS && stS.o.alive && (!stS.o.n || stS.o.n > 0) && dist3(a, stS.o) < pr.range * 1.6) {
+          var sSp = stS.o.sp ? SP[stS.o.sp] : null;
+          if (!sSp || (sSp.kind !== 'shark' && sSp.kind !== 'kraken')) prey = stS.o;
+        }
+      }
+      if (!prey && g._prey && ((g.tick + a.ph) & 3) === 0) prey = detectPrey(g, a, sp, g._prey, true);
+    }
     if (!prey && a.pk) {
       for (i = 0; i < g.npcs.length; i++) { var m = g.npcs[i]; if (m !== a && m.alive && m.pk === a.pk && m.st === 'hunt' && m.tg) { var t = findTarget(g, m.tg); if (t && t.o.alive && dist3(a, t.o) < 120) { prey = t.o; break; } } }
     }
     if (prey) {
       var dd = dist3(a, prey);
-      if (!prey.sp && a.circ === undefined && dd < 28 && dd > reach(sp.size) + 4 && a.sprint <= 0) a.circ = 24;
-      if (a.circ > 0) {
-        a.circ--; a.st = 'circle'; a.tg = prey.id;
-        var cb = bearing(a.x, a.z, prey.x, prey.z);
-        moveNpc(g, a, sp, cb + 75, sp.speed * 1.1, prey.d + 2, { turn: 95 });
-        if (a.circ % 8 === 0 && !prey.sp) ev(prey, 'circled:' + a.sp, 'a ' + a.sp + ' is circling you at ' + Math.round(dd) + ' m');
-        return;
-      }
-      if (a.circ === 0) a.circ = -1;
-      if (a.tg === prey.id) { a.chase = (a.chase || 0) + 1; if (a.chase > 240) { a.ban = { id: prey.id, until: g.tick + 600 }; a.chase = 0; a.tg = null; a.st = 'patrol'; return; } } else a.chase = 0;
+      var pSp = prey.sp ? SP[prey.sp] : null;
+      var strikeR = reach(sp.size) + (pSp && pSp.kind === 'school' ? 4.2 : 1.0);
+      if (a.tg === prey.id) { a.chase = (a.chase || 0) + 1; if (a.chase > 240) { a.ban = { id: prey.id, until: g.tick + 500 }; a.chase = 0; a.tg = null; a.st = 'patrol'; return; } } else a.chase = 0;
       a.st = 'hunt'; a.tg = prey.id; a.tm = 40;
-      var tx = prey.x, tz = prey.z;
+      if (dd <= strikeR && a.cool <= 0) { npcAttack(g, a, sp, prey); return; }
+      var leadT = Math.min(1.4, dd / Math.max(3, sp.sprint || sp.speed));
+      var tx = prey.x + Math.sin((prey.h || 0) * D2R) * (prey.spd || 0) * leadT;
+      var tz = prey.z - Math.cos((prey.h || 0) * D2R) * (prey.spd || 0) * leadT;
       if (a.pk && dd > 15) {
-        var packMembers = g.npcs.filter(function (o) { return o.pk === a.pk; }), idx = packMembers.indexOf(a), off = (idx - 1) * 70;
+        var packMembers = g.npcs.filter(function (o) { return o.pk === a.pk; }), idx = packMembers.indexOf(a), off = (idx - 1) * 65;
         var b0 = bearing(prey.x, prey.z, a.x, a.z) + off;
-        tx = prey.x + Math.sin(b0 * D2R) * 10; tz = prey.z - Math.cos(b0 * D2R) * 10;
+        tx = prey.x + Math.sin(b0 * D2R) * 9; tz = prey.z - Math.cos(b0 * D2R) * 9;
       }
       if (dd < 30 && a.sprint <= 0 && a.tired <= 0) a.sprint = sp.sprintT;
-      var spd = a.sprint > 0 ? sp.sprint : (a.tired > 0 ? sp.speed * 0.55 : sp.speed * 1.18);
-      if (dd < reach(sp.size) + 1 && a.cool <= 0) npcAttack(g, a, sp, prey);
-      else moveNpc(g, a, sp, bearing(a.x, a.z, tx, tz), spd, prey.d, { turn: 115 });
+      var spd = a.cool > 0 ? sp.speed * 0.88 : (a.sprint > 0 ? sp.sprint : (a.tired > 0 ? sp.speed * 0.6 : sp.speed * 1.22));
+      var sx0 = a.x, sz0 = a.z, sd0 = a.d;
+      moveNpc(g, a, sp, bearing(a.x, a.z, tx, tz), spd, prey.d, { turn: 165, chase: true });
+      if (a.cool <= 0 && segDist3(sx0, sz0, sd0, a.x, a.z, a.d, prey.x, prey.z, prey.d) <= strikeR) { npcAttack(g, a, sp, prey); return; }
+      // Opportunistic ram-bite if plowing directly through a fish agent or school mid-chase
+      if (a.cool <= 0) {
+        for (i = 0; i < g.fish.length; i++) {
+          var rf = g.fish[i]; if (!rf.alive || rf === prey || rf.role === 'shark' || rf.sz > pr.max * 1.45) continue;
+          if (segDist3(sx0, sz0, sd0, a.x, a.z, a.d, rf.x, rf.z, rf.d) <= reach(sp.size) * 0.9) { npcAttack(g, a, sp, rf); return; }
+        }
+      }
       return;
     }
-    if (a.st === 'hunt' && a.tm > 0 && a.tg) { var lt = findTarget(g, a.tg); if (lt && lt.o.alive) { moveNpc(g, a, sp, bearing(a.x, a.z, lt.o.x, lt.o.z), sp.speed, lt.o.d); return; } }
-    if (a.circ !== undefined && a.tm <= 0) delete a.circ;
+    if (a.st === 'hunt' && a.tm > 0 && a.tg) { var lt = findTarget(g, a.tg); if (lt && lt.o.alive) { moveNpc(g, a, sp, bearing(a.x, a.z, lt.o.x, lt.o.z), sp.speed, lt.o.d, { turn: 140, chase: true }); return; } }
+    if (a.circ !== undefined) delete a.circ;
     if (sp.scavenge || pr.smell) {
       var bk = null, bq = 1e9;
       for (i = 0; i < g.carrion.length; i++) { var k = g.carrion[i]; var q = dist3(a, k), rng = (pr.smell || 100) * (k.sz > 15 ? 2.5 : 1); if (q < rng && q < bq && floorAt(k.x, k.z) >= (sp.shallowOK || 14)) { bq = q; bk = k; } }
@@ -2246,17 +2378,22 @@ var OC = globalThis.OC || (globalThis.OC = {});
   function stepNpcs(g) {
     var i, j;
     // Fast per-tick caches for hunters & packs
-    g._schools = []; g._preds = [];
+    g._schools = []; g._preds = []; g._prey = [];
     for (i = 0; i < g.npcs.length; i++) {
       var q = g.npcs[i]; if (!q.alive) continue;
       var qsp = SP[q.sp];
-      if (qsp.kind === 'school') g._schools.push(q);
-      else if (qsp.kind === 'shark' || qsp.kind === 'hunter' || qsp.kind === 'pack' || qsp.kind === 'kraken') g._preds.push(q);
+      if (qsp.kind === 'school') { g._schools.push(q); if (q.n > 0 && qsp.size >= 0.12) g._prey.push(q); }
+      else if (qsp.kind === 'shark' || qsp.kind === 'hunter' || qsp.kind === 'pack' || qsp.kind === 'kraken') {
+        g._preds.push(q);
+        if (qsp.kind === 'hunter' && qsp.food && qsp.food.e > 0) g._prey.push(q);
+      } else if (qsp.food && qsp.food.e > 0 && qsp.kind !== 'static' && qsp.kind !== 'drift' && q.sp !== 'whale' && q.sp !== 'whale calf' && q.sp !== 'whale shark' && !(qsp.defense && ['poison', 'venom', 'sting', 'spines'].indexOf(qsp.defense.type) >= 0)) {
+        g._prey.push(q);
+      }
     }
     for (i = 0; i < g.npcs.length; i++) {
       var a = g.npcs[i], sp = SP[a.sp];
       if (!a.alive) {
-        if (a.rt > 0 && !g.famine) { a.rt--; if (a.rt <= 0) { a.alive = true; a.hp = sp.hp || hpMax(sp.size); a.x = a.hx; a.z = a.hz; a.d = a.hd; if (sp.kind === 'school') a.n = sp.n; } }
+        if (a.rt > 0 && !g.famine) { a.rt--; if (a.rt <= 0) { a.alive = true; a.hp = sp.hp || hpMax(sp.size); a.x = a.hx; a.z = a.hz; a.d = a.hd; a.cool = 0; a.sat = 0; a.bleed = 0; a.sprint = 0; a.tired = 0; a.tm = 0; if (sp.kind === 'school') a.n = sp.n; } }
         continue;
       }
       if (a.bleed > 0) a.bleed--;
@@ -2327,7 +2464,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
       g.npcs.forEach(function (o) { if (o.sp === 'orca') { o.alive = false; o.rt = 0; } });
       addFeed(g, 'the orcas have moved on');
     }
-    delete g._schools; delete g._preds;
+    delete g._schools; delete g._preds; delete g._prey;
   }
 
   OC.stepOnce = function (g) {
@@ -2400,7 +2537,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
         if (a.p && Math.abs(a.p) > 0.5) o.p = r1(a.p);
         if (a.n !== undefined) o.n = a.n; if (a.tg) o.tg = a.tg; if (a.bleed > 0) o.bl = 1;
         if (a.ink && g.tick - a.ink < 14) o.ink = 1;
-        if (a.breach && g.tick - a.breach < 32) o.breach = 1;
+        if (a.breach && g.tick - a.breach < (a.sp === 'whale' ? 14 : 7)) o.breach = g.tick - a.breach + 1;
         if (a.hp !== undefined && (sp.kind === 'shark' || sp.kind === 'kraken')) o.hp = Math.round(a.hp);
         if (a.sp === 'whale') { if (a.blow && g.tick - a.blow < 40) o.blow = 1; if (a.lunge && g.tick - a.lunge < 8) o.lunge = 1; }
         return o;
@@ -2424,12 +2561,12 @@ var CR = (function () {
   // uMode: 0 bočno valovanje (ribe, morski psi, jegulje), 1 navpično (kiti, delfini, tjulnji), 2 zamah kril (skati),
   //        3 utrip zvona (meduze), 4 utrip plašča + valovanje lovk (glavonožci), 5 statično, 6 rak/jastog (noge + telo)
   var SWIM_PARS = [
-    'uniform float uTime, uAmp, uFreq, uLen, uMode, uPhase, uBend;',
+    'uniform float uTime, uSwim, uAmp, uFreq, uLen, uMode, uPhase, uBend;',
     '#ifdef USE_INSTANCING', 'attribute float aPhase;', '#else', 'const float aPhase = 0.0;', '#endif'
   ].join('\n');
   var SWIM_BODY = [
     'float t_ = clamp(0.5 - transformed.z / uLen, 0.0, 1.0);',
-    'float ph_ = uTime * uFreq + uPhase + aPhase;',
+    'float ph_ = uSwim + uPhase + aPhase;',
     'if (uMode < 0.5) { float w = t_ * t_; transformed.x += uAmp * uLen * w * sin(ph_ - t_ * 3.2) + uBend * uLen * w; }',
     'else if (uMode < 1.5) { float w = t_ * t_; transformed.y += uAmp * uLen * w * sin(ph_ - t_ * 2.6); transformed.x += uBend * uLen * w; }',
     'else if (uMode < 2.5) { float wx = abs(transformed.x) / (uLen * 0.5); transformed.y += uAmp * uLen * wx * wx * sin(ph_ - wx * 1.6); }',
@@ -2437,14 +2574,27 @@ var CR = (function () {
     'else if (uMode < 4.5) { if (t_ < 0.52) { float mc = 1.0 - min(0.16, uAmp * 1.4) * sin(ph_ * 1.25); transformed.x *= mc; transformed.y *= mc; } else { float k = (t_ - 0.5) * 2.0; transformed.x += uAmp * uLen * k * k * sin(ph_ + transformed.x * 2.8 - k * 5.0); transformed.y += uAmp * uLen * k * k * cos(ph_ * 0.8 + transformed.y * 2.8 - k * 4.0); } }',
     'else if (uMode > 5.5) { float mv = clamp(uAmp * 10.0, 0.0, 1.0); float legs = smoothstep(0.12 * uLen, 0.35 * uLen, abs(transformed.x)); transformed.y += mv * legs * 0.055 * uLen * sin(ph_ * 2.4 + transformed.z * 9.0 + sign(transformed.x) * 1.6); transformed.y += mv * 0.015 * uLen * abs(sin(ph_ * 1.2)); }'
   ].join('\n');
+  function attachSwim(m, u) {
+    m.userData.u = u;
+    m.onBeforeCompile = function (sh) {
+      for (var k in u) sh.uniforms[k] = u[k];
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + SWIM_PARS).replace('#include <begin_vertex>', '#include <begin_vertex>\n' + SWIM_BODY);
+      sh.fragmentShader = sh.fragmentShader.replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\nfloat wetRim_ = pow(1.0 - max(0.0, dot(geometry.normal, geometry.viewDir)), 3.2);\nreflectedLight.indirectSpecular += vec3(0.04, 0.14, 0.22) * wetRim_;');
+    };
+    m.customProgramCacheKey = function () { return 'swim-v2'; };
+    return m;
+  }
   function swimMaterial(opts) {
     opts = opts || {};
-    var m = new T.MeshPhongMaterial({ vertexColors: true, shininess: opts.shininess !== undefined ? opts.shininess : 30, specular: new T.Color(opts.specular || 0x334455), side: T.DoubleSide, transparent: !!opts.transparent, opacity: opts.opacity !== undefined ? opts.opacity : 1, depthWrite: opts.depthWrite !== false });
-    var u = { uTime: { value: 0 }, uAmp: { value: 0.05 }, uFreq: { value: 4 }, uLen: { value: opts.len || 1 }, uMode: { value: opts.mode || 0 }, uPhase: { value: Math.random() * 6.28 }, uBend: { value: 0 } };
-    m.userData.u = u;
-    m.onBeforeCompile = function (sh) { for (var k in u) sh.uniforms[k] = u[k]; sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + SWIM_PARS).replace('#include <begin_vertex>', '#include <begin_vertex>\n' + SWIM_BODY); };
-    m.customProgramCacheKey = function () { return 'swim-v1'; };
-    return m;
+    var m = new T.MeshPhongMaterial({ vertexColors: true, shininess: opts.shininess !== undefined ? opts.shininess : 48, specular: new T.Color(opts.specular || 0x4b6a82), side: T.DoubleSide, transparent: !!opts.transparent, opacity: opts.opacity !== undefined ? opts.opacity : 1, depthWrite: opts.depthWrite !== false });
+    var u = { uTime: { value: 0 }, uSwim: { value: Math.random() * 6.28 }, uAmp: { value: 0.05 }, uFreq: { value: 4 }, uLen: { value: opts.len || 1 }, uMode: { value: opts.mode || 0 }, uPhase: { value: Math.random() * 6.28 }, uBend: { value: 0 } };
+    return attachSwim(m, u);
+  }
+  function cloneSwimMat(src) {
+    var m = src.clone(), srcU = src.userData.u, u = {};
+    for (var k in srcU) u[k] = { value: srcU[k].value };
+    u.uSwim = { value: Math.random() * 6.28 };
+    return attachSwim(m, u);
   }
 
   // ── Geometrijske osnove ──────────────────────────────────────────────────
@@ -2773,105 +2923,321 @@ var CR = (function () {
   function player(color, size) { return build('player', playerLen(size || 1), { colors: PLAYER_COLORS[color] || PLAYER_COLORS.blue, shiny: color === 'silver', mouth: true }); }
   function carcass(sz) { var g = sz > 15 ? build('carcass', 22, { shape: 'whale', colors: { dorsal: 0x6a6e70, ventral: 0xa8a8a0, fin: 0x5a5e60 }, mode: 5 }) : build('carcass', playerLen(sz), { colors: { dorsal: 0x8a8a80, ventral: 0xb8b8a8, fin: 0x7a7a70 }, mode: 5 }); g.userData.mesh.rotation.z = Math.PI; return g; }
 
-  // animacija: hitrost (m/s) -> frekvenca/amplituda
-  function animate(grp, time, spd, turnRate) {
+  // animacija: hitrost (m/s) -> zvezno integrirana faza plavanja uSwim (brez poskokov ob spremembi hitrosti)
+  function animate(grp, time, spd, turnRate, dt) {
     var u = grp.userData.u, L = grp.userData.len, m = grp.userData.mode;
+    var dtStep = dt !== undefined ? Math.min(0.08, Math.max(0, dt)) : (grp.userData._lt !== undefined ? Math.min(0.08, Math.max(0, time - grp.userData._lt)) : 0.016);
+    grp.userData._lt = time;
     u.uTime.value = time;
-    if (m === 0) { var k = L > 3 ? 0.6 : L > 1 ? 1 : 1.6; u.uFreq.value = (1.2 + Math.min(10, spd) * 1.3) * k; u.uAmp.value = 0.025 + Math.min(0.07, spd * 0.015); }
-    else if (m === 1) { u.uFreq.value = (0.9 + Math.min(10, spd) * 0.8) * (L > 10 ? 0.45 : 1); u.uAmp.value = 0.02 + Math.min(0.05, spd * 0.012); }
-    else if (m === 2) { u.uFreq.value = 1.2 + Math.min(6, spd) * 0.6; u.uAmp.value = 0.12 + Math.min(0.1, spd * 0.04); }
-    else if (m === 3) { u.uFreq.value = 1.6; u.uAmp.value = 0.1; }
-    else if (m === 4) { u.uFreq.value = 1.4 + Math.min(5, spd * 1.1); u.uAmp.value = 0.06 + Math.min(0.08, spd * 0.025); }
-    else if (m === 6) { u.uFreq.value = 2.0 + Math.min(6, spd * 3.5); u.uAmp.value = spd > 0.04 ? Math.min(0.12, 0.04 + spd * 0.08) : 0.0; }
-    u.uBend.value = turnRate ? Math.max(-0.12, Math.min(0.12, -turnRate * 0.004)) : 0;
+    var freq = u.uFreq.value, amp = u.uAmp.value;
+    if (m === 0) { var k = L > 3 ? 0.6 : L > 1 ? 1 : 1.6; freq = (1.2 + Math.min(10, spd) * 1.25) * k; amp = 0.025 + Math.min(0.068, spd * 0.014); }
+    else if (m === 1) { freq = (0.9 + Math.min(10, spd) * 0.78) * (L > 10 ? 0.45 : 1); amp = 0.02 + Math.min(0.048, spd * 0.011); }
+    else if (m === 2) { freq = 1.2 + Math.min(6, spd) * 0.6; amp = 0.12 + Math.min(0.1, spd * 0.04); }
+    else if (m === 3) { freq = 1.6; amp = 0.1; }
+    else if (m === 4) { freq = 1.4 + Math.min(5, spd * 1.1); amp = 0.06 + Math.min(0.08, spd * 0.025); }
+    else if (m === 5) { freq = 0; amp = 0; }
+    else if (m === 6) { freq = 2.0 + Math.min(6, spd * 3.5); amp = spd > 0.04 ? Math.min(0.12, 0.04 + spd * 0.08) : 0.0; }
+    var sm = Math.min(1, dtStep * 7.0);
+    u.uFreq.value += (freq - u.uFreq.value) * sm;
+    u.uAmp.value += (amp - u.uAmp.value) * sm;
+    u.uSwim.value += u.uFreq.value * dtStep;
+    var targetBend = turnRate ? Math.max(-0.14, Math.min(0.14, -turnRate * 0.0042)) : 0;
+    u.uBend.value += (targetBend - u.uBend.value) * Math.min(1, dtStep * 8.0);
   }
-  return { build: build, creature: creature, player: player, carcass: carcass, animate: animate, lenOf: lenOf, SPEC: SPEC, swimMaterial: swimMaterial, merge: merge, paint: paint, playerLen: playerLen, PLAYER_COLORS: PLAYER_COLORS };
+  return { build: build, creature: creature, player: player, carcass: carcass, animate: animate, lenOf: lenOf, SPEC: SPEC, swimMaterial: swimMaterial, cloneSwimMat: cloneSwimMat, merge: merge, paint: paint, playerLen: playerLen, PLAYER_COLORS: PLAYER_COLORS };
 })();
 </script>
-<script>// OCEAN ARENA v5 — voda, svetloba, dno (kaustike), gladina (valovi), sončni žarki, delci, kakovost.
+<script>// OCEAN ARENA v5 — voda, realistični Gerstner valovi, kapilarne gubice, Fresnel/SSS, nebo, dno (RGB kaustike), žarki, delci.
 var OCEAN = (function () {
   var T = THREE;
-  var Q = { low: { dpr: 1, snow: 500, rays: 0, caustics: 0, surfSeg: 40, school: 0.4, bubbles: 60, aniso: 1 }, med: { dpr: 1.25, snow: 1500, rays: 10, caustics: 1, surfSeg: 96, school: 0.8, bubbles: 160, aniso: 2 }, high: { dpr: 1.75, snow: 3500, rays: 18, caustics: 1, surfSeg: 160, school: 1.3, bubbles: 320, aniso: 4 } };
-  var O = { q: Q.med, qname: 'med' };
-  O.setQuality = function (name) { O.qname = Q[name] ? name : 'med'; O.q = Q[O.qname]; try { localStorage.setItem('ocean.q', O.qname); } catch (e) {} return O.q; };
-  O.loadQuality = function (qs) { var n = (qs && qs.get('q')) || (function () { try { return localStorage.getItem('ocean.q'); } catch (e) { return null; } })(); return O.setQuality(n || 'med'); };
+  var Q = {
+    low:  { dpr: 1.25, snow: 600,  rays: 0,  caustics: 0, surfSeg: 96,  floorSeg: 180, school: 0.5, bubbles: 80,  aniso: 2 },
+    med:  { dpr: 2.0,  snow: 1800, rays: 12, caustics: 1, surfSeg: 160, floorSeg: 240, school: 0.9, bubbles: 200, aniso: 4 },
+    high: { dpr: 3.0,  snow: 3600, rays: 20, caustics: 1, surfSeg: 220, floorSeg: 320, school: 1.4, bubbles: 360, aniso: 8 }
+  };
+  var O = { q: Q.high, qname: 'high' };
+  O.setQuality = function (name) {
+    O.qname = Q[name] ? name : 'high';
+    O.q = Q[O.qname];
+    try { localStorage.setItem('ocean.q.v2', O.qname); } catch (e) {}
+    return O.q;
+  };
+  O.loadQuality = function (qs) {
+    var n = (qs && qs.get('q')) || (function () { try { return localStorage.getItem('ocean.q.v2'); } catch (e) { return null; } })();
+    return O.setQuality(n || 'high');
+  };
 
-  // ── Dno: lasten shader (barve po ogliščih + peščeni valovi + kaustike + megla) ──
+  // ── Dno: svetovni normali + multi-skalni peščeni valovi + RGB kromatske kaustike ──
   var FLOOR_VS = [
     '#include <common>', '#include <fog_pars_vertex>',
     'varying vec3 vCol; varying vec3 vN; varying vec3 vW;',
-    'void main(){ vCol = color; vN = normalize(normalMatrix * normal); vec4 wp = modelMatrix * vec4(position,1.0); vW = wp.xyz; vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition;',
+    'void main(){',
+    '  vCol = color;',
+    '  vN = normalize(mat3(modelMatrix) * normal);',
+    '  vec4 wp = modelMatrix * vec4(position, 1.0);',
+    '  vW = wp.xyz;',
+    '  vec4 mvPosition = viewMatrix * wp;',
+    '  gl_Position = projectionMatrix * mvPosition;',
     '#include <fog_vertex>', '}'
   ].join('\n');
+
   var FLOOR_FS = [
     '#include <common>', '#include <fog_pars_fragment>',
     'uniform float uTime, uLight, uCaustics; uniform vec3 uSunDir, uSunCol, uAmb;',
     'varying vec3 vCol; varying vec3 vN; varying vec3 vW;',
-    'float caus(vec2 p, float t){ float v = 0.0; for (int i = 0; i < 3; i++) { float fi = float(i); vec2 q = p * (0.28 + fi * 0.15) + vec2(t * (0.25 + fi * 0.08), t * (0.18 - fi * 0.06)); v += pow(abs(sin(q.x + sin(q.y * 1.3 + t * 0.7))) * abs(cos(q.y + cos(q.x * 0.9 - t * 0.6))), 3.0); } return v / 3.0; }',
+    'float causLayer(vec2 p, float t){',
+    '  vec2 p1 = p * 0.31 + vec2(t * 0.22, -t * 0.16);',
+    '  vec2 p2 = p * 0.49 + vec2(-t * 0.19, t * 0.27);',
+    '  float a = sin(p1.x + sin(p1.y * 1.35 + t * 0.65)) * cos(p1.y + cos(p1.x * 1.1 - t * 0.55));',
+    '  float b = sin(p2.x * 1.15 - cos(p2.y * 1.2 + t * 0.5)) * cos(p2.y * 1.05 + sin(p2.x * 0.9 - t * 0.7));',
+    '  return pow(clamp(1.0 - abs(a + b * 0.7) * 0.9, 0.0, 1.0), 4.0);',
+    '}',
+    'vec3 aces(vec3 x){ return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }',
     'void main(){',
     '  float depth = max(0.0, -vW.y);',
-    '  float above = smoothstep(-0.2, 0.25, vW.y);',
+    '  float above = smoothstep(-0.18, 0.28, vW.y);',
     '  vec3 n = normalize(vN);',
-    '  float rip = sin(vW.x * 2.1 + vW.z * 0.7 + sin(vW.z * 1.7) * 0.8) * 0.5 + 0.5;',
-    '  n = normalize(n + vec3(rip * 0.08 - 0.04, 0.0, (1.0 - rip) * 0.06 - 0.03) * (1.0 - above * 0.6));',
+    '  float rip1 = sin(vW.x * 2.2 + vW.z * 0.75 + sin(vW.z * 1.6) * 0.85);',
+    '  float rip2 = cos(vW.z * 3.7 - vW.x * 1.1 + sin(vW.x * 1.9) * 0.6);',
+    '  n = normalize(n + vec3(rip1 * 0.055, 0.0, rip2 * 0.05) * (1.0 - above * 0.7));',
     '  float ndl = max(0.0, dot(n, uSunDir));',
-    '  vec3 att = vec3(exp(-depth / 10.0), exp(-depth / 26.0), exp(-depth / 80.0));',
-    '  vec3 sunUnder = uSunCol * att * uLight;',
-    '  float c = uCaustics * caus(vW.xz, uTime) * uLight * exp(-depth / 32.0) * (1.0 - above);',
-    '  vec3 underCol = vCol * (uAmb * (0.7 + 0.45 * n.y) + sunUnder * 0.55 * (0.25 + 0.55 * ndl) * (1.0 + c * 1.4)) * vec3(0.92, 0.9, 1.0);',
-    '  vec3 landLight = mix(vec3(0.14, 0.18, 0.26), vec3(0.32, 0.38, 0.44), uLight) + uSunCol * uLight * (0.22 + 0.85 * ndl);',
-    '  vec3 landCol = vCol * landLight;',
-    '  vec3 col = mix(underCol, landCol, above);',
-    '  gl_FragColor = vec4(col, 1.0);',
+    '  vec3 baseLin = pow(max(vCol, vec3(0.001)), vec3(2.2));',
+    '  vec3 sunLin = pow(max(uSunCol, vec3(0.001)), vec3(2.2));',
+    '  vec3 ambLin = pow(max(uAmb, vec3(0.001)), vec3(2.2));',
+    '  vec3 att = vec3(exp(-depth / 11.0), exp(-depth / 30.0), exp(-depth / 88.0));',
+    '  vec3 sunUnder = sunLin * att * uLight;',
+    '  float cFade = uCaustics * uLight * exp(-depth / 34.0) * (1.0 - above);',
+    '  vec2 cUv = vW.xz + uSunDir.xz / max(0.35, uSunDir.y) * depth * 0.35;',
+    '  vec3 cRgb = vec3(causLayer(cUv + vec2(0.08, 0.0), uTime), causLayer(cUv, uTime), causLayer(cUv - vec2(0.07, 0.05), uTime));',
+    '  vec3 causTerm = cRgb * cFade * (0.65 + 0.75 * ndl) * 1.65;',
+    '  vec3 underCol = baseLin * (ambLin * (0.72 + 0.48 * n.y) + sunUnder * (0.28 + 0.65 * ndl) * (vec3(1.0) + causTerm));',
+    '  float wetShore = (1.0 - smoothstep(0.0, 1.35, max(0.0, vW.y))) * above;',
+    '  vec3 landBase = mix(baseLin, baseLin * vec3(0.56, 0.54, 0.50), wetShore * 0.75);',
+    '  vec3 landAmb = mix(vec3(0.025, 0.038, 0.068), vec3(0.11, 0.15, 0.21), uLight);',
+    '  vec3 landCol = landBase * (landAmb + sunLin * uLight * (0.22 + 0.92 * ndl));',
+    '  vec3 linCol = mix(underCol, landCol, above);',
+    '  vec3 srgbCol = pow(aces(linCol * 1.15), vec3(1.0 / 2.2));',
+    '  gl_FragColor = vec4(srgbCol, 1.0);',
     '#include <fog_fragment>', '}'
   ].join('\n');
+
   O.floorMaterial = function () {
-    var u = { uTime: { value: 0 }, uLight: { value: 1 }, uCaustics: { value: 1 }, uSunDir: { value: new T.Vector3(0.3, 0.9, 0.2) }, uSunCol: { value: new T.Color(1, 0.95, 0.85) }, uAmb: { value: new T.Color(0.12, 0.2, 0.3) }, fogColor: { value: new T.Color(0x0a3550) }, fogDensity: { value: 0.008 } };
-    var m = new T.ShaderMaterial({ uniforms: u, vertexShader: FLOOR_VS, fragmentShader: FLOOR_FS, vertexColors: true, fog: true }); m.userData.u = u; return m;
+    var u = {
+      uTime: { value: 0 }, uLight: { value: 1 }, uCaustics: { value: 1 },
+      uSunDir: { value: new T.Vector3(0.3, 0.9, 0.2) },
+      uSunCol: { value: new T.Color(1, 0.95, 0.85) },
+      uAmb: { value: new T.Color(0.12, 0.2, 0.3) },
+      fogColor: { value: new T.Color(0x0a3550) }, fogDensity: { value: 0.008 }
+    };
+    var m = new T.ShaderMaterial({ uniforms: u, vertexShader: FLOOR_VS, fragmentShader: FLOOR_FS, vertexColors: true, fog: true });
+    m.userData.u = u;
+    return m;
   };
 
-  // ── Gladina: Gerstnerjevi valovi, pogled od spodaj (svetla, Snellovo okno) in od zgoraj ──
+  // ── Gladina: fizikalni Gerstner valovi (Nyquist > 6.5m) + shoaling + kapilarne gubice + Schlick Fresnel + crest SSS + pena ──
   var SURF_VS = [
     '#include <common>', '#include <fog_pars_vertex>',
-    'uniform float uTime; varying vec3 vN; varying vec3 vW;',
-    'vec3 gerst(vec2 p, float t, vec2 dir, float wl, float amp, float speed, inout vec3 n) { float k = 6.2831 / wl; float f = k * dot(dir, p) - speed * t; float a = amp; n += vec3(-dir.x * k * a * cos(f), 0.0, -dir.y * k * a * cos(f)); return vec3(dir.x * a * sin(f) * 0.6, a * cos(f), dir.y * a * sin(f) * 0.6); }',
-    'void main(){ vec4 wp = modelMatrix * vec4(position, 1.0); vec3 n = vec3(0.0, 1.0, 0.0); vec3 d = vec3(0.0);',
-    '  d += gerst(wp.xz, uTime, normalize(vec2(1.0, 0.3)), 18.0, 0.45, 1.3, n); d += gerst(wp.xz, uTime, normalize(vec2(-0.4, 1.0)), 9.0, 0.22, 1.9, n); d += gerst(wp.xz, uTime, normalize(vec2(0.7, -0.6)), 4.5, 0.09, 2.6, n); d += gerst(wp.xz, uTime, normalize(vec2(-0.9, -0.2)), 2.2, 0.035, 3.4, n);',
-    '  wp.xyz += d; vN = normalize(n); vW = wp.xyz; vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition;',
+    'uniform float uTime;',
+    'attribute float aDepth;',
+    'varying vec3 vN; varying vec3 vW; varying float vDepth; varying float vCrest;',
+    'vec3 gerst(vec2 p, float t, vec2 dir, float wl, float amp, float steep, float spd, inout vec3 tx, inout vec3 tz, inout float jac){',
+    '  float k = 6.2831853 / wl;',
+    '  float c = sqrt(9.81 / k) * spd;',
+    '  float f = k * dot(dir, p) - k * c * t;',
+    '  float sf = sin(f), cf = cos(f);',
+    '  float qa = min(0.70, steep / max(0.001, k * amp * 5.0));',
+    '  float qka = qa * k * amp;',
+    '  tx += vec3(-dir.x * dir.x * qka * sf, dir.x * k * amp * cf, -dir.x * dir.y * qka * sf);',
+    '  tz += vec3(-dir.x * dir.y * qka * sf, dir.y * k * amp * cf, -dir.y * dir.y * qka * sf);',
+    '  jac -= qka * sf * 0.32;',
+    '  return vec3(dir.x * qa * amp * cf, amp * sf, dir.y * qa * amp * cf);',
+    '}',
+    'void main(){',
+    '  vec4 wp = modelMatrix * vec4(position, 1.0);',
+    '  float shoal = smoothstep(-0.3, 12.0, aDepth);',
+    '  float aS = mix(0.14, 1.0, shoal);',
+    '  vec3 tx = vec3(1.0, 0.0, 0.0), tz = vec3(0.0, 0.0, 1.0), d = vec3(0.0);',
+    '  float jac = 1.0;',
+    '  d += gerst(wp.xz, uTime, normalize(vec2(0.94, 0.34)),  34.0, 0.42 * aS, 0.46, 0.95, tx, tz, jac);',
+    '  d += gerst(wp.xz, uTime, normalize(vec2(-0.42, 0.91)), 21.5, 0.24 * aS, 0.42, 1.02, tx, tz, jac);',
+    '  d += gerst(wp.xz, uTime, normalize(vec2(0.76, -0.65)), 13.5, 0.125 * aS, 0.36, 1.08, tx, tz, jac);',
+    '  d += gerst(wp.xz, uTime, normalize(vec2(-0.88, -0.47)), 8.8, 0.062 * aS, 0.28, 1.15, tx, tz, jac);',
+    '  d += gerst(wp.xz, uTime, normalize(vec2(0.25, 0.97)),   6.6, 0.032 * aS, 0.22, 1.22, tx, tz, jac);',
+    '  wp.xyz += d;',
+    '  vN = normalize(cross(tz, tx));',
+    '  vW = wp.xyz;',
+    '  vDepth = aDepth;',
+    '  vCrest = clamp((d.y / 0.55) * 0.55 + (1.0 - jac) * 0.75, 0.0, 1.0);',
+    '  vec4 mvPosition = viewMatrix * wp;',
+    '  gl_Position = projectionMatrix * mvPosition;',
     '#include <fog_vertex>', '}'
   ].join('\n');
+
   var SURF_FS = [
     '#include <common>', '#include <fog_pars_fragment>',
-    'uniform vec3 uSunDir, uSunCol, uSky, uDeep; uniform float uLight, uAbove; varying vec3 vN; varying vec3 vW;',
-    'void main(){ vec3 V = normalize(cameraPosition - vW); vec3 n = normalize(vN);',
-    '  if (uAbove < 0.5) { n = -n; float cosi = max(0.0, dot(V, -n));',
-    '    float window = smoothstep(0.45, 0.8, cosi);',            // Snellovo okno: strmo navzgor vidiš nebo, poševno zrcalo
-    '    vec3 R = reflect(-V, n); float spec = pow(max(0.0, dot(R, -uSunDir)), 60.0);',
-    '    vec3 col = mix(uDeep * 1.6, uSky * uLight, window) + uSunCol * spec * uLight * 1.5;',
-    '    float a = mix(0.85, 0.55, window);',
-    '    gl_FragColor = vec4(col, a);',
-    '  } else { float fres = pow(1.0 - max(0.0, dot(V, n)), 3.0); vec3 R = reflect(-V, n); float spec = pow(max(0.0, dot(R, uSunDir)), 120.0);',
-    '    vec3 col = mix(uDeep, uSky, 0.25 + 0.75 * fres) + uSunCol * spec * 2.0 * uLight; gl_FragColor = vec4(col, 0.92); }',
+    'uniform vec3 uSunDir, uSunCol, uSky, uDeep; uniform float uLight, uAbove, uTime;',
+    'varying vec3 vN; varying vec3 vW; varying float vDepth; varying float vCrest;',
+    'vec2 capGrad(vec2 p, float t){',
+    '  vec2 g = vec2(0.0);',
+    '  float f1 = dot(p, vec2(2.3, 1.1)) - t * 2.9; g += vec2(2.3, 1.1) * cos(f1) * 0.042;',
+    '  float f2 = dot(p, vec2(-1.8, 2.7)) - t * 3.6; g += vec2(-1.8, 2.7) * cos(f2) * 0.031;',
+    '  float f3 = dot(p, vec2(4.2, -3.1)) + t * 4.4; g += vec2(4.2, -3.1) * cos(f3) * 0.017;',
+    '  float f4 = dot(p, vec2(-5.4, -2.6)) - t * 5.2; g += vec2(-5.4, -2.6) * cos(f4) * 0.011;',
+    '  return g;',
+    '}',
+    'vec3 skySample(vec3 dir, vec3 sunDir, vec3 sunLin, vec3 skyLin, float light){',
+    '  float h = clamp(dir.y, 0.0, 1.0);',
+    '  vec3 horiz = mix(vec3(0.03, 0.06, 0.11), skyLin * 1.08 + vec3(0.06, 0.05, 0.03) * (1.0 - light), max(0.18, light));',
+    '  vec3 zen = mix(vec3(0.012, 0.024, 0.065), vec3(0.08, 0.25, 0.56), light);',
+    '  vec3 c = mix(horiz, zen, pow(h, 0.58));',
+    '  float sd = max(0.0, dot(normalize(dir), sunDir));',
+    '  c += sunLin * (pow(sd, 36.0) * 0.42 + pow(sd, 280.0) * 2.2) * (0.3 + 0.7 * light);',
+    '  return c;',
+    '}',
+    'vec3 aces(vec3 x){ return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }',
+    'void main(){',
+    '  float shoreMask = smoothstep(-0.14, 0.34, vDepth);',
+    '  if (shoreMask < 0.01) discard;',
+    '  vec3 V = normalize(cameraPosition - vW);',
+    '  float camDist = length(cameraPosition - vW);',
+    '  float ripFade = exp(-camDist / 135.0);',
+    '  vec2 cg = capGrad(vW.xz, uTime) * ripFade;',
+    '  vec3 n = normalize(vN + vec3(-cg.x, 0.0, -cg.y));',
+    '  vec3 sunLin = pow(max(uSunCol, vec3(0.001)), vec3(2.2));',
+    '  vec3 skyLin = pow(max(uSky, vec3(0.001)), vec3(2.2));',
+    '  vec3 deepLin = pow(max(uDeep, vec3(0.001)), vec3(2.2));',
+    '  if (uAbove < 0.5) {',
+    '    n = -n;',
+    '    float cosi = max(0.0, dot(V, n));',
+    '    float window = smoothstep(0.58, 0.78, cosi);',
+    '    vec3 refDir = reflect(-V, n);',
+    '    vec3 refrDir = normalize(mix(vec3(V.x, abs(V.y) + 0.25, V.z), n, 0.35));',
+    '    vec3 skyWin = skySample(refrDir, uSunDir, sunLin, skyLin, uLight) * (0.75 + 0.45 * uLight);',
+    '    float sunDisk = pow(max(0.0, dot(refrDir, uSunDir)), 28.0) * uLight;',
+    '    vec3 tirCol = deepLin * (1.45 + 0.7 * max(0.0, n.y)) + vec3(0.02, 0.12, 0.18) * (1.0 - cosi);',
+    '    float tirSpec = pow(max(0.0, dot(refDir, -uSunDir)), 48.0) * 0.7 * uLight;',
+    '    vec3 colLin = mix(tirCol + sunLin * tirSpec, skyWin + sunLin * sunDisk * 1.4, window);',
+    '    float a = mix(0.88, 0.42, window) * shoreMask;',
+    '    gl_FragColor = vec4(pow(aces(colLin * 1.1), vec3(1.0 / 2.2)), a);',
+    '  } else {',
+    '    float cosV = max(0.0, dot(V, n));',
+    '    float fres = 0.022 + 0.978 * pow(1.0 - cosV, 5.0);',
+    '    vec3 R = reflect(-V, n); R.y = max(0.02, R.y);',
+    '    vec3 refl = skySample(R, uSunDir, sunLin, skyLin, uLight);',
+    '    float depthT = 1.0 - exp(-max(0.0, vDepth) * 0.068);',
+    '    vec3 shallowCol = vec3(0.03, 0.32, 0.38) * (0.28 + 0.72 * uLight);',
+    '    vec3 bodyCol = mix(shallowCol, deepLin * (0.38 + 0.62 * uLight), depthT);',
+    '    vec3 Hsss = normalize(uSunDir + n * 0.45);',
+    '    float sss = pow(clamp(dot(V, -Hsss), 0.0, 1.0), 3.2) * (0.35 + 0.65 * vCrest);',
+    '    bodyCol += vec3(0.03, 0.28, 0.32) * sss * sunLin * uLight * 1.5;',
+    '    vec3 H = normalize(V + uSunDir);',
+    '    float ndh = max(0.0, dot(n, H));',
+    '    float specSharp = pow(ndh, 260.0) * 3.8;',
+    '    float specSoft = pow(ndh, 36.0) * 0.28;',
+    '    vec3 colLin = mix(bodyCol, refl, fres) + sunLin * (specSharp + specSoft) * (0.22 + 0.78 * uLight);',
+    '    float surfBand = (1.0 - smoothstep(0.25, 2.6, vDepth)) * shoreMask;',
+    '    float foamWave = sin(vDepth * 5.4 - uTime * 2.2 + sin(vW.x * 0.24 + vW.z * 0.21) * 2.0);',
+    '    float foamPat = 0.5 + 0.5 * sin(vW.x * 1.9 + vW.z * 2.3 + uTime * 0.8) * cos(vW.x * 3.1 - vW.z * 2.7);',
+    '    float shoreFoam = surfBand * smoothstep(0.12, 0.88, foamWave * 0.55 + 0.45) * (0.45 + 0.55 * foamPat);',
+    '    float crestFoam = smoothstep(0.70, 0.98, vCrest) * foamPat * 0.42;',
+    '    float foam = clamp(shoreFoam + crestFoam, 0.0, 0.85);',
+    '    vec3 foamCol = vec3(0.75, 0.82, 0.86) * (0.18 + 0.82 * uLight);',
+    '    colLin = mix(colLin, foamCol, foam);',
+    '    float alpha = clamp(mix(0.42, 0.94, max(depthT, fres * 0.9)) + foam * 0.4, 0.0, 0.96) * shoreMask;',
+    '    gl_FragColor = vec4(pow(aces(colLin * 1.12), vec3(1.0 / 2.2)), alpha);',
+    '  }',
     '#include <fog_fragment>', '}'
   ].join('\n');
+
   O.surfaceMaterial = function () {
-    var u = { uTime: { value: 0 }, uLight: { value: 1 }, uAbove: { value: 0 }, uSunDir: { value: new T.Vector3(0.3, 0.9, 0.2) }, uSunCol: { value: new T.Color(1, 0.95, 0.85) }, uSky: { value: new T.Color(0.75, 0.88, 1.0) }, uDeep: { value: new T.Color(0.05, 0.25, 0.4) }, fogColor: { value: new T.Color(0x0a3550) }, fogDensity: { value: 0.008 } };
-    var m = new T.ShaderMaterial({ uniforms: u, vertexShader: SURF_VS, fragmentShader: SURF_FS, transparent: true, side: T.DoubleSide, depthWrite: false, fog: true }); m.userData.u = u; return m;
+    var u = {
+      uTime: { value: 0 }, uLight: { value: 1 }, uAbove: { value: 0 },
+      uSunDir: { value: new T.Vector3(0.3, 0.9, 0.2) },
+      uSunCol: { value: new T.Color(1, 0.95, 0.85) },
+      uSky: { value: new T.Color(0.75, 0.88, 1.0) },
+      uDeep: { value: new T.Color(0.05, 0.25, 0.4) },
+      fogColor: { value: new T.Color(0x0a3550) }, fogDensity: { value: 0.008 }
+    };
+    var m = new T.ShaderMaterial({ uniforms: u, vertexShader: SURF_VS, fragmentShader: SURF_FS, transparent: true, side: T.DoubleSide, depthWrite: false, fog: true });
+    m.userData.u = u;
+    return m;
   };
 
-  // ── Sončni žarki: navpične prosojne lamele okoli kamere, nagnjene po soncu ──
+  // ── Kupola neba (Atmosferski prehod + sončni disk + zvezde ponoči) ──
+  var SKY_VS = [
+    'varying vec3 vDir;',
+    'void main(){ vec4 wp = modelMatrix * vec4(position, 1.0); vDir = normalize(position); gl_Position = projectionMatrix * viewMatrix * wp; }'
+  ].join('\n');
+  var SKY_FS = [
+    'uniform vec3 uSunDir, uSunCol, uSky; uniform float uLight, uTime;',
+    'varying vec3 vDir;',
+    'float hash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }',
+    'vec3 aces(vec3 x){ return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }',
+    'void main(){',
+    '  vec3 d = normalize(vDir);',
+    '  float h = clamp(d.y, 0.0, 1.0);',
+    '  vec3 sunLin = pow(max(uSunCol, vec3(0.001)), vec3(2.2));',
+    '  vec3 skyLin = pow(max(uSky, vec3(0.001)), vec3(2.2));',
+    '  vec3 horiz = mix(vec3(0.025, 0.05, 0.10), skyLin * 1.12 + vec3(0.07, 0.05, 0.03) * (1.0 - uLight), max(0.16, uLight));',
+    '  vec3 zen = mix(vec3(0.008, 0.018, 0.052), vec3(0.07, 0.23, 0.54), uLight);',
+    '  vec3 col = mix(horiz, zen, pow(h, 0.55));',
+    '  float cloudBand = smoothstep(0.02, 0.32, h) * (1.0 - smoothstep(0.32, 0.65, h));',
+    '  float cl = sin(d.x * 7.0 + uTime * 0.015) * cos(d.z * 6.5 - uTime * 0.01) + 0.5 * sin(d.x * 13.0 - d.z * 11.0);',
+    '  col = mix(col, mix(horiz * 1.25, sunLin * 0.85, 0.35), cloudBand * smoothstep(0.25, 1.1, cl) * 0.28 * (0.2 + 0.8 * uLight));',
+    '  float sd = max(0.0, dot(d, uSunDir));',
+    '  col += sunLin * (pow(sd, 14.0) * 0.25 + pow(sd, 96.0) * 0.85 + smoothstep(0.9991, 0.9997, sd) * 5.0) * (0.25 + 0.75 * uLight);',
+    '  if (uLight < 0.45 && h > 0.05) { float st = hash(floor(d * 260.0)); if (st > 0.9935) col += vec3(0.75, 0.84, 1.0) * ((st - 0.9935) / 0.0065) * (1.0 - uLight / 0.45) * 1.1; }',
+    '  gl_FragColor = vec4(pow(aces(col), vec3(1.0 / 2.2)), 1.0);',
+    '}'
+  ].join('\n');
+  O.makeSky = function () {
+    var u = { uSunDir: { value: new T.Vector3(0.3, 0.9, 0.2) }, uSunCol: { value: new T.Color(1, 0.95, 0.85) }, uSky: { value: new T.Color(0.75, 0.88, 1.0) }, uLight: { value: 1 }, uTime: { value: 0 } };
+    var mat = new T.ShaderMaterial({ uniforms: u, vertexShader: SKY_VS, fragmentShader: SKY_FS, side: T.BackSide, depthWrite: false, fog: false });
+    var m = new T.Mesh(new T.SphereGeometry(1200, 32, 18), mat);
+    m.frustumCulled = false; m.renderOrder = -10; m.userData.u = u;
+    return m;
+  };
+  O.updateSky = function (sky, cam, LI, t) {
+    if (!sky) return;
+    sky.visible = cam.position.y > -2.5;
+    if (!sky.visible) return;
+    sky.position.set(cam.position.x, 0, cam.position.z);
+    var u = sky.userData.u;
+    u.uSunDir.value.copy(LI.sunDir);
+    u.uLight.value = LI.light;
+    u.uTime.value = t;
+  };
+
+  // ── Sončni žarki: nagnjeni proti soncu s čisto ortonormalno bazo ──
+  var _R_UP = new T.Vector3(), _R_RIGHT = new T.Vector3(), _R_FWD = new T.Vector3(), _R_M = new T.Matrix4();
   O.makeRays = function (n) {
     var grp = new T.Group(); if (!n) return grp;
-    var cv = document.createElement('canvas'); cv.width = 64; cv.height = 256; var x = cv.getContext('2d'); var gr = x.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, 'rgba(255,255,255,0.0)'); gr.addColorStop(0.08, 'rgba(255,255,255,0.55)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.18)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 256); var gh = x.createLinearGradient(0, 0, 64, 0); gh.addColorStop(0, 'rgba(0,0,0,1)'); gh.addColorStop(0.35, 'rgba(0,0,0,0)'); gh.addColorStop(0.65, 'rgba(0,0,0,0)'); gh.addColorStop(1, 'rgba(0,0,0,1)'); x.globalCompositeOperation = 'destination-out'; x.fillStyle = gh; x.fillRect(0, 0, 64, 256);
-    var tx = new T.CanvasTexture(cv), mat = new T.MeshBasicMaterial({ map: tx, transparent: true, opacity: 0.35, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide, color: 0xbfe0ff });
-    for (var i = 0; i < n; i++) { var w = 2 + Math.random() * 5, h = 70 + Math.random() * 50; var m = new T.Mesh(new T.PlaneGeometry(w, h), mat); m.userData = { a: Math.random() * 6.28, r: 8 + Math.random() * 45, ph: Math.random() * 6.28, h: h }; grp.add(m); }
+    var cv = document.createElement('canvas'); cv.width = 64; cv.height = 256; var x = cv.getContext('2d');
+    var gr = x.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, 'rgba(255,255,255,0.0)'); gr.addColorStop(0.08, 'rgba(255,255,255,0.55)'); gr.addColorStop(0.55, 'rgba(255,255,255,0.16)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 256);
+    var gh = x.createLinearGradient(0, 0, 64, 0); gh.addColorStop(0, 'rgba(0,0,0,1)'); gh.addColorStop(0.32, 'rgba(0,0,0,0)'); gh.addColorStop(0.68, 'rgba(0,0,0,0)'); gh.addColorStop(1, 'rgba(0,0,0,1)'); x.globalCompositeOperation = 'destination-out'; x.fillStyle = gh; x.fillRect(0, 0, 64, 256);
+    var tx = new T.CanvasTexture(cv), mat = new T.MeshBasicMaterial({ map: tx, transparent: true, opacity: 0.35, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide, color: 0xbfe4ff });
+    for (var i = 0; i < n; i++) { var w = 2.2 + Math.random() * 5.2, h = 70 + Math.random() * 50; var m = new T.Mesh(new T.PlaneGeometry(w, h), mat); m.userData = { a: Math.random() * 6.28, r: 9 + Math.random() * 46, ph: Math.random() * 6.28, h: h }; grp.add(m); }
     grp.userData.mat = mat; return grp;
   };
   O.updateRays = function (grp, cam, sunDir, light, t) {
-    if (!grp.children.length) return; var camD = Math.max(0, -cam.position.y); var vis = light * Math.exp(-camD / 26) * (cam.position.y < 0 ? 1 : 0); grp.visible = vis > 0.02; if (!grp.visible) return;
+    if (!grp.children.length) return;
+    var camD = Math.max(0, -cam.position.y);
+    var vis = light * Math.exp(-camD / 28) * (cam.position.y < 0 ? 1 : 0);
+    grp.visible = vis > 0.02; if (!grp.visible) return;
     grp.userData.mat.opacity = 0.42 * vis;
-    var tilt = Math.atan2(Math.hypot(sunDir.x, sunDir.z), Math.max(0.2, sunDir.y));
-    grp.children.forEach(function (m, i) { var u = m.userData; var a = u.a + t * 0.02; var cx = cam.position.x + Math.cos(a) * u.r, cz = cam.position.z + Math.sin(a) * u.r; m.position.set(cx + sunDir.x * u.h * 0.3, -u.h / 2 + 1, cz + sunDir.z * u.h * 0.3); m.rotation.set(0, Math.atan2(cam.position.x - cx, cam.position.z - cz), 0); m.rotateX(0); m.rotation.z = 0; m.rotation.x = 0; m.rotateOnWorldAxis(new T.Vector3(-sunDir.z, 0, sunDir.x).normalize(), tilt * 0.5); m.scale.x = 1 + 0.3 * Math.sin(t * 0.5 + u.ph); });
+    _R_UP.set(sunDir.x * 0.45, Math.max(0.45, sunDir.y), sunDir.z * 0.45).normalize();
+    grp.children.forEach(function (m) {
+      var u = m.userData, a = u.a + t * 0.018;
+      var cx = cam.position.x + Math.cos(a) * u.r, cz = cam.position.z + Math.sin(a) * u.r;
+      m.position.set(cx - _R_UP.x * (u.h * 0.45), -_R_UP.y * (u.h * 0.45) + 0.8, cz - _R_UP.z * (u.h * 0.45));
+      _R_FWD.set(cam.position.x - m.position.x, 0, cam.position.z - m.position.z);
+      if (_R_FWD.lengthSq() < 1e-4) _R_FWD.set(0, 0, 1);
+      _R_RIGHT.crossVectors(_R_UP, _R_FWD).normalize();
+      _R_FWD.crossVectors(_R_RIGHT, _R_UP).normalize();
+      _R_M.makeBasis(_R_RIGHT, _R_UP, _R_FWD);
+      m.quaternion.setFromRotationMatrix(_R_M);
+      m.scale.x = 1 + 0.28 * Math.sin(t * 0.55 + u.ph);
+    });
   };
 
   var _dot = null; O.softDot = function () { if (_dot) return _dot; var cv = document.createElement('canvas'); cv.width = cv.height = 32; var x = cv.getContext('2d'); var gr = x.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.4, 'rgba(255,255,255,0.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 32, 32); _dot = new T.CanvasTexture(cv); return _dot; };
@@ -2879,7 +3245,7 @@ var OCEAN = (function () {
   O.makeSnow = function (n) { var pos = new Float32Array(n * 3), i; for (i = 0; i < n; i++) { pos[i * 3] = (Math.random() - 0.5) * 100; pos[i * 3 + 1] = (Math.random() - 0.5) * 100; pos[i * 3 + 2] = (Math.random() - 0.5) * 100; } var g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); var p = new T.Points(g, new T.PointsMaterial({ color: 0xdff0ff, size: 0.12, map: O.softDot(), transparent: true, opacity: 0.55, depthWrite: false, sizeAttenuation: true })); p.frustumCulled = false; return p; };
   O.updateSnow = function (p, cam, dt, t) { var a = p.geometry.attributes.position, cx = cam.position.x, cy = cam.position.y, cz = cam.position.z; for (var i = 0; i < a.count; i++) { var x = a.getX(i), y = a.getY(i) - dt * 0.25, z = a.getZ(i); x += Math.sin(t * 0.3 + i) * dt * 0.1; if (y < cy - 50) y += 100; if (y > cy + 50) y -= 100; if (x < cx - 50) x += 100; if (x > cx + 50) x -= 100; if (z < cz - 50) z += 100; if (z > cz + 50) z -= 100; if (y > 0) y = Math.min(y, -0.05); a.setXYZ(i, x, y, z); } a.needsUpdate = true; };
 
-  // ── Mehurčki (bazen delcev; emit(x,y,z,n,spread)) ──
+  // ── Mehurčki ──
   O.makeBubbles = function (n) { var pos = new Float32Array(n * 3), vel = new Float32Array(n), life = new Float32Array(n); for (var i = 0; i < n; i++) { pos[i * 3 + 1] = 10; life[i] = 0; } var g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); var cv = document.createElement('canvas'); cv.width = cv.height = 32; var x = cv.getContext('2d'); var gr = x.createRadialGradient(16, 16, 2, 16, 16, 15); gr.addColorStop(0, 'rgba(255,255,255,0.1)'); gr.addColorStop(0.7, 'rgba(255,255,255,0.15)'); gr.addColorStop(0.9, 'rgba(255,255,255,0.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 32, 32); var p = new T.Points(g, new T.PointsMaterial({ map: new T.CanvasTexture(cv), size: 0.35, transparent: true, opacity: 0.8, depthWrite: false, color: 0xe8f6ff })); p.frustumCulled = false; p.userData = { vel: vel, life: life, head: 0, n: n }; return p; };
   O.emitBubbles = function (p, x, y, z, n, spread, size) { var u = p.userData, a = p.geometry.attributes.position; for (var k = 0; k < n; k++) { var i = u.head; u.head = (u.head + 1) % u.n; a.setXYZ(i, x + (Math.random() - 0.5) * spread, y + (Math.random() - 0.5) * spread * 0.5, z + (Math.random() - 0.5) * spread); u.vel[i] = (0.4 + Math.random() * 0.8) * (size || 1); u.life[i] = 1; } a.needsUpdate = true; };
   O.updateBubbles = function (p, dt, t) { var u = p.userData, a = p.geometry.attributes.position, any = false; for (var i = 0; i < u.n; i++) { if (u.life[i] <= 0) continue; any = true; var y = a.getY(i) + u.vel[i] * dt; var x = a.getX(i) + Math.sin(t * 3 + i) * dt * 0.15; if (y >= -0.1) { u.life[i] = 0; y = 10; } a.setXYZ(i, x, y, a.getZ(i)); } if (any) a.needsUpdate = true; };
@@ -2893,20 +3259,30 @@ var OCEAN = (function () {
     var warm = phase === 'dusk' || phase === 'dawn'; var sunCol = new T.Color().setRGB(1, warm ? 0.72 : 0.96, warm ? 0.45 : 0.88); if (phase === 'night') sunCol.setRGB(0.55, 0.7, 1.0);
     var att = O.attenuate(camD * 0.9); var sunUnder = sunCol.clone().multiply(att);
     var Lc = light * Math.exp(-camD / 48);
-    var fog = new T.Color().setRGB(0.01 + 0.09 * Lc * att.r, 0.07 + 0.34 * Lc * (0.6 + 0.4 * att.g), 0.16 + 0.44 * Lc);
-    if (above) fog.setRGB(0.55 + 0.25 * light, 0.72 * light + 0.15, 0.95 * light + 0.05);
-    lights.sun.color.copy(above ? sunCol : sunUnder); lights.sun.intensity = above ? 0.9 + 0.6 * light : 0.15 + 0.75 * light * Math.exp(-camD / 60);
+    var fog = new T.Color().setRGB(0.01 + 0.08 * Lc * att.r, 0.07 + 0.32 * Lc * (0.6 + 0.4 * att.g), 0.16 + 0.42 * Lc);
+    if (above) fog.setRGB(0.52 * light + 0.08, 0.70 * light + 0.12, 0.92 * light + 0.06);
+    lights.sun.color.copy(above ? sunCol : sunUnder); lights.sun.intensity = above ? 0.95 + 0.65 * light : 0.18 + 0.78 * light * Math.exp(-camD / 60);
     lights.sun.position.set(sunDir.x * 400, sunDir.y * 400, sunDir.z * 400).add(new T.Vector3(cam.position.x, 0, cam.position.z));
-    lights.hemi.color.copy(fog).multiplyScalar(1.6); lights.hemi.groundColor.setRGB(0.02, 0.05, 0.08); lights.hemi.intensity = 0.2 + 0.55 * light * Math.exp(-camD / 120);
-    lights.amb.color.setRGB(0.1 + 0.1 * att.r, 0.18, 0.3); lights.amb.intensity = 0.18 + 0.35 * Lc + (above ? 0.3 : 0);
-    var dens = above ? 0.0015 : 0.0055 + 0.02 * (1 - Lc);
-    for (var k in mats) { var u = mats[k].userData.u; if (!u) continue; if (u.uSunDir) u.uSunDir.value.copy(sunDir); if (u.uSunCol) u.uSunCol.value.copy(sunCol); if (u.uLight) u.uLight.value = light; if (u.uAmb) u.uAmb.value.copy(fog).multiplyScalar(1.1); if (u.fogColor) u.fogColor.value.copy(fog); if (u.fogDensity) u.fogDensity.value = dens; if (u.uAbove) u.uAbove.value = above ? 1 : 0; if (u.uSky) u.uSky.value.setRGB(0.55 + 0.4 * light, 0.7 * light + 0.2, 0.9 * light + 0.1); }
+    lights.hemi.color.copy(fog).multiplyScalar(1.6); lights.hemi.groundColor.setRGB(0.02, 0.05, 0.08); lights.hemi.intensity = 0.22 + 0.56 * light * Math.exp(-camD / 120);
+    lights.amb.color.setRGB(0.1 + 0.1 * att.r, 0.18, 0.3); lights.amb.intensity = 0.2 + 0.35 * Lc + (above ? 0.3 : 0);
+    var dens = above ? 0.0012 : 0.0052 + 0.019 * (1 - Lc);
+    for (var k in mats) {
+      var u = mats[k].userData && mats[k].userData.u; if (!u) continue;
+      if (u.uSunDir) u.uSunDir.value.copy(sunDir);
+      if (u.uSunCol) u.uSunCol.value.copy(sunCol);
+      if (u.uLight) u.uLight.value = light;
+      if (u.uAmb) u.uAmb.value.copy(fog).multiplyScalar(1.1);
+      if (u.fogColor) u.fogColor.value.copy(fog);
+      if (u.fogDensity) u.fogDensity.value = dens;
+      if (u.uAbove) u.uAbove.value = above ? 1 : 0;
+      if (u.uSky) u.uSky.value.setRGB(0.55 + 0.4 * light, 0.7 * light + 0.2, 0.9 * light + 0.1);
+    }
     return { fog: fog, density: dens, sunDir: sunDir, light: light, above: above, camD: camD };
   };
   return O;
 })();
 </script>
-<script>var OCEAN_BUILT = "2026-11-22 10:55";
+<script>var OCEAN_BUILT = "2026-11-22 11:58";
 // OCEAN ARENA v5 — 3D spectator viewer (three.js r128 + creatures.js + ocean.js, bundled). Live data from /state or local demo.
 (function () {
   var T = THREE, SP = OC.SPECIES;
@@ -2922,7 +3298,7 @@ var OCEAN = (function () {
   // ── Renderer / scene ─────────────────────────────────────────────────────
   var canvas = $('c');
   var QL = OCEAN.loadQuality(qs);
-  var renderer = new T.WebGLRenderer({ canvas: canvas, antialias: QL.dpr < 1.5, powerPreference: 'high-performance' });
+  var renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, QL.dpr));
   var scene = new T.Scene(); scene.fog = new T.FogExp2(0x0a3550, 0.008);
   var oceanMats = {};
@@ -2938,7 +3314,7 @@ var OCEAN = (function () {
 
   // ── Seafloor, beaches, coastal mountains & water surface ─────────────────
   (function buildFloor() {
-    var seg = 240, pad = 160, sizeW = W + pad * 2, sizeL = L + pad * 2;
+    var seg = QL.floorSeg || 240, pad = 160, sizeW = W + pad * 2, sizeL = L + pad * 2;
     var geo = new T.PlaneGeometry(sizeW, sizeL, seg, seg); geo.rotateX(-Math.PI / 2); geo.translate(W / 2, 0, L / 2);
     var pos = geo.attributes.position, colors = new Float32Array(pos.count * 3), c = new T.Color();
     for (var i = 0; i < pos.count; i++) {
@@ -2976,8 +3352,17 @@ var OCEAN = (function () {
     }
     geo.setAttribute('color', new T.BufferAttribute(colors, 3)); geo.computeVertexNormals();
     oceanMats.floor = OCEAN.floorMaterial(); oceanMats.floor.userData.u.uCaustics.value = QL.caustics; scene.add(new T.Mesh(geo, oceanMats.floor));
-    oceanMats.surf = OCEAN.surfaceMaterial(); var surf = new T.Mesh(new T.PlaneGeometry(W + 180, L + 180, QL.surfSeg, QL.surfSeg), oceanMats.surf);
+    oceanMats.surf = OCEAN.surfaceMaterial();
+    var surfGeo = new T.PlaneGeometry(W + 180, L + 180, QL.surfSeg, QL.surfSeg);
+    var sPos = surfGeo.attributes.position, sDepth = new Float32Array(sPos.count);
+    for (var si = 0; si < sPos.count; si++) {
+      var sx = sPos.getX(si) + W / 2, sz = -sPos.getY(si) + L / 2;
+      sDepth[si] = floorAt(sx, sz);
+    }
+    surfGeo.setAttribute('aDepth', new T.BufferAttribute(sDepth, 1));
+    var surf = new T.Mesh(surfGeo, oceanMats.surf);
     surf.rotation.x = -Math.PI / 2; surf.position.set(W / 2, 0, L / 2); surf.renderOrder = 5; scene.add(surf);
+    oceanMats.sky = OCEAN.makeSky(); scene.add(oceanMats.sky);
     var th = new T.Mesh(new T.PlaneGeometry(W * 0.85, L * 0.85), new T.MeshBasicMaterial({ color: 0x1a4a7a, transparent: true, opacity: 0.06, side: T.DoubleSide, depthWrite: false })); th.rotation.x = -Math.PI / 2; th.position.set(W / 2, -OC.THERMO, L / 2); scene.add(th);
   })();
 
@@ -3189,26 +3574,26 @@ var OCEAN = (function () {
     for (i = 0; i < n; i++) { var u = Math.random(), v = Math.random(), w = Math.random(); ph.push({ x: (u - 0.5) * 2 * R, y: (v - 0.5) * R * 0.5, z: (w - 0.5) * 2 * R * 1.4, s: 0.8 + Math.random() * 0.4, ph: Math.random() * 6.28, w1: 0.4 + Math.random() * 0.6, w2: 0.3 + Math.random() * 0.5 }); }
     if (tiny) { var pos = new Float32Array(n * 3), g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); var pts = new T.Points(g, new T.PointsMaterial({ color: a.sp === 'krill' ? 0xffb0a0 : 0xffd8c8, size: 0.12, transparent: true, opacity: 0.85, depthWrite: false })); pts.frustumCulled = false; scene.add(pts); return schoolObjs[a.id] = { pts: pts, ph: ph, nmax: sp.n, R: R }; }
     var pr = proto(a.sp), geo = pr.geo.clone(), phases = new Float32Array(n); for (i = 0; i < n; i++) phases[i] = ph[i].ph; geo.setAttribute('aPhase', new T.InstancedBufferAttribute(phases, 1));
-    var mat = pr.mat.clone(); mat.userData.u = pr.mat.userData.u; mat.onBeforeCompile = pr.mat.onBeforeCompile; mat.customProgramCacheKey = pr.mat.customProgramCacheKey;
+    var mat = CR.cloneSwimMat(pr.mat);
     var im = new T.InstancedMesh(geo, mat, n); im.frustumCulled = false; scene.add(im);
-    return schoolObjs[a.id] = { im: im, ph: ph, nmax: sp.n, R: R, u: pr.mat.userData.u, len: pr.len };
+    return schoolObjs[a.id] = { im: im, ph: ph, nmax: sp.n, R: R, u: mat.userData.u, len: pr.len };
   }
   function ensurePlank(p) { var o = plankObjs[p.id]; if (o) return o; var n = 160, pos = new Float32Array(n * 3); for (var i = 0; i < n; i++) { var a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * p.r; pos[i * 3] = Math.cos(a) * r; pos[i * 3 + 1] = (Math.random() - 0.5) * p.r * 0.7; pos[i * 3 + 2] = Math.sin(a) * r; } var g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); var pt = new T.Points(g, new T.PointsMaterial({ color: 0x9fe87a, size: 0.22, transparent: true, opacity: 0.7, depthWrite: false })); scene.add(pt); o = plankObjs[p.id] = { pt: pt }; return o; }
   function ensureBloom(j) {
     var o = bloomObjs[j.id]; if (o) return o; var n = Math.round(40 * Math.max(0.5, QL.school)), pr = proto('jellyfish bloom'), geo = pr.geo.clone(), phases = new Float32Array(n), items = [], i;
     for (i = 0; i < n; i++) { phases[i] = Math.random() * 6.28; var a2 = Math.random() * 6.28, r2 = Math.sqrt(Math.random()); items.push({ ox: Math.cos(a2) * r2, oz: Math.sin(a2) * r2, oy: (Math.random() - 0.5), ph: phases[i], s: 0.7 + Math.random() * 0.8 }); }
-    geo.setAttribute('aPhase', new T.InstancedBufferAttribute(phases, 1)); var mat = pr.mat.clone(); mat.userData.u = pr.mat.userData.u; mat.onBeforeCompile = pr.mat.onBeforeCompile; mat.customProgramCacheKey = pr.mat.customProgramCacheKey; mat.transparent = true; mat.opacity = 0.55; mat.depthWrite = false;
-    var im = new T.InstancedMesh(geo, mat, n); im.frustumCulled = false; scene.add(im); return bloomObjs[j.id] = { im: im, items: items, u: pr.mat.userData.u };
+    geo.setAttribute('aPhase', new T.InstancedBufferAttribute(phases, 1)); var mat = CR.cloneSwimMat(pr.mat); mat.transparent = true; mat.opacity = 0.55; mat.depthWrite = false;
+    var im = new T.InstancedMesh(geo, mat, n); im.frustumCulled = false; scene.add(im); return bloomObjs[j.id] = { im: im, items: items, u: mat.userData.u };
   }
   function ensureCarrion(k) { var o = carrionObjs[k.id]; if (o) return o; var g = CR.carcass(k.sz); scene.add(g); return carrionObjs[k.id] = { g: g }; }
 
   // ── State / adaptive smooth interpolation ────────────────────────────────
-  var A = null, B = null, tA = 0, tB = 0, snapDt = 450, LAG = 500, live = { ok: false, demo: false, lastErr: '' }, lastFeedN = 0, lastGen = null;
+  var A = null, B = null, tA = 0, tB = 0, snapDt = 380, LAG = 410, live = { ok: false, demo: false, lastErr: '' }, lastFeedN = 0, lastGen = null;
   function index(s) { s.idx = { fish: {}, npcs: {} }; s.fish.forEach(function (f) { s.idx.fish[f.id] = f; }); s.npcs.forEach(function (a) { s.idx.npcs[a.id] = a; }); return s; }
   function pushState(s) {
     index(s); var now = performance.now();
-    if (B) { var dtSample = OC.clamp(now - tB, 180, 2200); snapDt = snapDt * 0.75 + dtSample * 0.25; }
-    LAG = OC.clamp(snapDt * 1.12, 360, 1450);
+    if (B) { var dtSample = OC.clamp(now - tB, 140, 1600); snapDt = snapDt * 0.75 + dtSample * 0.25; }
+    LAG = OC.clamp(snapDt * 1.08, 280, 950);
     A = B; tA = tB; B = s; tB = now; if (!A) { A = s; tA = now - snapDt; }
     if (lastGen !== null && s.gen !== lastGen) { for (var id in fishObjs) { scene.remove(fishObjs[id].g); scene.remove(fishObjs[id].label); scene.remove(fishObjs[id].bubble); } fishObjs = {}; for (id in carrionObjs) scene.remove(carrionObjs[id].g); carrionObjs = {}; for (id in npcObjs) { scene.remove(npcObjs[id].g); if (npcObjs[id].tag) scene.remove(npcObjs[id].tag); } npcObjs = {}; for (id in schoolObjs) scene.remove(schoolObjs[id].im || schoolObjs[id].pts); schoolObjs = {}; for (id in bloomObjs) scene.remove(bloomObjs[id].im); bloomObjs = {}; $('end').style.display = 'none'; lastFeedN = 0; lastChatKey = ''; lastAdminKey = ''; }
     lastGen = s.gen; if (s.tide) OC._tide = s.tide; updateUI(s);
@@ -3217,7 +3602,7 @@ var OCEAN = (function () {
   function prev(listKey, id) { return (A && A.idx && A.idx[listKey][id]) || null; }
 
   // ── Camera ───────────────────────────────────────────────────────────────
-  var cam = { mode: 'free', yaw: -2.2, pitch: -0.12, pos: new T.Vector3(240, -14, 285), follow: null, followNpc: null, dist: 16, oyaw: 0.6, opitch: 0.3 }, sharkIdx = -1;
+  var cam = { mode: 'free', yaw: -2.2, pitch: -0.12, pos: new T.Vector3(240, -14, 285), lookPos: null, _snap: false, follow: null, followNpc: null, dist: 16, oyaw: 0.6, opitch: 0.3 }, sharkIdx = -1;
   var keys = {}, drag = null;
   window.addEventListener('keydown', function (e) { if (e.target.tagName === 'INPUT') return; keys[e.code] = true; var k = e.key; if (k >= '0' && k <= '9') { var idx = k === '0' ? 9 : (+k - 1); var f = (B && B.fish[idx]); if (f) selectFish(f.id, true); } if (k === 'f' || k === 'F') { if (cam.follow) setMode(cam.mode === 'follow' ? 'free' : 'follow'); } if (k === 'h' || k === 'H') { document.querySelectorAll('.panel,#mini').forEach(function (p) { p.style.visibility = p.style.visibility === 'hidden' ? '' : 'hidden'; }); } });
   window.addEventListener('keyup', function (e) { keys[e.code] = false; });
@@ -3228,7 +3613,7 @@ var OCEAN = (function () {
   function camDir() { return new T.Vector3(Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)); }
   var ray = new T.Raycaster(), mouse = new T.Vector2();
   function pick(e) { mouse.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1); ray.setFromCamera(mouse, camera); var hits = [], id; for (id in fishObjs) if (fishObjs[id].g.visible) hits.push(fishObjs[id].g.userData.hit); for (id in npcObjs) if (npcObjs[id].g.visible) hits.push(npcObjs[id].g.userData.hit); var r = ray.intersectObjects(hits, false); if (r.length) { var p = r[0].object.userData.pick; if (p.kind === 'fish') selectFish(p.id, true); else followNpc(p.id); } }
-  function selectFish(id, follow) { cam.follow = id; cam.followNpc = null; if (follow) setMode('follow'); updateUI(B); }
+  function selectFish(id, follow) { cam.follow = id; cam.followNpc = null; cam._snap = true; if (follow) setMode('follow'); updateUI(B); }
   window.OA = { followSpecies: function (sp, dist) { if (!B) return false; var ids = Object.keys(B.idx.npcs).filter(function (k) { return B.idx.npcs[k].sp === sp; }); if (!ids.length) return false; followNpc(ids[0]); if (dist) cam.dist = dist; return ids[0]; }, cam: cam, state: function () { return B; }, dbg: { npcObjs: npcObjs, fishObjs: fishObjs, camera: camera, scene: scene, renderer: renderer, fps: function () { return fpsN / Math.max(0.001, fpsT); } } };
   var qsFollow = qs.get('follow');
   if (qsFollow) {
@@ -3238,8 +3623,8 @@ var OCEAN = (function () {
       var _fi = setInterval(function () { if (window.OA.followSpecies(qsFollow, parseFloat(qs.get('dist')) || 0)) clearInterval(_fi); }, 500);
     }
   }
-  function followNpc(id) { cam.followNpc = id; cam.mode = 'npc'; ['free', 'follow', 'over', 'shark'].forEach(function (k) { $('b-' + k).classList.toggle('on', k === 'shark'); }); var a = B && B.idx.npcs[id]; if (a) toast(spLabel(a.sp) + ' (' + a.id + ') — ' + stateText(a)); updateUI(B); }
-  function setMode(m) { cam.mode = m; ['free', 'follow', 'over', 'shark'].forEach(function (k) { $('b-' + k).classList.toggle('on', k === m); }); if (m === 'over') { cam.pos.set(W / 2, 390, L + 340); cam.yaw = Math.PI; cam.pitch = -0.68; cam.mode = 'free'; $('b-over').classList.add('on'); } }
+  function followNpc(id) { cam.followNpc = id; cam.mode = 'npc'; cam._snap = true; ['free', 'follow', 'over', 'shark'].forEach(function (k) { $('b-' + k).classList.toggle('on', k === 'shark'); }); var a = B && B.idx.npcs[id]; if (a) toast(spLabel(a.sp) + ' (' + a.id + ') — ' + stateText(a)); updateUI(B); }
+  function setMode(m) { cam.mode = m; cam._snap = true; ['free', 'follow', 'over', 'shark'].forEach(function (k) { $('b-' + k).classList.toggle('on', k === m); }); if (m === 'over') { cam.pos.set(W / 2, 390, L + 340); cam.yaw = Math.PI; cam.pitch = -0.68; cam.mode = 'free'; $('b-over').classList.add('on'); } }
   function nextShark() { if (!B) return; var sh = B.npcs.filter(function (a) { return SP[a.sp].kind === 'shark' || SP[a.sp].kind === 'kraken'; }); if (!sh.length) { toast('No sharks'); return; } sharkIdx = (sharkIdx + 1) % sh.length; followNpc(sh[sharkIdx].id); }
   function updateCamera(dt) {
     if (cam.mode === 'follow' || cam.mode === 'npc') {
@@ -3249,11 +3634,16 @@ var OCEAN = (function () {
         var off = new T.Vector3(Math.sin(cam.oyaw) * Math.cos(cam.opitch), Math.sin(cam.opitch), Math.cos(cam.oyaw) * Math.cos(cam.opitch)).multiplyScalar(cam.dist + (o.g.userData.len || 3) * 1.6);
         var want = tgt.position.clone().add(off);
         var cFl = floorAt(OC.clamp(want.x, -120, W + 120), OC.clamp(want.z, -120, L + 120));
-        want.y = OC.clamp(want.y, -cFl + 1.2, 4);
-        cam.pos.copy(want);
-        camera.position.copy(cam.pos); camera.lookAt(tgt.position); return;
+        want.y = OC.clamp(want.y, -cFl + 1.2, 12);
+        var kCam = cam._snap ? 1 : 1 - Math.exp(-dt * 11);
+        cam._snap = false;
+        if (!cam.lookPos) cam.lookPos = tgt.position.clone();
+        cam.pos.lerp(want, kCam);
+        cam.lookPos.lerp(tgt.position, kCam);
+        camera.position.copy(cam.pos); camera.lookAt(cam.lookPos); return;
       }
     }
+    cam.lookPos = null;
     var sp = (keys.ShiftLeft || keys.ShiftRight ? 110 : 26) * dt, dir = camDir(), right = new T.Vector3(dir.z, 0, -dir.x).normalize();
     if (keys.KeyW || keys.ArrowUp) cam.pos.addScaledVector(dir, sp); if (keys.KeyS || keys.ArrowDown) cam.pos.addScaledVector(dir, -sp);
     if (keys.KeyA || keys.ArrowLeft) cam.pos.addScaledVector(right, sp); if (keys.KeyD || keys.ArrowRight) cam.pos.addScaledVector(right, -sp);
@@ -3446,8 +3836,8 @@ var OCEAN = (function () {
   function poll() {
     if (live.demo) return;
     var ctrl = new AbortController(); var to = setTimeout(function () { ctrl.abort(); }, 8000);
-    fetch(API + '/state' + (ADMIN ? '?admin=' + encodeURIComponent(ADMIN) : ''), { signal: ctrl.signal, cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (s) { clearTimeout(to); if (s.error) throw new Error(s.error); live.ok = true; fails = 0; pushState(s); pollTimer = setTimeout(poll, 1000); })
-      .catch(function (e) { clearTimeout(to); live.ok = false; live.lastErr = (e && e.message) || 'error'; fails++; if (fails >= 3 && !B) { setDemo(true); toast('Arena unreachable — demo mode'); return; } updateUI(B); pollTimer = setTimeout(poll, 1500); });
+    fetch(API + '/state' + (ADMIN ? '?admin=' + encodeURIComponent(ADMIN) : ''), { signal: ctrl.signal, cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (s) { clearTimeout(to); if (s.error) throw new Error(s.error); live.ok = true; fails = 0; pushState(s); pollTimer = setTimeout(poll, 500); })
+      .catch(function (e) { clearTimeout(to); live.ok = false; live.lastErr = (e && e.message) || 'error'; fails++; if (fails >= 3 && !B) { setDemo(true); toast('Arena unreachable — demo mode'); return; } updateUI(B); pollTimer = setTimeout(poll, 1200); });
   }
   var demo = null;
   function setDemo(on) { live.demo = on; $('b-demo').classList.toggle('on', on); if (pollTimer) clearTimeout(pollTimer); if (on) { demo = makeDemo(); A = B = null; lastGen = null; } else { demo = null; A = B = null; lastGen = null; fails = 0; poll(); } }
@@ -3499,7 +3889,7 @@ var OCEAN = (function () {
   function demoTick() {
     if (!demo) return; var g = demo.g, now = Date.now(); OC.advance(g, now);
     g.fish.forEach(function (f) { if (!f.alive) return; if (g.tick >= demo.next[f.id]) { var me = OC.perceive(g, f, now); var v = OC.validateCmd(demoDecide(g, f, me)); if (v.ok) OC.applyCmd(g, f, v.cmd, now + Math.random() * 3000); demo.next[f.id] = g.tick + 16 + Math.floor(Math.random() * 50); } });
-    if (now - demo.lastSnap > 400) { demo.lastSnap = now; pushState(OC.snapshot(g, now)); }
+    if (now - demo.lastSnap > 240) { demo.lastSnap = now; pushState(OC.snapshot(g, now)); }
     if (g.status === 'finished' && !demo.restartAt) demo.restartAt = now + 15000; if (demo.restartAt && now > demo.restartAt) { demo = makeDemo(); }
   }
 
@@ -3510,10 +3900,12 @@ var OCEAN = (function () {
     requestAnimationFrame(frame); var now = performance.now(), dt = Math.min(0.1, (now - last) / 1000); last = now; var ts = now / 1000;
     if (live.demo) demoTick();
     if (B) {
-      var alpha = OC.clamp((now - LAG - tA) / Math.max(1, tB - tA), 0, 1.05), s = B, id;
+      var rawAlpha = (now - LAG - tA) / Math.max(1, tB - tA);
+      var alpha = rawAlpha <= 0 ? 0 : rawAlpha <= 1 ? rawAlpha : 1 + (1 - Math.exp(-(rawAlpha - 1) * 2.2)) * 0.45;
+      var tAlpha = Math.min(1, alpha), s = B, id;
       s.fish.forEach(function (f) {
         var o = ensureFish(f), a = prev('fish', f.id) || f;
-        var x = OC.lerp(a.x, f.x, alpha), z = OC.lerp(a.z, f.z, alpha), d = OC.lerp(a.d, f.d, alpha), h = lerpA(a.h, f.h, alpha), p = OC.lerp(a.p, f.p, alpha);
+        var x = OC.lerp(a.x, f.x, alpha), z = OC.lerp(a.z, f.z, alpha), d = Math.max(0.25, OC.lerp(a.d, f.d, alpha)), h = lerpA(a.h, f.h, alpha), p = OC.lerp(a.p, f.p, tAlpha);
         var isClassic = (o.sp === 'fish' || !SP[o.sp]);
         var len = isClassic ? CR.playerLen(f.sz) : o.len0 * OC.clamp(f.sz / Math.max(0.1, o.baseSz), 0.7, 1.6);
         o.g.scale.setScalar(len / Math.max(0.05, o.len0)); o.g.userData.len = len; o.len = len; o.g.position.set(x, -d, z);
@@ -3522,7 +3914,7 @@ var OCEAN = (function () {
         if (fGround) o.g.rotation.set(0, Math.atan2(Math.sin((h || 0) * D2R), -Math.cos((h || 0) * D2R)), 0);
         else rotFish(o.g, h, p);
         var rawTr = ((h - o.ph + 540) % 360 - 180) / Math.max(dt, 0.016); o.ph = h; o.str += (rawTr - o.str) * Math.min(1, dt * 8);
-        CR.animate(o.g, ts, f.alive ? ((fGround && fsp.kind !== 'crab') ? 0 : f.spd) : 0, (fsp && fsp.kind === 'crab') ? 0 : o.str);
+        CR.animate(o.g, ts, f.alive ? ((fGround && fsp.kind !== 'crab') ? 0 : f.spd) : 0, (fsp && fsp.kind === 'crab') ? 0 : o.str, dt);
         var mat = o.g.userData.mat; if (mat) { var op = f.hid ? 0.35 : 1; mat.transparent = op < 1; mat.opacity = op; mat.emissive.setHex(f.bleed ? 0x401010 : f.poison ? 0x103010 : 0x000000); }
         o.g.visible = f.alive;
         if (f.bleed && Math.random() < 0.05) OCEAN.emitBubbles(bubbles, x, -d, z, 1, 0.5, 0.6);
@@ -3534,13 +3926,17 @@ var OCEAN = (function () {
       s.npcs.forEach(function (a) {
         var sp = SP[a.sp];
         if (sp.kind === 'school') {
-          seenS[a.id] = 1; var o = ensureSchool(a), pa = prev('npcs', a.id) || a; var cx = OC.lerp(pa.x, a.x, alpha), cz = OC.lerp(pa.z, a.z, alpha), cd = OC.lerp(pa.d, a.d, alpha);
+          seenS[a.id] = 1; var o = ensureSchool(a), pa = prev('npcs', a.id) || a; var cx = OC.lerp(pa.x, a.x, alpha), cz = OC.lerp(pa.z, a.z, alpha), cd = Math.max(0.25, OC.lerp(pa.d, a.d, alpha));
           var ch = lerpA(pa.h, a.h, alpha), spS = SP[a.sp], fleeing = a.spd > spS.speed * 1.4, sq = fleeing ? 0.45 : 1;
           var vis = Math.min(o.ph.length, Math.ceil(a.n / o.nmax * o.ph.length)), obj = o.im || o.pts, dcs = camera.position.distanceTo(V.set(cx, -cd, cz)); obj.visible = a.n > 0 && dcs < (o.im ? 240 : 160);
           if (!obj.visible) return;
           var hr = ch * D2R, sh = Math.sin(hr), chh = Math.cos(hr), yaw = Math.atan2(sh, -chh), spin = fleeing ? ts * 1.5 : 0;
           if (o.pts) { var pa2 = o.pts.geometry.attributes.position; for (var i = 0; i < o.ph.length; i++) { var q = o.ph[i]; if (i >= vis) { pa2.setXYZ(i, 0, 50, 0); continue; } var ox = q.x * sq + Math.sin(ts * q.w1 + q.ph) * 0.4, oz = q.z * sq + Math.cos(ts * q.w2 + q.ph) * 0.4, oy = q.y * sq + Math.sin(ts * 0.7 + q.ph) * 0.3; pa2.setXYZ(i, cx + ox * chh + oz * sh, -cd + oy, cz - ox * sh + oz * chh); } pa2.needsUpdate = true; return; }
-          o.u.uTime.value = ts; o.u.uFreq.value = 3 + a.spd * 2.2; o.u.uAmp.value = 0.05 + Math.min(0.06, a.spd * 0.02);
+          var tgtFreq = 3 + a.spd * 2.2, tgtAmp = 0.05 + Math.min(0.06, a.spd * 0.02);
+          o.u.uFreq.value += (tgtFreq - o.u.uFreq.value) * Math.min(1, dt * 6);
+          o.u.uAmp.value += (tgtAmp - o.u.uAmp.value) * Math.min(1, dt * 6);
+          o.u.uSwim.value += o.u.uFreq.value * dt;
+          o.u.uTime.value = ts;
           for (var i = 0; i < o.ph.length; i++) { var ph = o.ph[i]; if (i >= vis) { M.makeScale(0, 0, 0); o.im.setMatrixAt(i, M); continue; }
             var lx = ph.x * sq + Math.sin(ts * ph.w1 + ph.ph) * 0.5, lz = ph.z * sq + Math.cos(ts * ph.w2 + ph.ph) * 0.6, ly = ph.y * sq + Math.sin(ts * 0.8 + ph.ph) * 0.35;
             if (spin) { var ca = Math.cos(spin + ph.ph), sa = Math.sin(spin + ph.ph); var rx = lx * ca - lz * sa; lz = lx * sa + lz * ca; lx = rx; }
@@ -3549,20 +3945,38 @@ var OCEAN = (function () {
           o.im.instanceMatrix.needsUpdate = true; return;
         }
         seenN[a.id] = 1; var n = ensureNpc(a), pb = prev('npcs', a.id) || a;
-        var x = OC.lerp(pb.x, a.x, alpha), z = OC.lerp(pb.z, a.z, alpha), d = OC.lerp(pb.d, a.d, alpha), h = lerpA(pb.h, a.h, alpha);
+        var x = OC.lerp(pb.x, a.x, alpha), z = OC.lerp(pb.z, a.z, alpha), d = Math.max(0.25, OC.lerp(pb.d, a.d, alpha)), h = lerpA(pb.h, a.h, alpha);
         var pitchTarget = a.p !== undefined ? a.p : ((pb !== a && Math.hypot(a.x - pb.x, a.z - pb.z) + Math.abs(a.d - pb.d) > 0.05) ? Math.atan2(a.d - pb.d, Math.max(0.3, Math.hypot(a.x - pb.x, a.z - pb.z))) / D2R : 0);
-        n.pp += (OC.clamp(pitchTarget, -55, 55) - n.pp) * Math.min(1, dt * 4.0);
+        n.pp += (OC.clamp(pitchTarget, -55, 55) - n.pp) * Math.min(1, dt * 4.5);
         n.g.position.set(x, -d, z);
         var isCrab = sp.kind === 'crab';
         var ground = sp.kind === 'static' || sp.buried || isCrab || a.sp === 'octopus' || a.sp === 'sea urchin' || a.sp === 'starfish';
         if (ground) n.g.rotation.set(0, Math.atan2(Math.sin((h || 0) * D2R), -Math.cos((h || 0) * D2R)), 0); else rotFish(n.g, h, n.pp);
         if (sp.kind === 'drift' || a.sp === 'man-o-war') { n.g.position.y += Math.sin(ts + x) * 0.2; if (a.sp === 'man-o-war') n.g.position.y = 0.15; }
-        if ((a.sp === 'whale' || a.sp === 'dolphin') && a.breach) { var bt = ((ts * 0.75) % 1); var arc = a.sp === 'whale' ? 9 : 3.2; n.g.position.y += Math.sin(bt * Math.PI) * arc; n.g.rotation.x = -(a.sp === 'whale' ? 0.9 : 0.7) * Math.sin(bt * Math.PI); if (bt > 0.55 && Math.random() < 0.35) OCEAN.emitBubbles(bubbles, x + (Math.random() - 0.5) * (a.sp === 'whale' ? 14 : 3), -0.4, z + (Math.random() - 0.5) * (a.sp === 'whale' ? 14 : 3), a.sp === 'whale' ? 6 : 2, a.sp === 'whale' ? 6 : 2, 2); }
+        if ((a.sp === 'whale' || a.sp === 'dolphin') && a.breach) {
+          if (!n.breachActive && (!n.breachLast || a.breach < n.breachLast)) {
+            n.breachActive = true;
+            n.breachT = Math.min(0.45, Math.max(0.01, (a.breach - 1) / (a.sp === 'whale' ? 14 : 7)));
+          }
+          n.breachLast = a.breach;
+        } else {
+          n.breachLast = 0;
+        }
+        if (n.breachActive) {
+          n.breachT += dt * (a.sp === 'whale' ? 0.34 : 0.62);
+          if (n.breachT >= 1) { n.breachActive = false; n.breachT = 0; }
+          else {
+            var arc = a.sp === 'whale' ? 9 : 3.4;
+            n.g.position.y += Math.sin(n.breachT * Math.PI) * arc;
+            n.g.rotation.x = -(a.sp === 'whale' ? 0.9 : 0.72) * Math.sin(n.breachT * Math.PI);
+            if (n.breachT > 0.55 && Math.random() < 0.38) OCEAN.emitBubbles(bubbles, x + (Math.random() - 0.5) * (a.sp === 'whale' ? 14 : 3), -0.4, z + (Math.random() - 0.5) * (a.sp === 'whale' ? 14 : 3), a.sp === 'whale' ? 6 : 2, a.sp === 'whale' ? 6 : 2, 2);
+          }
+        }
         if (a.sp === 'whale') { if (a.blow && Math.random() < 0.5) OCEAN.emitBubbles(bubbles, x, -1, z, 3, 2, 3); if (a.lunge && Math.random() < 0.3) OCEAN.emitBubbles(bubbles, x, -d, z, 2, 6, 1); }
         if (a.ink && Math.random() < 0.45) OCEAN.emitBubbles(bubbles, x, -d, z, 4, sp.kind === 'kraken' ? 5 : 1.5, 2.5);
         if (sp.breathes && d < 1.5 && Math.random() < 0.08) OCEAN.emitBubbles(bubbles, x, -0.5, z, 1, 1, 1);
         var rawTrN = ((h - n.ph + 540) % 360 - 180) / Math.max(dt, 0.016); n.ph = h; n.str += (rawTrN - n.str) * Math.min(1, dt * 8);
-        CR.animate(n.g, ts, (ground && !isCrab) ? 0 : a.spd, isCrab ? 0 : n.str);
+        CR.animate(n.g, ts, (ground && !isCrab) ? 0 : a.spd, isCrab ? 0 : n.str, dt);
         if (n.g.userData.mat) n.g.userData.mat.emissive.setHex(a.bl ? 0x401010 : 0x000000);
         var dc = camera.position.distanceTo(n.g.position); n.g.visible = cam.followNpc === a.id || dc < (sp.size > 3 ? 420 : CR.lenOf(a.sp) < 0.3 ? 90 : 200);
         var wantTag = showLabels && n.g.visible && !(cam.followNpc === a.id && dc < CR.lenOf(a.sp) * 3 + 4) && (sp.kind === 'shark' || sp.kind === 'pack' || sp.kind === 'kraken' || (dc < 35 && sp.kind !== 'school' && CR.lenOf(a.sp) >= 0.3) || cam.followNpc === a.id);
@@ -3572,18 +3986,19 @@ var OCEAN = (function () {
       for (id in npcObjs) if (!seenN[id]) { scene.remove(npcObjs[id].g); if (npcObjs[id].tag) scene.remove(npcObjs[id].tag); delete npcObjs[id]; if (cam.followNpc === id) { cam.followNpc = null; setMode('free'); } }
       for (id in schoolObjs) if (!seenS[id]) { scene.remove(schoolObjs[id].im || schoolObjs[id].pts); delete schoolObjs[id]; }
       s.plankton.forEach(function (q) { var o = ensurePlank(q); o.pt.visible = q.amt > 1; o.pt.position.set(q.x, -q.d, q.z); o.pt.material.opacity = 0.2 + 0.6 * q.amt / 100; o.pt.rotation.y = ts * 0.05; });
-      s.blooms.forEach(function (j) { var o = ensureBloom(j); o.u.uTime.value = ts; var vis = Math.ceil(j.n / 40 * o.items.length); o.im.visible = camera.position.distanceTo(V.set(j.x, -j.d, j.z)) < 300; if (!o.im.visible) return; o.items.forEach(function (it, i) { if (i >= vis) { M.makeScale(0, 0, 0); o.im.setMatrixAt(i, M); return; } V.set(j.x + it.ox * j.r, -j.d + it.oy * 14 + Math.sin(ts * 0.4 + it.ph) * 1.5, j.z + it.oz * j.r); Q.setFromEuler(new T.Euler(Math.sin(ts * 0.3 + it.ph) * 0.2, it.ph, Math.cos(ts * 0.25 + it.ph) * 0.2)); SC.set(it.s, it.s, it.s); M.compose(V, Q, SC); o.im.setMatrixAt(i, M); }); o.im.instanceMatrix.needsUpdate = true; });
+      s.blooms.forEach(function (j) { var o = ensureBloom(j); o.u.uFreq.value = 1.6; o.u.uAmp.value = 0.1; o.u.uSwim.value += 1.6 * dt; o.u.uTime.value = ts; var vis = Math.ceil(j.n / 40 * o.items.length); o.im.visible = camera.position.distanceTo(V.set(j.x, -j.d, j.z)) < 300; if (!o.im.visible) return; o.items.forEach(function (it, i) { if (i >= vis) { M.makeScale(0, 0, 0); o.im.setMatrixAt(i, M); return; } V.set(j.x + it.ox * j.r, -j.d + it.oy * 14 + Math.sin(ts * 0.4 + it.ph) * 1.5, j.z + it.oz * j.r); Q.setFromEuler(new T.Euler(Math.sin(ts * 0.3 + it.ph) * 0.2, it.ph, Math.cos(ts * 0.25 + it.ph) * 0.2)); SC.set(it.s, it.s, it.s); M.compose(V, Q, SC); o.im.setMatrixAt(i, M); }); o.im.instanceMatrix.needsUpdate = true; });
       var seenK = {}; s.carrion.forEach(function (k) { var o = ensureCarrion(k); seenK[k.id] = 1; o.g.position.set(k.x, -k.d, k.z); }); for (id in carrionObjs) if (!seenK[id]) { scene.remove(carrionObjs[id].g); delete carrionObjs[id]; }
       updateCamera(dt);
-      var smoothLightState = { light: A ? OC.lerp(A.light, s.light, alpha) : s.light, t: A ? OC.lerp(A.t, s.t, alpha) : s.t, phase: s.phase };
+      var smoothLightState = { light: A ? OC.lerp(A.light, s.light, tAlpha) : s.light, t: A ? OC.lerp(A.t, s.t, tAlpha) : s.t, phase: s.phase };
       var LI = OCEAN.lighting(smoothLightState, camera, OC.DAY_SEC, lights, oceanMats);
       scene.fog.color.copy(LI.fog); scene.background = LI.fog; scene.fog.density = LI.density + (!LI.above && OC.inBiolum(camera.position.x, camera.position.z, LI.camD) ? 0.004 : 0);
       oceanMats.floor.userData.u.uTime.value = ts; oceanMats.surf.userData.u.uTime.value = ts;
+      OCEAN.updateSky(oceanMats.sky, camera, LI, ts);
       OCEAN.updateRays(rays, camera, LI.sunDir, LI.light, ts);
       if ((labelTick++ % 6) === 0) drawMini(s);
     } else {
       updateCamera(dt);
-      var LI0 = OCEAN.lighting(null, camera, OC.DAY_SEC, lights, oceanMats); scene.fog.color.copy(LI0.fog); scene.background = LI0.fog; scene.fog.density = LI0.density; oceanMats.floor.userData.u.uTime.value = ts; oceanMats.surf.userData.u.uTime.value = ts;
+      var LI0 = OCEAN.lighting(null, camera, OC.DAY_SEC, lights, oceanMats); scene.fog.color.copy(LI0.fog); scene.background = LI0.fog; scene.fog.density = LI0.density; oceanMats.floor.userData.u.uTime.value = ts; oceanMats.surf.userData.u.uTime.value = ts; OCEAN.updateSky(oceanMats.sky, camera, LI0, ts);
     }
     sway.forEach(function (o) {
       if (o.isInstancedMesh) { if (camera.position.distanceTo(V.set(o.userData[0].x, 0, o.userData[0].z)) > 220) return; var items = o.userData; for (var i = 0; i < items.length; i++) { var it = items[i]; var ang = Math.sin(ts * 0.9 + it.ph) * 0.09; Q.setFromEuler(new T.Euler(ang, 0, Math.cos(ts * 0.7 + it.ph) * 0.09)); V.set(it.x, it.y, it.z); SC.set(1, it.h, 1); M.compose(V, Q, SC); o.setMatrixAt(i, M); } o.instanceMatrix.needsUpdate = true; }

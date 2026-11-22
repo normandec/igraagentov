@@ -9,12 +9,12 @@ var CR = (function () {
   // uMode: 0 bočno valovanje (ribe, morski psi, jegulje), 1 navpično (kiti, delfini, tjulnji), 2 zamah kril (skati),
   //        3 utrip zvona (meduze), 4 utrip plašča + valovanje lovk (glavonožci), 5 statično, 6 rak/jastog (noge + telo)
   var SWIM_PARS = [
-    'uniform float uTime, uAmp, uFreq, uLen, uMode, uPhase, uBend;',
+    'uniform float uTime, uSwim, uAmp, uFreq, uLen, uMode, uPhase, uBend;',
     '#ifdef USE_INSTANCING', 'attribute float aPhase;', '#else', 'const float aPhase = 0.0;', '#endif'
   ].join('\n');
   var SWIM_BODY = [
     'float t_ = clamp(0.5 - transformed.z / uLen, 0.0, 1.0);',
-    'float ph_ = uTime * uFreq + uPhase + aPhase;',
+    'float ph_ = uSwim + uPhase + aPhase;',
     'if (uMode < 0.5) { float w = t_ * t_; transformed.x += uAmp * uLen * w * sin(ph_ - t_ * 3.2) + uBend * uLen * w; }',
     'else if (uMode < 1.5) { float w = t_ * t_; transformed.y += uAmp * uLen * w * sin(ph_ - t_ * 2.6); transformed.x += uBend * uLen * w; }',
     'else if (uMode < 2.5) { float wx = abs(transformed.x) / (uLen * 0.5); transformed.y += uAmp * uLen * wx * wx * sin(ph_ - wx * 1.6); }',
@@ -22,14 +22,27 @@ var CR = (function () {
     'else if (uMode < 4.5) { if (t_ < 0.52) { float mc = 1.0 - min(0.16, uAmp * 1.4) * sin(ph_ * 1.25); transformed.x *= mc; transformed.y *= mc; } else { float k = (t_ - 0.5) * 2.0; transformed.x += uAmp * uLen * k * k * sin(ph_ + transformed.x * 2.8 - k * 5.0); transformed.y += uAmp * uLen * k * k * cos(ph_ * 0.8 + transformed.y * 2.8 - k * 4.0); } }',
     'else if (uMode > 5.5) { float mv = clamp(uAmp * 10.0, 0.0, 1.0); float legs = smoothstep(0.12 * uLen, 0.35 * uLen, abs(transformed.x)); transformed.y += mv * legs * 0.055 * uLen * sin(ph_ * 2.4 + transformed.z * 9.0 + sign(transformed.x) * 1.6); transformed.y += mv * 0.015 * uLen * abs(sin(ph_ * 1.2)); }'
   ].join('\n');
+  function attachSwim(m, u) {
+    m.userData.u = u;
+    m.onBeforeCompile = function (sh) {
+      for (var k in u) sh.uniforms[k] = u[k];
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + SWIM_PARS).replace('#include <begin_vertex>', '#include <begin_vertex>\n' + SWIM_BODY);
+      sh.fragmentShader = sh.fragmentShader.replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\nfloat wetRim_ = pow(1.0 - max(0.0, dot(geometry.normal, geometry.viewDir)), 3.2);\nreflectedLight.indirectSpecular += vec3(0.04, 0.14, 0.22) * wetRim_;');
+    };
+    m.customProgramCacheKey = function () { return 'swim-v2'; };
+    return m;
+  }
   function swimMaterial(opts) {
     opts = opts || {};
-    var m = new T.MeshPhongMaterial({ vertexColors: true, shininess: opts.shininess !== undefined ? opts.shininess : 30, specular: new T.Color(opts.specular || 0x334455), side: T.DoubleSide, transparent: !!opts.transparent, opacity: opts.opacity !== undefined ? opts.opacity : 1, depthWrite: opts.depthWrite !== false });
-    var u = { uTime: { value: 0 }, uAmp: { value: 0.05 }, uFreq: { value: 4 }, uLen: { value: opts.len || 1 }, uMode: { value: opts.mode || 0 }, uPhase: { value: Math.random() * 6.28 }, uBend: { value: 0 } };
-    m.userData.u = u;
-    m.onBeforeCompile = function (sh) { for (var k in u) sh.uniforms[k] = u[k]; sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + SWIM_PARS).replace('#include <begin_vertex>', '#include <begin_vertex>\n' + SWIM_BODY); };
-    m.customProgramCacheKey = function () { return 'swim-v1'; };
-    return m;
+    var m = new T.MeshPhongMaterial({ vertexColors: true, shininess: opts.shininess !== undefined ? opts.shininess : 48, specular: new T.Color(opts.specular || 0x4b6a82), side: T.DoubleSide, transparent: !!opts.transparent, opacity: opts.opacity !== undefined ? opts.opacity : 1, depthWrite: opts.depthWrite !== false });
+    var u = { uTime: { value: 0 }, uSwim: { value: Math.random() * 6.28 }, uAmp: { value: 0.05 }, uFreq: { value: 4 }, uLen: { value: opts.len || 1 }, uMode: { value: opts.mode || 0 }, uPhase: { value: Math.random() * 6.28 }, uBend: { value: 0 } };
+    return attachSwim(m, u);
+  }
+  function cloneSwimMat(src) {
+    var m = src.clone(), srcU = src.userData.u, u = {};
+    for (var k in srcU) u[k] = { value: srcU[k].value };
+    u.uSwim = { value: Math.random() * 6.28 };
+    return attachSwim(m, u);
   }
 
   // ── Geometrijske osnove ──────────────────────────────────────────────────
@@ -358,17 +371,26 @@ var CR = (function () {
   function player(color, size) { return build('player', playerLen(size || 1), { colors: PLAYER_COLORS[color] || PLAYER_COLORS.blue, shiny: color === 'silver', mouth: true }); }
   function carcass(sz) { var g = sz > 15 ? build('carcass', 22, { shape: 'whale', colors: { dorsal: 0x6a6e70, ventral: 0xa8a8a0, fin: 0x5a5e60 }, mode: 5 }) : build('carcass', playerLen(sz), { colors: { dorsal: 0x8a8a80, ventral: 0xb8b8a8, fin: 0x7a7a70 }, mode: 5 }); g.userData.mesh.rotation.z = Math.PI; return g; }
 
-  // animacija: hitrost (m/s) -> frekvenca/amplituda
-  function animate(grp, time, spd, turnRate) {
+  // animacija: hitrost (m/s) -> zvezno integrirana faza plavanja uSwim (brez poskokov ob spremembi hitrosti)
+  function animate(grp, time, spd, turnRate, dt) {
     var u = grp.userData.u, L = grp.userData.len, m = grp.userData.mode;
+    var dtStep = dt !== undefined ? Math.min(0.08, Math.max(0, dt)) : (grp.userData._lt !== undefined ? Math.min(0.08, Math.max(0, time - grp.userData._lt)) : 0.016);
+    grp.userData._lt = time;
     u.uTime.value = time;
-    if (m === 0) { var k = L > 3 ? 0.6 : L > 1 ? 1 : 1.6; u.uFreq.value = (1.2 + Math.min(10, spd) * 1.3) * k; u.uAmp.value = 0.025 + Math.min(0.07, spd * 0.015); }
-    else if (m === 1) { u.uFreq.value = (0.9 + Math.min(10, spd) * 0.8) * (L > 10 ? 0.45 : 1); u.uAmp.value = 0.02 + Math.min(0.05, spd * 0.012); }
-    else if (m === 2) { u.uFreq.value = 1.2 + Math.min(6, spd) * 0.6; u.uAmp.value = 0.12 + Math.min(0.1, spd * 0.04); }
-    else if (m === 3) { u.uFreq.value = 1.6; u.uAmp.value = 0.1; }
-    else if (m === 4) { u.uFreq.value = 1.4 + Math.min(5, spd * 1.1); u.uAmp.value = 0.06 + Math.min(0.08, spd * 0.025); }
-    else if (m === 6) { u.uFreq.value = 2.0 + Math.min(6, spd * 3.5); u.uAmp.value = spd > 0.04 ? Math.min(0.12, 0.04 + spd * 0.08) : 0.0; }
-    u.uBend.value = turnRate ? Math.max(-0.12, Math.min(0.12, -turnRate * 0.004)) : 0;
+    var freq = u.uFreq.value, amp = u.uAmp.value;
+    if (m === 0) { var k = L > 3 ? 0.6 : L > 1 ? 1 : 1.6; freq = (1.2 + Math.min(10, spd) * 1.25) * k; amp = 0.025 + Math.min(0.068, spd * 0.014); }
+    else if (m === 1) { freq = (0.9 + Math.min(10, spd) * 0.78) * (L > 10 ? 0.45 : 1); amp = 0.02 + Math.min(0.048, spd * 0.011); }
+    else if (m === 2) { freq = 1.2 + Math.min(6, spd) * 0.6; amp = 0.12 + Math.min(0.1, spd * 0.04); }
+    else if (m === 3) { freq = 1.6; amp = 0.1; }
+    else if (m === 4) { freq = 1.4 + Math.min(5, spd * 1.1); amp = 0.06 + Math.min(0.08, spd * 0.025); }
+    else if (m === 5) { freq = 0; amp = 0; }
+    else if (m === 6) { freq = 2.0 + Math.min(6, spd * 3.5); amp = spd > 0.04 ? Math.min(0.12, 0.04 + spd * 0.08) : 0.0; }
+    var sm = Math.min(1, dtStep * 7.0);
+    u.uFreq.value += (freq - u.uFreq.value) * sm;
+    u.uAmp.value += (amp - u.uAmp.value) * sm;
+    u.uSwim.value += u.uFreq.value * dtStep;
+    var targetBend = turnRate ? Math.max(-0.14, Math.min(0.14, -turnRate * 0.0042)) : 0;
+    u.uBend.value += (targetBend - u.uBend.value) * Math.min(1, dtStep * 8.0);
   }
-  return { build: build, creature: creature, player: player, carcass: carcass, animate: animate, lenOf: lenOf, SPEC: SPEC, swimMaterial: swimMaterial, merge: merge, paint: paint, playerLen: playerLen, PLAYER_COLORS: PLAYER_COLORS };
+  return { build: build, creature: creature, player: player, carcass: carcass, animate: animate, lenOf: lenOf, SPEC: SPEC, swimMaterial: swimMaterial, cloneSwimMat: cloneSwimMat, merge: merge, paint: paint, playerLen: playerLen, PLAYER_COLORS: PLAYER_COLORS };
 })();
