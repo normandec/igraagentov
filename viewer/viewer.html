@@ -79,9 +79,55 @@ input[type=text]{background:#061a28;color:#cfe8f8;border:1px solid rgba(143,211,
 #end table{width:100%;border-collapse:collapse;font-size:12px}
 #end td,#end th{padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left}
 #end th{color:#8fb0c4;font-weight:600}
+/* A quieter, legible instrument panel: leave the ocean as the main event. */
+:root{--glass:rgba(3,19,31,.86);--line:rgba(145,211,227,.19);--muted:#96b7c4;--cyan:#94e7e4}
+.panel{background:var(--glass);border-color:var(--line);border-radius:14px;box-shadow:0 12px 35px rgba(0,8,14,.22);backdrop-filter:blur(18px) saturate(125%)}
+#top{top:14px;left:50%;max-width:calc(100% - 600px);min-height:46px;padding:7px 14px;gap:12px;overflow:auto;scrollbar-width:none}
+#top::-webkit-scrollbar{display:none} #top b{font-size:13px;letter-spacing:2px;color:#d9ffff}
+#top .st{border-radius:20px;padding:4px 9px;font-size:10px;letter-spacing:.6px}
+#top span:not(.st){color:#b4cbd2;font-size:11px}
+#list{top:14px;bottom:auto;left:14px;max-height:calc(100% - var(--ctl-height, 280px) - 42px);width:270px;padding:12px}
+#ctl{left:14px;bottom:14px;width:270px;padding:12px;gap:8px}
+#mini{top:14px;right:14px;width:200px;height:200px;border-radius:14px;box-shadow:0 12px 35px rgba(0,8,14,.22)}
+#insp,#species{top:224px;right:14px;width:240px;max-height:31%;padding:12px}
+#chat{right:14px;bottom:31%;width:300px;max-height:23%;padding:12px}
+#feed{right:14px;bottom:14px;width:300px;max-height:27%;padding:12px}
+#admin,#calls{left:298px;top:14px}
+h3{font-size:10px;letter-spacing:1.8px;color:#8fc9ce;margin:1px 0 9px}
+.f{padding:8px;margin-bottom:6px;background:rgba(135,216,220,.045);border-color:rgba(135,216,220,.04)}
+.f:hover,.f:focus-visible{outline:none;border-color:#8ee2df;background:rgba(110,206,210,.12)}
+.f.sel{border-color:#84ded8;background:rgba(77,175,178,.15)}
+.f .why{color:#a9c9d0}.bar{height:3px}.f .m{color:#91afb9}
+button{background:rgba(57,117,132,.19);border-color:rgba(145,211,227,.22);color:#d4edf0;padding:6px 9px;transition:background .15s,border-color .15s}
+button:hover{background:rgba(83,166,177,.3);border-color:#8edbd8}button.on{background:#1d626c;border-color:#72c9cb;color:#fff}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #9be8df;outline-offset:2px}button:disabled{opacity:.45;cursor:not-allowed}
+#habitat{width:100%;background:#0a2836;border:1px solid var(--line);border-radius:7px;padding:7px;color:#d4edf0;font:inherit}.habitat-label{font-size:9px;letter-spacing:1.4px;color:#8fc9ce}
+#help{color:#83a8b4;font-size:10px}#conn{display:block;width:100%;color:#94c7c7!important}
+#chat .cm{border-left-width:2px;background:rgba(158,223,226,.05);padding:6px 7px}#feed div{padding:4px 0;line-height:1.35}#feed .empty{color:var(--muted)}
+#mobile-nav,.mobile-help{display:none}#c{touch-action:none}
+@media(max-width:1100px){#top{left:298px;right:228px;transform:none;max-width:none}#top b{display:none}#t-calls,#t-gen,#t-alive{display:none}}
+@media(max-width:700px){
+  #top{top:10px;left:10px;right:10px;max-width:none;min-height:43px;padding:7px 10px;gap:9px;border-radius:12px}
+  #top b{display:block;font-size:10px;letter-spacing:1px}#top .st{font-size:9px}#top span:not(.st){font-size:10px}#t-phase,#t-alive{display:none}
+  #mobile-nav{position:fixed;z-index:8;bottom:0;left:0;right:0;display:flex;gap:4px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));background:rgba(3,19,31,.96);border-top:1px solid var(--line)}
+  #mobile-nav button{flex:1;min-width:0;padding:9px 2px;font-size:10px}
+  #list,#chat,#feed,#ctl,#mini,#insp,#species{left:10px;right:10px;width:auto;max-height:none}
+  body:not([data-panel="agents"]) #list,body:not([data-panel="map"]) #mini,body:not([data-panel="activity"]) #chat,body:not([data-panel="activity"]) #feed,body:not([data-panel="controls"]) #ctl,body:not([data-panel="controls"]) #species,body:not([data-panel="view"]) #insp{display:none!important}
+  body[data-panel="agents"] #list{top:62px;bottom:76px;overflow:auto}
+  body[data-panel="map"] #mini{top:64px;left:auto;right:10px;width:min(72vw,300px);height:min(72vw,300px)}
+  body[data-panel="activity"] #chat{top:62px;bottom:52%;overflow:auto}
+  body[data-panel="activity"] #feed{top:50%;bottom:76px;overflow:auto}
+  body[data-panel="controls"] #ctl{top:auto;bottom:76px;max-height:calc(100% - 145px);overflow:auto}
+  body[data-panel="controls"] #species{top:62px;bottom:calc(var(--ctl-height, 310px) + 86px);overflow:auto}
+  body[data-panel="view"] #insp{top:62px!important;bottom:auto;max-height:30%;overflow:auto;pointer-events:none}
+  #admin,#calls{left:10px;right:10px;top:62px;width:auto;max-height:calc(100% - 140px);overflow:auto}
+  #end .box{min-width:0;width:95%;padding:16px;overflow:auto}#end table{min-width:650px}
+  #toast{top:60px;max-width:90%;text-align:center}
+  .desktop-help{display:none}.mobile-help{display:inline}
+}
 </style>
 </head>
-<body>
+<body data-panel="view">
 <canvas id="c"></canvas>
 <div id="top" class="panel"><b>OCEAN ARENA</b><span id="t-status" class="st">…</span><button id="t-start" class="big" style="display:none;padding:3px 10px;font-size:11px">▶ START MATCH</button><span id="t-time">—</span><span id="t-phase">—</span><span id="t-alive">—</span><span id="t-calls" title="Total accepted commands = model decisions">—</span><span id="t-gen"></span></div>
 <div id="list" class="panel"><h3>FISH / AGENTS</h3><div id="fish"></div></div>
@@ -102,12 +148,15 @@ input[type=text]{background:#061a28;color:#cfe8f8;border:1px solid rgba(143,211,
 <div id="chat" class="panel"><h3><span>CONVERSATION &amp; SHARK COMMS</span><span id="chat-cnt" style="font-weight:400;color:#8fb0c4">0</span></h3><div id="chat-body"><div style="color:#7fb0c8;font-size:11px">Waiting for agent communications…</div></div></div>
 <div id="feed" class="panel"></div>
 <div id="ctl" class="panel">
-  <div class="row"><button id="b-free">Free</button><button id="b-follow">Follow agent</button><button id="b-over">Overview</button><button id="b-shark">Sharks ⟳</button><button id="b-species">Species</button></div>
-  <div class="row"><button id="b-labels" class="on">Labels</button><button id="b-why" class="on">Thoughts</button><button id="b-chat" class="on">Chat</button><button id="b-demo">Demo</button><button id="b-host">Host</button><span style="font-size:10.5px;color:#8fb0c4;margin-left:6px">quality:</span><button id="q-low">low</button><button id="q-med">med</button><button id="q-high">high</button><span id="conn" style="font-size:10.5px;color:#8fb0c4"></span></div>
+  <div class="row"><button id="b-free">Free</button><button id="b-follow">Follow agent</button><button id="b-over">Overview</button><button id="b-shark">Sharks ⟳</button><button id="b-tour" aria-pressed="false" title="Automatically follow different marine animals">Wildlife tour</button><button id="b-species">Species</button></div>
+  <div class="row"><button id="b-labels">Labels</button><button id="b-why" class="on">Thoughts</button><button id="b-chat" class="on">Chat</button><button id="b-demo">Demo</button><button id="b-host">Host</button><span style="font-size:10.5px;color:#8fb0c4;margin-left:6px">quality:</span><button id="q-low">low</button><button id="q-med">med</button><button id="q-high">high</button><span id="conn" style="font-size:10.5px;color:#8fb0c4"></span></div>
+  <label class="habitat-label" for="habitat">EXPLORE A HABITAT</label>
+  <select id="habitat"><option value="">Choose a destination…</option><option value="reef">Coral reef</option><option value="kelp">Kelp forest</option><option value="grass">Seagrass meadow</option><option value="wreck">Cargo wreck</option><option value="abyss">Deep-sea vents</option></select>
   <input type="text" id="url" placeholder="Arena URL (…/functions/v1/ocean-arena-v5)">
-  <div id="help">WASD/arrows move · Q/E down/up · drag mouse look · Shift fast · wheel zoom · click fish/animal = select · 1–9,0 fish · F follow · H hide panels · click minimap = jump</div>
+  <div id="help"><span class="desktop-help">WASD/arrows move · Q/E down/up · drag mouse to look · Shift fast · wheel zoom · click an animal to follow · 1–9,0 select agent · F follow · H hide panels · click map to jump</span><span class="mobile-help">Drag the ocean to look around · pinch to zoom or move · tap an animal to follow · tap the map to jump</span></div>
 </div>
-<div id="toast"></div>
+<nav id="mobile-nav" aria-label="Spectator panels"><button data-panel="view" class="on" aria-pressed="true">VIEW</button><button data-panel="agents" aria-pressed="false">AGENTS</button><button data-panel="map" aria-pressed="false">MAP</button><button data-panel="activity" aria-pressed="false">ACTIVITY</button><button data-panel="controls" aria-pressed="false">CONTROLS</button></nav>
+<div id="toast" role="status" aria-live="polite"></div>
 <div id="end"><div class="box"><h2>GAME OVER</h2><div id="end-body"></div><div style="margin-top:12px"><button onclick="document.getElementById('end').style.display='none'">Close</button></div></div></div>
 <script>/*__THREE__*/</script>
 <script>/*__ENGINE__*/</script>

@@ -14,12 +14,14 @@
   var canvas = $('c');
   var QL = OCEAN.loadQuality(qs);
   var renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' });
+  canvas.addEventListener('webglcontextlost', function (e) { e.preventDefault(); toast('Graphics context lost — waiting for the browser to restore it'); });
+  canvas.addEventListener('webglcontextrestored', function () { toast('Graphics restored'); });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, QL.dpr));
   var scene = new T.Scene(); scene.fog = new T.FogExp2(0x0a3550, 0.008);
   var oceanMats = {};
-  var camera = new T.PerspectiveCamera(62, 1, 0.3, 1600);
+  var camera = new T.PerspectiveCamera(62, 1, 0.05, 1600);
   var hemi = new T.HemisphereLight(0x8fd0ff, 0x08203a, 0.9); scene.add(hemi);
-  var sun = new T.DirectionalLight(0xfff2d0, 0.9); sun.position.set(300, 400, 150); scene.add(sun);
+  var sun = new T.DirectionalLight(0xfff2d0, 0.9); sun.position.set(300, 400, 150); scene.add(sun); scene.add(sun.target);
   var amb = new T.AmbientLight(0x204a70, 0.5); scene.add(amb);
   var lights = { hemi: hemi, sun: sun, amb: amb };
   function resize() { var w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
@@ -87,18 +89,17 @@
     var rs = { rs: 1234 }; function R() { return OC.rnd(rs); }
     function inst(geo, mat, n) { var im = new T.InstancedMesh(geo, mat, Math.max(1, n)); im.count = 0; scene.add(im); return im; }
     function put(im, x, y, z, sx, sy, sz, ry, rx, rz) { if (im.count >= im.instanceMatrix.count) return; V.set(x, y, z); Q.setFromEuler(new T.Euler(rx || 0, ry || 0, rz || 0)); SC.set(sx, sy, sz); M.compose(V, Q, SC); im.setMatrixAt(im.count++, M); }
-    // kelp
-    var stalkGeo = new T.CylinderGeometry(0.08, 0.22, 1, 5, 1); stalkGeo.translate(0, 0.5, 0);
-    var stalkMat = lam(0x2f7a2a), leafGeo = new T.SphereGeometry(1, 6, 5), leafMat = lam(0x3f9a3a, { transparent: true, opacity: 0.8 });
-    OC.KELP.forEach(function (k) {
-      var n = 85, im = new T.InstancedMesh(stalkGeo, stalkMat, n), items = [], lm = new T.InstancedMesh(leafGeo, leafMat, n);
-      for (var i = 0; i < n; i++) { var a = R() * Math.PI * 2, r = Math.sqrt(R()) * k.r; var x = k.x + Math.cos(a) * r, z = k.z + Math.sin(a) * r; var fl = Math.max(4, floorAt(x, z)); var h = Math.min(fl - 1.5, 10 + R() * 12); items.push({ x: x, z: z, y: -fl, h: h, ph: R() * 6.28 }); M.makeScale(1.3, 0.9, 1.3); M.setPosition(x, -fl + h, z); lm.setMatrixAt(i, M); }
-      im.userData = items; scene.add(im); scene.add(lm); sway.push(im);
+    // Instanced, vertex-animated blades: an entire habitat in a handful of draw calls.
+    var kelpBeds = inst(REEF.kelp(), REEF.material({ vertexColors: true, side: T.DoubleSide }, true), OC.KELP.length * 110);
+    OC.KELP.forEach(function (bed) {
+      for (var i = 0; i < 110; i++) {
+        var a = R() * Math.PI * 2, r = Math.sqrt(R()) * bed.r;
+        var x = bed.x + Math.cos(a) * r, z = bed.z + Math.sin(a) * r, fl = floorAt(x, z);
+        if (fl > 4) { var h = Math.min(fl - 1.5, 8 + R() * 13); put(kelpBeds, x, -fl, z, 2.0 + R(), h, 2.0 + R(), R() * 6.28); }
+      }
     });
-    // seagrass
-    var bladeGeo = new T.ConeGeometry(0.06, 1.6, 3); bladeGeo.translate(0, 0.8, 0); var bladeMat = lam(0x4a9a3a);
-    var blades = inst(bladeGeo, bladeMat, OC.SEAGRASS.length * 420);
-    OC.SEAGRASS.forEach(function (s) { for (var i = 0; i < 420; i++) { var a = R() * 6.28, r = Math.sqrt(R()) * s.r; var x = s.x + Math.cos(a) * r, z = s.z + Math.sin(a) * r; var fl = floorAt(x, z); if (fl > 1.2) put(blades, x, -fl, z, 1, 0.7 + R() * 0.8, 1, R() * 6.28, (R() - 0.5) * 0.4, (R() - 0.5) * 0.4); } });
+    var blades = inst(REEF.grass(), REEF.material({ vertexColors: true, side: T.DoubleSide }, true), OC.SEAGRASS.length * 550);
+    OC.SEAGRASS.forEach(function (s) { for (var i = 0; i < 550; i++) { var a = R() * 6.28, r = Math.sqrt(R()) * s.r; var x = s.x + Math.cos(a) * r, z = s.z + Math.sin(a) * r; var fl = floorAt(x, z); if (fl > 1.2) put(blades, x, -fl, z, 2 + R(), 1 + R() * 1.3, 2 + R(), R() * 6.28, (R() - 0.5) * 0.25, (R() - 0.5) * 0.25); } });
     // mangroves along sheltered inner western shore + coastal shore foliage
     var rootGeo = new T.CylinderGeometry(0.12, 0.2, 1, 5); rootGeo.translate(0, 0.5, 0); var rootMat = lam(0x5a3a22);
     var roots = inst(rootGeo, rootMat, 560), trunks = inst(new T.CylinderGeometry(0.45, 0.75, 1, 7), lam(0x4a2e18), 160), crowns = inst(new T.SphereGeometry(1, 7, 6), lam(0x2e7a2a), 160);
@@ -124,11 +125,11 @@
     var P = OC.PLANTS, cnt = {}; P.forEach(function (p) { cnt[p.type] = (cnt[p.type] || 0) + 1; });
     var coneUp = (function () { var g = new T.ConeGeometry(0.12, 1, 5); g.translate(0, 0.5, 0); return g; })();
     var cylUp = (function () { var g = new T.CylinderGeometry(0.05, 0.09, 1, 4); g.translate(0, 0.5, 0); return g; })();
-    var brain = inst(new T.SphereGeometry(1, 10, 8), lam(0xd8b060), cnt['coral-brain'] || 1);
-    var stag = inst(coneUp, lam(0xe88a6a), (cnt['coral-staghorn'] || 1) * 7);
-    var tableTop = inst(new T.CylinderGeometry(1, 1, 0.25, 9), lam(0xc8a070), cnt['coral-table'] || 1), tableLeg = inst(new T.CylinderGeometry(0.25, 0.4, 1, 6), lam(0xa08060), cnt['coral-table'] || 1);
+    var brain = inst(new T.SphereGeometry(1, 20, 14), lam(0xffffff, { map: REEF.brainTexture() }), cnt['coral-brain'] || 1);
+    var stag = inst(REEF.staghorn(), REEF.material({ vertexColors: true, emissive: 0x35130d }, false), (cnt['coral-staghorn'] || 1) * 4);
+    var tableTop = inst(REEF.table(), lam(0xd09b79), cnt['coral-table'] || 1), tableLeg = inst(new T.CylinderGeometry(0.25, 0.4, 1, 6), lam(0xa08060), cnt['coral-table'] || 1);
     var pillar = inst((function () { var g = new T.CylinderGeometry(0.22, 0.32, 1, 7); g.translate(0, 0.5, 0); return g; })(), lam(0xc89a78), (cnt['coral-pillar'] || 1) * 4);
-    var fan = inst(new T.PlaneGeometry(1, 1), lam(0xb060d0, { side: T.DoubleSide, transparent: true, opacity: 0.85 }), cnt['seafan'] || 1);
+    var fan = inst(REEF.fan(), REEF.material({ map: REEF.fanTexture(), side: T.DoubleSide, alphaTest: 0.22 }, true), cnt['seafan'] || 1);
     var whip = inst(cylUp, lam(0xf0d060), (cnt['seawhip'] || 1) * 4);
     var anemBase = inst(new T.SphereGeometry(1, 8, 6, 0, 6.283, 0, 1.6), lam(0x60c0a0), cnt['anemone'] || 1), anemTent = inst((function () { var g = new T.CylinderGeometry(0.04, 0.08, 1, 4); g.translate(0, 0.5, 0); return g; })(), lam(0xa0f0d0), (cnt['anemone'] || 1) * 10);
     var sponge = inst((function () { var g = new T.CylinderGeometry(0.45, 0.35, 1, 7, 1, true); g.translate(0, 0.5, 0); return g; })(), lam(0xf08040, { side: T.DoubleSide }), (cnt['sponge'] || 1) * 3);
@@ -145,10 +146,10 @@
       var y = -p.d, k; featureHits.push({ x: p.x, y: y, z: p.z, r: p.r, id: p.id, name: p.type });
       switch (p.type) {
         case 'coral-brain': put(brain, p.x, y + p.r * 0.35, p.z, p.r * 0.9, p.r * 0.55, p.r * 0.8, R() * 3); break;
-        case 'coral-staghorn': for (k = 0; k < 7; k++) put(stag, p.x + (R() - 0.5) * p.r, y, p.z + (R() - 0.5) * p.r, 1.2, 1.2 + R() * 1.6, 1.2, 0, (R() - 0.5) * 0.9, (R() - 0.5) * 0.9); break;
+        case 'coral-staghorn': for (k = 0; k < 4; k++) put(stag, p.x + (R() - 0.5) * p.r, y, p.z + (R() - 0.5) * p.r, 1.3 + R() * 0.6, 1.5 + R() * 1.4, 1.3 + R() * 0.6, R() * 6.28, (R() - 0.5) * 0.25, (R() - 0.5) * 0.25); break;
         case 'coral-table': put(tableLeg, p.x, y + 0.6, p.z, 1, 1.2, 1); put(tableTop, p.x, y + 1.3, p.z, p.r, 1, p.r * 0.8, R() * 3); break;
         case 'coral-pillar': for (k = 0; k < 4; k++) put(pillar, p.x + (R() - 0.5) * p.r * 0.8, y, p.z + (R() - 0.5) * p.r * 0.8, 0.7 + R() * 0.5, 1.2 + R() * 2.2, 0.7 + R() * 0.5, R() * 3); break;
-        case 'seafan': put(fan, p.x, y + p.r * 0.6, p.z, p.r * 1.2, p.r * 1.2, 1, R() * 3); break;
+        case 'seafan': put(fan, p.x, y, p.z, p.r * 2.0, p.r * 2.0, 1, R() * 6.28); break;
         case 'seawhip': for (k = 0; k < 4; k++) put(whip, p.x + (R() - 0.5) * 1.5, y, p.z + (R() - 0.5) * 1.5, 1, 2.5 + R() * 3, 1, 0, (R() - 0.5) * 0.3, (R() - 0.5) * 0.3); break;
         case 'anemone': put(anemBase, p.x, y, p.z, p.r * 0.5, p.r * 0.35, p.r * 0.5); for (k = 0; k < 10; k++) { var aa = k / 10 * 6.28; put(anemTent, p.x + Math.cos(aa) * p.r * 0.3, y + p.r * 0.3, p.z + Math.sin(aa) * p.r * 0.3, 1, 0.8 + R() * 0.6, 1, 0, Math.sin(aa) * 0.5, -Math.cos(aa) * 0.5); } break;
         case 'sponge': for (k = 0; k < 3; k++) put(sponge, p.x + (R() - 0.5) * 1.6, y, p.z + (R() - 0.5) * 1.6, 1 + R() * 0.6, 1.2 + R() * 1.4, 1 + R() * 0.6); break;
@@ -161,6 +162,18 @@
         case 'boulder': put(boulder, p.x, y + p.r * 0.3, p.z, p.r * 1.05, p.r * 0.7, p.r * 0.95, R() * 3, R() * 0.4, R() * 0.4); break;
         case 'rock-spire': put(spire, p.x, y - 0.2, p.z, p.r * 0.8, p.r * 1.4, p.r * 0.8, R() * 3, (R() - 0.5) * 0.2); break;
         case 'tube-worm': for (k = 0; k < 6; k++) { var tx3 = p.x + (R() - 0.5) * 2, tz3 = p.z + (R() - 0.5) * 2, th3 = 0.8 + R() * 1.2; put(tube, tx3, y, tz3, 1, th3, 1, 0, (R() - 0.5) * 0.3, (R() - 0.5) * 0.3); put(tubeTip, tx3, y + th3, tz3, 1, 1, 1); } break;
+      }
+    });
+    // Small colonies fill gaps between simulated plants without changing game rules.
+    // They are decorative, deterministic and instanced, not additional simulation entities.
+    var colonies = inst(REEF.staghorn(), REEF.material({ vertexColors: true, emissive: 0x35130d }, false), OC.REEFS.length * 180);
+    OC.REEFS.forEach(function (rf) {
+      for (var j = 0; j < 180; j++) {
+        var a = R() * 6.28, radius = Math.sqrt(R()) * rf.r * .94;
+        var x = rf.x + Math.cos(a) * radius, z = rf.z + Math.sin(a) * radius, depth = floorAt(x, z);
+        if (depth < 3 || depth > 32) continue;
+        var size = .65 + R() * 1.0;
+        put(colonies, x, -depth, z, size, size * (1.1 + R() * .7), size, R() * 6.28);
       }
     });
     // wrecks
@@ -212,7 +225,19 @@
   var bubbles = OCEAN.makeBubbles(QL.bubbles); scene.add(bubbles);
 
   // ── 3D Models (CR procedural meshes + vertex-shader swimming) ────────────
-  function npcModel(name) { return CR.creature(name); }
+  // Animal shapes are immutable. Build each species once and share its geometry;
+  // each instance still gets its own swim uniforms and pick target.
+  var npcTemplates = {};
+  function npcModel(name) {
+    var template = npcTemplates[name] || (npcTemplates[name] = CR.creature(name));
+    var source = template.userData, mat = CR.cloneSwimMat(source.mat);
+    var mesh = new T.Mesh(source.mesh.geometry, mat); mesh.userData.sharedGeometry = true;
+    var hit = new T.Mesh(source.hit.geometry, source.hit.material);
+    hit.userData.sharedGeometry = true; hit.userData.sharedMaterial = true;
+    var group = new T.Group(); group.add(mesh); group.add(hit);
+    group.userData = { mesh: mesh, mat: mat, u: mat.userData.u, len: source.len, hit: hit, mode: source.mode, name: source.name };
+    return group;
+  }
   function makeSprite(w, h) { var cv = document.createElement('canvas'); cv.width = w; cv.height = h; var tx = new T.CanvasTexture(cv); var sp = new T.Sprite(new T.SpriteMaterial({ map: tx, transparent: true, depthTest: false })); sp.userData = { cv: cv, tx: tx, key: '' }; sp.center.set(0.5, 0); return sp; }
   function roleEmoji(r, sp) {
     if (r === 'shark') return '🦈';
@@ -268,7 +293,7 @@
     g.scale.setScalar(len / Math.max(0.05, len0));
     var label, bubble;
     if (o) {
-      scene.remove(o.g); label = o.label; bubble = o.bubble;
+      disposeObject(o.g); label = o.label; bubble = o.bubble;
     } else {
       label = makeSprite(384, 128); bubble = makeSprite(512, 192);
       scene.add(label); scene.add(bubble);
@@ -281,7 +306,7 @@
   var protoCache = {};
   function proto(name) { var p = protoCache[name]; if (!p) { var g = CR.creature(name, true); p = protoCache[name] = { geo: g.userData.mesh.geometry, mat: g.userData.mat, len: g.userData.len, mode: g.userData.mode }; } return p; }
   function ensureNpc(a) { var o = npcObjs[a.id]; if (o) return o; var g = npcModel(a.sp); scene.add(g); o = npcObjs[a.id] = { g: g, sp: a.sp, id: a.id, tag: null, ph: a.h || 0, pp: a.p || 0, str: 0 }; g.userData.hit.userData.pick = { kind: 'npc', id: a.id }; return o; }
-  // polarized school: individuals swim forward with subtle phase oscillation; tightens into a ball when fleeing
+  // School meshes share a prototype, with per-fish motion and disturbance offsets.
   function ensureSchool(a) {
     var o = schoolObjs[a.id]; if (o) return o; var sp = SP[a.sp], L = CR.lenOf(a.sp), tiny = L < 0.1;
     var n = Math.round((tiny ? 260 : L < 0.3 ? 170 : L < 1 ? 70 : 24) * QL.school), i, ph = [];
@@ -303,33 +328,81 @@
   function ensureCarrion(k) { var o = carrionObjs[k.id]; if (o) return o; var g = CR.carcass(k.sz); scene.add(g); return carrionObjs[k.id] = { g: g }; }
 
   // ── State / adaptive smooth interpolation ────────────────────────────────
-  var A = null, B = null, tA = 0, tB = 0, snapDt = 380, LAG = 410, live = { ok: false, demo: false, lastErr: '' }, lastFeedN = 0, lastGen = null;
-  function index(s) { s.idx = { fish: {}, npcs: {} }; s.fish.forEach(function (f) { s.idx.fish[f.id] = f; }); s.npcs.forEach(function (a) { s.idx.npcs[a.id] = a; }); return s; }
+  var A = null, B = null, tA = 0, tB = 0, snapDt = 380, LAG = 410, live = { ok: false, demo: false, lastErr: '' }, lastFeedKey = '', lastGen = null;
+  // All dynamic models and their textures are owned by the viewer; release them
+  // when animals disappear or a new game replaces the previous one.
+  function disposeObject(obj) {
+    if (!obj) return;
+    scene.remove(obj);
+    obj.traverse(function (child) {
+      if (child.geometry && !child.userData.sharedGeometry) child.geometry.dispose();
+      var mats = child.material && !child.userData.sharedMaterial ? (Array.isArray(child.material) ? child.material : [child.material]) : [];
+      mats.forEach(function (m) { if (m.map) m.map.dispose(); m.dispose(); });
+    });
+  }
+  function clearDynamic() {
+    function clear(map, keys) { Object.keys(map).forEach(function (id) { keys.forEach(function (k) { disposeObject(map[id][k]); }); delete map[id]; }); }
+    clear(fishObjs, ['g', 'label', 'bubble']); clear(npcObjs, ['g', 'tag']);
+    clear(schoolObjs, ['im', 'pts']); clear(plankObjs, ['pt']); clear(bloomObjs, ['im']); clear(carrionObjs, ['g']);
+    $('end').style.display = 'none'; lastFeedKey = ''; lastChatKey = ''; lastAdminKey = ''; lastFishHtml = '';
+    $('feed').innerHTML = ''; cam.follow = null; cam.followNpc = null; cam.lookPos = null;
+    if (cam.mode === 'follow' || cam.mode === 'npc') setMode('free');
+  }
+  function index(s) { s.idx = { fish: {}, npcs: {} }; s.fish.forEach(function (f) { s.idx.fish[f.id] = f; }); s.npcs.forEach(function (a) { s.idx.npcs[a.id] = a; }); s.schoolThreatGrid = SCHOOL_VISUAL.grid(s, SP); return s; }
   function pushState(s) {
-    index(s); var now = performance.now();
+    index(s); var now = performance.now(), changed = lastGen !== null && s.gen !== lastGen;
+    if (changed) { clearDynamic(); A = B = null; }
     if (B) { var dtSample = OC.clamp(now - tB, 140, 1600); snapDt = snapDt * 0.75 + dtSample * 0.25; }
     LAG = OC.clamp(snapDt * 1.08, 280, 950);
     A = B; tA = tB; B = s; tB = now; if (!A) { A = s; tA = now - snapDt; }
-    if (lastGen !== null && s.gen !== lastGen) { for (var id in fishObjs) { scene.remove(fishObjs[id].g); scene.remove(fishObjs[id].label); scene.remove(fishObjs[id].bubble); } fishObjs = {}; for (id in carrionObjs) scene.remove(carrionObjs[id].g); carrionObjs = {}; for (id in npcObjs) { scene.remove(npcObjs[id].g); if (npcObjs[id].tag) scene.remove(npcObjs[id].tag); } npcObjs = {}; for (id in schoolObjs) scene.remove(schoolObjs[id].im || schoolObjs[id].pts); schoolObjs = {}; for (id in bloomObjs) scene.remove(bloomObjs[id].im); bloomObjs = {}; $('end').style.display = 'none'; lastFeedN = 0; lastChatKey = ''; lastAdminKey = ''; }
-    lastGen = s.gen; if (s.tide) OC._tide = s.tide; updateUI(s);
+    lastGen = s.gen; if (s.tide !== undefined) OC._tide = s.tide; updateUI(s);
   }
   function lerpA(a, b, t) { var d = ((b - a) % 360 + 540) % 360 - 180; return a + d * t; }
   function prev(listKey, id) { return (A && A.idx && A.idx[listKey][id]) || null; }
 
   // ── Camera ───────────────────────────────────────────────────────────────
-  var cam = { mode: 'free', yaw: -2.2, pitch: -0.12, pos: new T.Vector3(240, -14, 285), lookPos: null, _snap: false, follow: null, followNpc: null, dist: 16, oyaw: 0.6, opitch: 0.3 }, sharkIdx = -1;
+  var cam = { mode: 'free', yaw: Math.PI, pitch: -0.18, pos: new T.Vector3(174, -9, 238), lookPos: null, _snap: false, follow: null, followNpc: null, dist: 16, oyaw: 0.6, opitch: 0.3 }, sharkIdx = -1;
   var keys = {}, drag = null;
-  window.addEventListener('keydown', function (e) { if (e.target.tagName === 'INPUT') return; keys[e.code] = true; var k = e.key; if (k >= '0' && k <= '9') { var idx = k === '0' ? 9 : (+k - 1); var f = (B && B.fish[idx]); if (f) selectFish(f.id, true); } if (k === 'f' || k === 'F') { if (cam.follow) setMode(cam.mode === 'follow' ? 'free' : 'follow'); } if (k === 'h' || k === 'H') { document.querySelectorAll('.panel,#mini').forEach(function (p) { p.style.visibility = p.style.visibility === 'hidden' ? '' : 'hidden'; }); } });
+  window.addEventListener('keydown', function (e) { if (/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName) || e.target.isContentEditable) return; keys[e.code] = true; if (/^(ArrowUp|ArrowDown|ArrowLeft|ArrowRight|Space)$/.test(e.code)) e.preventDefault(); var k = e.key; if (k >= '0' && k <= '9') { var idx = k === '0' ? 9 : (+k - 1); var f = (B && B.fish[idx]); if (f) selectFish(f.id, true); } if (k === 'f' || k === 'F') { if (cam.follow) setMode(cam.mode === 'follow' ? 'free' : 'follow'); } if (k === 'h' || k === 'H') { document.querySelectorAll('.panel,#mini').forEach(function (p) { p.style.visibility = p.style.visibility === 'hidden' ? '' : 'hidden'; }); } });
   window.addEventListener('keyup', function (e) { keys[e.code] = false; });
+  window.addEventListener('blur', function () { keys = {}; drag = null; });
   canvas.addEventListener('mousedown', function (e) { drag = { x: e.clientX, y: e.clientY, moved: 0 }; });
   window.addEventListener('mousemove', function (e) { if (!drag) return; var dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy); if (cam.mode === 'follow' || cam.mode === 'npc') { cam.oyaw -= dx * 0.005; cam.opitch = OC.clamp(cam.opitch + dy * 0.005, -1.2, 1.4); } else { cam.yaw -= dx * 0.0035; cam.pitch = OC.clamp(cam.pitch - dy * 0.0035, -1.5, 1.5); } });
   window.addEventListener('mouseup', function (e) { if (drag && drag.moved < 4) pick(e); drag = null; });
-  canvas.addEventListener('wheel', function (e) { if (cam.mode === 'follow' || cam.mode === 'npc') cam.dist = OC.clamp(cam.dist * (e.deltaY > 0 ? 1.12 : 0.9), 3, 180); else { var dir = camDir(); cam.pos.addScaledVector(dir, e.deltaY > 0 ? -8 : 8); } e.preventDefault(); }, { passive: false });
+  canvas.addEventListener('wheel', function (e) { if (cam.mode === 'follow' || cam.mode === 'npc') cam.dist = OC.clamp(cam.dist * (e.deltaY > 0 ? 1.12 : 0.9), 0.15, 180); else { var dir = camDir(); cam.pos.addScaledVector(dir, e.deltaY > 0 ? -8 : 8); } e.preventDefault(); }, { passive: false });
+  // One-finger look/orbit and two-finger pinch zoom, without synthetic mouse clicks.
+  var touch = null;
+  function touchGap(t) { return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
+  canvas.addEventListener('touchstart', function (e) {
+    e.preventDefault();
+    if (e.touches.length === 1) touch = { x: e.touches[0].clientX, y: e.touches[0].clientY, moved: 0, multi: false };
+    else if (touch && e.touches.length === 2) { touch.gap = touchGap(e.touches); touch.multi = true; }
+  }, { passive: false });
+  canvas.addEventListener('touchmove', function (e) {
+    e.preventDefault(); if (!touch) return;
+    if (e.touches.length >= 2) {
+      var gap = touchGap(e.touches); if (touch.gap) {
+        if (cam.mode === 'follow' || cam.mode === 'npc') cam.dist = OC.clamp(cam.dist * touch.gap / Math.max(1, gap), 0.15, 180);
+        else cam.pos.addScaledVector(camDir(), OC.clamp((gap - touch.gap) * 0.15, -8, 8));
+      } touch.gap = gap; touch.multi = true;
+    } else if (e.touches.length === 1) {
+      var p = e.touches[0], dx = p.clientX - touch.x, dy = p.clientY - touch.y;
+      touch.x = p.clientX; touch.y = p.clientY; touch.moved += Math.abs(dx) + Math.abs(dy);
+      if (cam.mode === 'follow' || cam.mode === 'npc') { cam.oyaw -= dx * 0.005; cam.opitch = OC.clamp(cam.opitch + dy * 0.005, -1.2, 1.4); }
+      else { cam.yaw -= dx * 0.0035; cam.pitch = OC.clamp(cam.pitch - dy * 0.0035, -1.5, 1.5); }
+    }
+  }, { passive: false });
+  canvas.addEventListener('touchend', function (e) {
+    e.preventDefault(); if (!touch) return;
+    if (e.touches.length === 1) { touch.x = e.touches[0].clientX; touch.y = e.touches[0].clientY; touch.gap = 0; }
+    else if (!e.touches.length) { if (!touch.multi && touch.moved < 8) pick(e.changedTouches[0]); touch = null; }
+  }, { passive: false });
+  canvas.addEventListener('touchcancel', function () { touch = null; });
   function camDir() { return new T.Vector3(Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)); }
   var ray = new T.Raycaster(), mouse = new T.Vector2();
-  function pick(e) { mouse.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1); ray.setFromCamera(mouse, camera); var hits = [], id; for (id in fishObjs) if (fishObjs[id].g.visible) hits.push(fishObjs[id].g.userData.hit); for (id in npcObjs) if (npcObjs[id].g.visible) hits.push(npcObjs[id].g.userData.hit); var r = ray.intersectObjects(hits, false); if (r.length) { var p = r[0].object.userData.pick; if (p.kind === 'fish') selectFish(p.id, true); else followNpc(p.id); } }
-  function selectFish(id, follow) { cam.follow = id; cam.followNpc = null; cam._snap = true; if (follow) setMode('follow'); updateUI(B); }
-  window.OA = { followSpecies: function (sp, dist) { if (!B) return false; var ids = Object.keys(B.idx.npcs).filter(function (k) { return B.idx.npcs[k].sp === sp; }); if (!ids.length) return false; followNpc(ids[0]); if (dist) cam.dist = dist; return ids[0]; }, cam: cam, state: function () { return B; }, dbg: { npcObjs: npcObjs, fishObjs: fishObjs, camera: camera, scene: scene, renderer: renderer, fps: function () { return fpsN / Math.max(0.001, fpsT); } } };
+  function pick(e) { stopTour(); mouse.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1); ray.setFromCamera(mouse, camera); var hits = [], id; for (id in fishObjs) if (fishObjs[id].g.visible) hits.push(fishObjs[id].g.userData.hit); for (id in npcObjs) if (npcObjs[id].g.visible) hits.push(npcObjs[id].g.userData.hit); var r = ray.intersectObjects(hits, false); if (r.length) { var p = r[0].object.userData.pick; if (p.kind === 'fish') selectFish(p.id, true); else followNpc(p.id); } }
+  function selectFish(id, follow) { stopTour(); cam.follow = id; cam.followNpc = null; cam._snap = true; if (follow) setMode('follow'); if (window.matchMedia('(max-width: 700px)').matches) mobilePanel('view'); updateUI(B); }
+  window.OA = { followSpecies: function (sp, dist) { stopTour(); if (!B) return false; var ids = Object.keys(B.idx.npcs).filter(function (k) { return B.idx.npcs[k].sp === sp; }); if (!ids.length) return false; followNpc(ids[0]); if (dist) cam.dist = dist; return ids[0]; }, cam: cam, state: function () { return B; }, dbg: { npcObjs: npcObjs, fishObjs: fishObjs, schoolObjs: schoolObjs, camera: camera, scene: scene, renderer: renderer, fps: function () { return fpsN / Math.max(0.001, fpsT); } } };
   var qsFollow = qs.get('follow');
   if (qsFollow) {
     if (/^\d+$/.test(qsFollow)) {
@@ -338,9 +411,9 @@
       var _fi = setInterval(function () { if (window.OA.followSpecies(qsFollow, parseFloat(qs.get('dist')) || 0)) clearInterval(_fi); }, 500);
     }
   }
-  function followNpc(id) { cam.followNpc = id; cam.mode = 'npc'; cam._snap = true; ['free', 'follow', 'over', 'shark'].forEach(function (k) { $('b-' + k).classList.toggle('on', k === 'shark'); }); var a = B && B.idx.npcs[id]; if (a) toast(spLabel(a.sp) + ' (' + a.id + ') — ' + stateText(a)); updateUI(B); }
-  function setMode(m) { cam.mode = m; cam._snap = true; ['free', 'follow', 'over', 'shark'].forEach(function (k) { $('b-' + k).classList.toggle('on', k === m); }); if (m === 'over') { cam.pos.set(W / 2, 390, L + 340); cam.yaw = Math.PI; cam.pitch = -0.68; cam.mode = 'free'; $('b-over').classList.add('on'); } }
-  function nextShark() { if (!B) return; var sh = B.npcs.filter(function (a) { return SP[a.sp].kind === 'shark' || SP[a.sp].kind === 'kraken'; }); if (!sh.length) { toast('No sharks'); return; } sharkIdx = (sharkIdx + 1) % sh.length; followNpc(sh[sharkIdx].id); }
+  function followNpc(id, quiet) { cam.followNpc = id; cam.mode = 'npc'; cam._snap = true; if (window.matchMedia('(max-width: 700px)').matches) mobilePanel('view'); var a = B && B.idx.npcs[id], isShark = a && SP[a.sp] && (SP[a.sp].kind === 'shark' || SP[a.sp].kind === 'kraken'); if (a && SP[a.sp].kind !== 'school') cam.dist = OC.clamp(CR.lenOf(a.sp) * 1.8, 0.35, 35); ['free', 'follow', 'over', 'shark'].forEach(function (k) { $('b-' + k).classList.toggle('on', k === 'shark' && !!isShark); }); if (a && !quiet) toast(spLabel(a.sp) + ' (' + a.id + ') — ' + stateText(a)); updateUI(B); }
+  function setMode(m) { stopTour(); cam.mode = m; cam._snap = true; ['free', 'follow', 'over', 'shark'].forEach(function (k) { $('b-' + k).classList.toggle('on', k === m); }); if (m === 'over') { cam.pos.set(W / 2, 390, L + 340); cam.yaw = Math.PI; cam.pitch = -0.68; cam.mode = 'free'; $('b-over').classList.add('on'); } }
+  function nextShark() { stopTour(); if (!B) return; var sh = B.npcs.filter(function (a) { return SP[a.sp].kind === 'shark' || SP[a.sp].kind === 'kraken'; }); if (!sh.length) { toast('No sharks'); return; } sharkIdx = (sharkIdx + 1) % sh.length; followNpc(sh[sharkIdx].id); }
   function updateCamera(dt) {
     if (cam.mode === 'follow' || cam.mode === 'npc') {
       var o = cam.mode === 'npc' ? npcObjs[cam.followNpc] : fishObjs[cam.follow], tgt = o && (o.g.visible || cam.mode === 'npc') && o.g;
@@ -349,8 +422,10 @@
         var off = new T.Vector3(Math.sin(cam.oyaw) * Math.cos(cam.opitch), Math.sin(cam.opitch), Math.cos(cam.oyaw) * Math.cos(cam.opitch)).multiplyScalar(cam.dist + (o.g.userData.len || 3) * 1.6);
         var want = tgt.position.clone().add(off);
         var cFl = floorAt(OC.clamp(want.x, -120, W + 120), OC.clamp(want.z, -120, L + 120));
-        want.y = OC.clamp(want.y, -cFl + 1.2, 12);
-        var kCam = cam._snap ? 1 : 1 - Math.exp(-dt * 11);
+        want.y = OC.clamp(want.y, -cFl + 0.3, 12);
+        // At close range even a few centimetres of smoothing lag can push a tiny
+        // fish completely out of frame. Keep small animals centred.
+        var kCam = cam._snap || (o.g.userData.len || 3) < 1 ? 1 : 1 - Math.exp(-dt * 11);
         cam._snap = false;
         if (!cam.lookPos) cam.lookPos = tgt.position.clone();
         cam.pos.lerp(want, kCam);
@@ -368,10 +443,22 @@
   }
 
   // ── UI ───────────────────────────────────────────────────────────────────
+  function mobilePanel(name) {
+    document.body.setAttribute('data-panel', name);
+    document.querySelectorAll('#mobile-nav button').forEach(function (button) {
+      var active = button.getAttribute('data-panel') === name;
+      button.classList.toggle('on', active); button.setAttribute('aria-pressed', String(active));
+    });
+  }
+  document.querySelectorAll('#mobile-nav button').forEach(function (button) { button.addEventListener('click', function () { mobilePanel(button.getAttribute('data-panel')); }); });
+  function measureControls() { var h = $('ctl').getBoundingClientRect().height; if (h) document.documentElement.style.setProperty('--ctl-height', h + 'px'); }
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(measureControls).observe($('ctl'));
+  else window.addEventListener('resize', measureControls);
+  measureControls();
   function fmt(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); }
   function esc(s) { return (s === undefined || s === null ? '' : String(s)).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function toast(m) { var t = $('toast'); t.textContent = m; t.style.opacity = 1; clearTimeout(t._h); t._h = setTimeout(function () { t.style.opacity = 0; }, 3000); }
-  function stateText(a) { return a.st === 'hunt' ? 'HUNTING ' + (a.tg || '') : a.st === 'circle' ? 'circling ' + (a.tg || '') : a.st === 'scavenge' ? 'scavenging' : a.st === 'rest' ? 'resting (full)' : a.st === 'patrol' ? 'patrolling' : a.st === 'flee' ? 'fleeing' : a.st === 'forage' ? 'foraging' : a.st === 'idle' ? 'idle' : a.st || ''; }
+  function stateText(a) { return a.st === 'hunt' ? 'HUNTING ' + (a.tg || '') : a.st === 'circle' ? 'circling ' + (a.tg || '') : a.st === 'scavenge' ? 'scavenging' : a.st === 'rest' ? 'cruising (full)' : a.st === 'patrol' ? 'patrolling' : a.st === 'flee' ? 'fleeing' : a.st === 'forage' ? 'foraging' : a.st === 'roam' ? 'exploring' : a.st === 'sleep' ? 'sleeping' : a.st === 'idle' ? 'idle' : a.st || ''; }
   function ago(ms, now) { if (!ms) return '—'; var s = Math.max(0, Math.round((now - ms) / 1000)); return s < 60 ? s + 's ago' : Math.floor(s / 60) + 'm ago'; }
   function roleBadge(f) {
     var sp = f.sp || 'fish', r = f.role || 'fish';
@@ -407,25 +494,26 @@
     });
     return html + '</optgroup>';
   }
-  var showSpecies = false, showChat = true, lastChatKey = '', lastAdminKey = '';
+  var showSpecies = false, showChat = true, lastChatKey = '', lastAdminKey = '', lastFishHtml = '';
   function updateUI(s) {
     if (!s) return; var now = Date.now();
-    var st = $('t-status'); st.textContent = (live.demo ? 'DEMO · ' : 'LIVE · ') + (s.status === 'running' ? 'RUNNING' : s.status === 'lobby' ? 'LOBBY' + (s.lobbyIn !== null ? ' · starts in ' + fmt(s.lobbyIn) : ' · waiting for START') : 'FINISHED'); st.className = 'st ' + (live.demo ? 'demo' : s.status === 'running' ? 'run' : s.status === 'finished' ? 'fin' : '');
+    var st = $('t-status'); st.textContent = (live.demo ? 'DEMO · ' : live.ok ? 'LIVE · ' : 'RECONNECTING · ') + (s.status === 'running' ? 'RUNNING' : s.status === 'lobby' ? 'LOBBY' + (s.lobbyIn != null ? ' · starts in ' + fmt(s.lobbyIn) : ' · waiting for START') : 'FINISHED'); st.className = 'st ' + (live.demo || !live.ok ? 'demo' : s.status === 'running' ? 'run' : s.status === 'finished' ? 'fin' : '');
     var tsBtn = $('t-start'); if (tsBtn) { tsBtn.style.display = (ADMIN && !live.demo && s.status === 'lobby') ? 'inline-block' : 'none'; tsBtn.disabled = s.fish.length < 2; }
     $('t-time').textContent = '⏱ ' + fmt(s.timeLeft) + (s.famine ? ' · famine' : '');
     $('t-phase').textContent = (s.phase === 'day' ? '☀ day' : s.phase === 'night' ? '☾ night' : s.phase === 'dusk' ? '🌆 dusk' : '🌅 dawn') + ' ' + Math.round(s.light * 100) + '%';
     var alive = s.fish.filter(function (f) { return f.alive; }).length, calls = s.fish.reduce(function (a, f) { return a + (f.cmdN || 0); }, 0);
     $('t-alive').textContent = '🐟 ' + alive + '/' + s.fish.length + ' agents · 🦈 ' + s.npcs.filter(function (a) { return SP[a.sp].kind === 'shark'; }).length + ' · wild ' + s.npcs.length; $('t-calls').textContent = '🧠 ' + calls + ' decisions'; $('t-gen').textContent = 'game #' + s.gen;
     var html = ''; s.fish.slice().sort(function (a, b) { return (b.alive - a.alive) || (b.score - a.score); }).forEach(function (f) {
-      html += '<div class="f' + (f.id === cam.follow ? ' sel' : '') + (f.alive ? '' : ' dead') + '" data-id="' + f.id + '"><div class="n"><span><span class="sw" style="background:' + (COLHEX[f.color] || '#888') + '"></span>' + esc(f.n) + roleBadge(f) + '</span><span style="font-weight:400;color:#9bb8cc">' + f.sz.toFixed(1) + ' · ' + f.score + '</span></div>' +
+      html += '<div class="f' + (f.id === cam.follow ? ' sel' : '') + (f.alive ? '' : ' dead') + '" role="button" tabindex="0" data-id="' + esc(f.id) + '"><div class="n"><span><span class="sw" style="background:' + (COLHEX[f.color] || '#888') + '"></span>' + esc(f.n) + roleBadge(f) + '</span><span style="font-weight:400;color:#9bb8cc">' + f.sz.toFixed(1) + ' · ' + f.score + '</span></div>' +
         '<div class="m">' + esc(f.model) + (f.hid ? '<span class="badge hid">HIDDEN</span>' : '') + (f.bleed ? '<span class="badge bl">BLEEDING</span>' : '') + (f.poison ? '<span class="badge po">POISON</span>' : '') + (f.suspect ? '<span class="badge sus">BOT?</span>' : '') + (f.cheat ? '<span class="badge cheat">CHEATER</span>' : '') + (!f.alive ? ' · ' + esc(f.cause || 'dead') : '') + '</div>' +
         '<div class="calls">🧠 ' + (f.cmdN || 0) + ' dec · 💬 ' + (f.says || 0) + ' · /me ' + (f.meN || 0) + '×' + (f.alive && f.idle > 50 ? ' <span style="color:#ffb28a">⚠ idle ' + f.idle + 's</span>' : '') + '</div>' +
         '<div class="bar hp"><i style="width:' + Math.round(100 * f.hp / Math.max(1, f.hpMax)) + '%"></i></div><div class="bar en"><i style="width:' + Math.round(100 * f.en / Math.max(1, f.enMax)) + '%"></i></div>' +
         (f.why ? '<div class="why">“' + esc(f.why) + '”</div>' : '') + '</div>';
     });
     if (!s.fish.length) html = '<div style="color:#8fb0c4;padding:6px">No agents yet. Agents join via POST /claim.</div>';
-    if ($('fish').innerHTML !== html) { $('fish').innerHTML = html; Array.prototype.forEach.call(document.querySelectorAll('#fish .f'), function (el) { el.onclick = function () { selectFish(el.getAttribute('data-id'), true); }; }); }
-    if (s.feed && s.feed.length !== lastFeedN) { lastFeedN = s.feed.length; $('feed').innerHTML = s.feed.slice().reverse().map(function (e) { return '<div><b>' + fmt(e.t / 4) + '</b>' + esc(e.txt) + '</div>'; }).join(''); }
+    if (lastFishHtml !== html) { lastFishHtml = html; $('fish').innerHTML = html; Array.prototype.forEach.call(document.querySelectorAll('#fish .f'), function (el) { el.onclick = function () { selectFish(el.getAttribute('data-id'), true); }; el.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); } }; }); }
+    var feedKey = JSON.stringify(s.feed || []);
+    if (feedKey !== lastFeedKey) { lastFeedKey = feedKey; $('feed').innerHTML = '<h3>OCEAN ACTIVITY</h3>' + (s.feed.length ? s.feed.slice().reverse().map(function (e) { return '<div><b>' + fmt(e.t / 4) + '</b>' + esc(e.txt) + '</div>'; }).join('') : '<div class="empty">The ocean is quiet for now.</div>'); }
     var chatList = s.chat || [], cKey = chatList.length + ':' + (chatList.length ? chatList[chatList.length - 1].id : '');
     if (cKey !== lastChatKey) {
       lastChatKey = cKey;
@@ -439,20 +527,51 @@
     var ins = $('insp');
     if (cam.mode === 'npc' && cam.followNpc) { var a = s.idx.npcs[cam.followNpc], spd = a && SP[a.sp]; if (a) { ins.style.display = 'block'; ins.innerHTML = '<b>' + esc(spLabel(a.sp).toUpperCase()) + '</b> <span style="color:#8fb0c4">' + a.id + '</span><br>size <b>' + spd.size + '</b> · type <b>' + spd.kind + '</b>' + (a.hp !== undefined ? ' · hp <b>' + a.hp + '</b>' : '') + (a.n !== undefined ? ' · school <b>' + a.n + '</b>' : '') + '<br>state: <b>' + esc(stateText(a)) + '</b><br>pos ' + Math.round(a.x) + ', ' + Math.round(a.z) + ' · depth ' + a.d.toFixed(1) + ' m · speed ' + a.spd + ' m/s' + (OC.SPECIES_INFO[a.sp] ? '<br><i style="color:#bcd">' + esc(OC.SPECIES_INFO[a.sp]) + '</i>' : '') + (spd.prey ? '<br>prey up to size <b>' + spd.prey.max + '</b>, senses: ' + spd.prey.detect.join(', ') + (spd.prey.smell ? ', smell ' + spd.prey.smell + ' m' : '') : '') + (spd.defense ? '<br>defense: <b>' + spd.defense.type + '</b>' : '') + (spd.food && spd.food.e ? '<br>food: ' + spd.food.e + ' energy' + (spd.food.minHunter ? ' (hunter ≥ ' + spd.food.minHunter + ')' : '') : ''); } }
     else { var f = cam.follow && s.idx.fish[cam.follow]; if (f) { ins.style.display = 'block'; var rec = (f.recent || []).slice().reverse(); ins.innerHTML = '<b>' + esc(f.n) + '</b> ' + roleBadge(f) + '<br><span style="color:#8fb0c4">' + esc(f.model) + ' · ' + f.id + ' (' + esc(f.role || 'fish') + ')</span><br>hp <b>' + f.hp + '/' + f.hpMax + '</b> · energy <b>' + f.en + '/' + f.enMax + '</b> · st <b>' + f.st + '</b>' + (f.air !== undefined ? ' · air <b>' + f.air + '%</b>' : '') + '<br>size <b>' + f.sz + '</b> · kills <b>' + f.kills + '</b> · animals <b>' + f.npcKills + '</b> · eaten <b>' + f.ate + '</b><br>pos ' + Math.round(f.x) + ', ' + Math.round(f.z) + ' · depth ' + f.d.toFixed(1) + ' m · heading ' + f.h + '°<br>command: <b>' + f.act + '</b> / ' + f.speed + (f.target ? ' → ' + esc(f.target) : '') + '<br>zone: ' + esc(zoneOf(f)) + '<br>🧠 decisions <b>' + (f.cmdN || 0) + '</b> · /me ' + (f.meN || 0) + '× · last ' + ago(f.lastCmdMs, now) + (f.suspect ? ' <span class="badge sus">BOT?</span>' : '') + (rec.length ? '<div style="margin-top:5px;color:#8fd3ff;font-size:10px;letter-spacing:1px">RECENT DECISIONS (why)</div>' + rec.map(function (r) { return '<div class="wl"><i>' + fmt(r.t / 4) + ' ' + esc(r.act) + '</i>' + esc(r.why) + '</div>'; }).join('') : ''); } else ins.style.display = 'none'; }
-    if (showSpecies) { var cnt = {}; s.npcs.forEach(function (a) { var c = cnt[a.sp] || (cnt[a.sp] = { n: 0, ind: 0 }); c.ind++; c.n += a.n !== undefined ? a.n : 1; }); $('species-body').innerHTML = Object.keys(cnt).sort(function (a, b) { return SP[b].size - SP[a].size; }).map(function (k) { return '<div class="sp" data-sp="' + esc(k) + '"><span>' + esc(spLabel(k)) + ' <span class="k">' + esc(SP[k].kind) + '</span></span><span>' + (cnt[k].n !== cnt[k].ind ? cnt[k].ind + ' schools · ' + cnt[k].n : cnt[k].n) + '</span></div>'; }).join('') + '<div style="color:#8fb0c4;margin-top:4px">' + Object.keys(cnt).length + ' species · click = jump to nearest</div>'; Array.prototype.forEach.call(document.querySelectorAll('#species .sp'), function (el) { el.onclick = function () { var k = el.getAttribute('data-sp'), best = null, bd = 1e9; s.npcs.forEach(function (a) { if (a.sp !== k) return; var d = Math.hypot(a.x - cam.pos.x, a.z - cam.pos.z); if (d < bd) { bd = d; best = a; } }); if (!best) return; if (SP[k].kind === 'school') { cam.pos.set(best.x + 10, -best.d, best.z + 10); cam.yaw = Math.atan2(best.x - cam.pos.x, best.z - cam.pos.z); cam.pitch = 0; setMode('free'); } else followNpc(best.id); }; }); }
+    if (showSpecies) { var cnt = {}; s.npcs.forEach(function (a) { var c = cnt[a.sp] || (cnt[a.sp] = { n: 0, ind: 0 }); c.ind++; c.n += a.n !== undefined ? a.n : 1; }); $('species-body').innerHTML = Object.keys(cnt).sort(function (a, b) { return SP[b].size - SP[a].size; }).map(function (k) { return '<div class="sp" data-sp="' + esc(k) + '"><span>' + esc(spLabel(k)) + ' <span class="k">' + esc(SP[k].kind) + '</span></span><span>' + (cnt[k].n !== cnt[k].ind ? cnt[k].ind + ' schools · ' + cnt[k].n : cnt[k].n) + '</span></div>'; }).join('') + '<div style="color:#8fb0c4;margin-top:4px">' + Object.keys(cnt).length + ' species · click = jump to nearest</div>'; Array.prototype.forEach.call(document.querySelectorAll('#species .sp'), function (el) { el.onclick = function () { stopTour(); var k = el.getAttribute('data-sp'), best = null, bd = 1e9; s.npcs.forEach(function (a) { if (a.sp !== k) return; var d = Math.hypot(a.x - cam.pos.x, a.z - cam.pos.z); if (d < bd) { bd = d; best = a; } }); if (!best) return; if (SP[k].kind === 'school') { cam.pos.set(best.x + 10, -best.d, best.z + 10); cam.yaw = Math.atan2(best.x - cam.pos.x, best.z - cam.pos.z); cam.pitch = 0; setMode('free'); } else followNpc(best.id); }; }); }
+    if (showSpecies) ins.style.display = 'none';
     if (ADMIN) updateAdmin(s);
     if (s.status === 'finished' && s.ranks && $('end').style.display !== 'flex' && !$('end').dataset['g' + s.gen]) { $('end').dataset['g' + s.gen] = 1; $('end').style.display = 'flex'; $('end-body').innerHTML = '<p style="margin-bottom:8px">Winner: <b style="color:#8fd3ff">' + esc(s.winner || '—') + '</b></p><table><tr><th>#</th><th>agent</th><th>species</th><th>model</th><th>score</th><th>size</th><th>kills</th><th>animals</th><th>eaten</th><th>dec</th><th>fate</th></tr>' + s.ranks.map(function (r) { return '<tr><td>' + r.rank + '</td><td>' + esc(r.name) + (r.cheat ? ' <span class="badge cheat">CHEATER</span>' : '') + (r.suspect ? ' <span class="badge sus">BOT?</span>' : '') + '</td><td>' + esc(r.species || 'fish') + '</td><td>' + esc(r.model) + '</td><td>' + r.score + '</td><td>' + r.size + '</td><td>' + r.kills + '</td><td>' + (r.animalsEaten || 0) + '</td><td>' + r.eaten + '</td><td>' + r.decisions + '</td><td>' + (r.alive ? 'survived' : esc(r.cause || '')) + '</td></tr>'; }).join('') + '</table>'; }
     $('conn').textContent = live.demo ? 'local demo (engine running in browser)' : live.ok ? 'connected · v' + (s.v || 5) + ' · ' + (typeof OCEAN_BUILT !== 'undefined' ? OCEAN_BUILT : '') : 'disconnected: ' + live.lastErr;
   }
   function zoneOf(f) { var z = []; var hi = OC.hideInfo(f); if (hi.src) z.push(hi.src); var rf = OC.reefAt(f.x, f.z, f.d); if (rf && z.indexOf(rf.id) < 0) z.push(rf.id); var v = OC.ventAt(f.x, f.z, f.d); if (v.dist < 14) z.push('vent'); if (OC.inBiolum(f.x, f.z, f.d)) z.push('glowing water'); if (OC.inDeadzone(f.x, f.z, f.d)) z.push('dead zone'); if (f.d < 4) z.push('surface'); var cu = OC.currentAt(f.x, f.z, f.d); if (cu.id) z.push('current ' + cu.id); return z.length ? z.join(', ') : 'open water'; }
+  // Curated viewpoints offer a useful way to explore on touch screens too.
+  var habitats = {
+    reef: { name: 'Coral reef', x: 174, z: 238, depth: 9, yaw: Math.PI, pitch: -.18 },
+    kelp: { name: 'Kelp forest', x: 122, z: 146, depth: 7, yaw: 0, pitch: -.06 },
+    grass: { name: 'Seagrass meadow', x: 126, z: 92, depth: 4, yaw: 0, pitch: -.22 },
+    wreck: { name: 'Cargo wreck', x: 240, z: 315, depth: 15, yaw: 2.85, pitch: -.2 },
+    abyss: { name: 'Deep-sea vents', x: 375, z: 425, depth: 100, yaw: 0, pitch: -.2 }
+  };
+  $('habitat').onchange = function () {
+    var h = habitats[this.value]; if (!h) return;
+    setMode('free'); cam.pos.set(h.x, -Math.min(h.depth, Math.max(1, floorAt(h.x, h.z) - 2)), h.z);
+    cam.yaw = h.yaw; cam.pitch = h.pitch; cam.follow = cam.followNpc = null;
+    this.value = ''; if (window.matchMedia('(max-width: 700px)').matches) mobilePanel('view');
+    toast(h.name);
+  };
   $('b-free').onclick = function () { setMode('free'); }; $('b-follow').onclick = function () { if (!cam.follow && B && B.fish[0]) cam.follow = B.fish[0].id; if (cam.follow) setMode('follow'); else toast('No agent to follow'); }; $('b-over').onclick = function () { setMode('over'); }; $('b-shark').onclick = nextShark;
-  $('b-species').onclick = function () { showSpecies = !showSpecies; this.classList.toggle('on', showSpecies); $('species').style.display = showSpecies ? 'block' : 'none'; $('insp').style.top = showSpecies ? '' : '258px'; if (showSpecies) $('insp').style.display = 'none'; updateUI(B); };
+  $('b-species').onclick = function () { showSpecies = !showSpecies; this.classList.toggle('on', showSpecies); $('species').style.display = showSpecies ? 'block' : 'none'; $('insp').style.top = ''; if (showSpecies) $('insp').style.display = 'none'; updateUI(B); };
   if ($('b-chat')) $('b-chat').onclick = function () { showChat = !showChat; this.classList.toggle('on', showChat); $('chat').style.display = showChat ? 'block' : 'none'; };
-  ['low', 'med', 'high'].forEach(function (q) { var b = $('q-' + q); if (!b) return; b.classList.toggle('on', OCEAN.qname === q); b.onclick = function () { OCEAN.setQuality(q); location.reload(); }; });
+  ['low', 'med', 'high'].forEach(function (q) { var b = $('q-' + q); if (!b) return; b.classList.toggle('on', OCEAN.qname === q); b.onclick = function () { OCEAN.setQuality(q); var url = new URL(location.href); url.searchParams.delete('q'); location.href = url.toString(); }; });
   var fpsN = 0, fpsT = 0;
-  var showLabels = true, showWhy = true; $('b-labels').onclick = function () { showLabels = !showLabels; this.classList.toggle('on', showLabels); }; $('b-why').onclick = function () { showWhy = !showWhy; this.classList.toggle('on', showWhy); };
+  var showLabels = false, showWhy = true; $('b-labels').onclick = function () { showLabels = !showLabels; this.classList.toggle('on', showLabels); }; $('b-why').onclick = function () { showWhy = !showWhy; this.classList.toggle('on', showWhy); };
+  var tour = false, tourAt = 0, tourIndex = 0;
+  function stopTour() { if (!tour) return; tour = false; $('b-tour').classList.remove('on'); $('b-tour').setAttribute('aria-pressed', 'false'); }
+  function tickTour(now) {
+    if (!tour || !B || now < tourAt) return;
+    var featured = ['whale', 'dolphin', 'great white', 'giant squid', 'sea turtle', 'manta ray', 'hammerhead', 'seal', 'barracuda'];
+    var candidates = featured.map(function (name) { return B.npcs.find(function (a) { return a.sp === name; }); }).filter(Boolean);
+    if (!candidates.length) { tourAt = now + 5000; return; }
+    var target = candidates[tourIndex++ % candidates.length];
+    followNpc(target.id, true); tourAt = now + 20000;
+    toast('Wildlife tour · ' + spLabel(target.sp));
+  }
+  $('b-tour').onclick = function () {
+    if (tour) { stopTour(); toast('Wildlife tour paused'); }
+    else { tour = true; tourAt = 0; this.classList.add('on'); this.setAttribute('aria-pressed', 'true'); tickTour(performance.now()); }
+  };
   $('b-demo').onclick = function () { setDemo(!live.demo); };
-  $('url').value = API; $('url').onchange = function () { API = this.value.trim() || DEFAULT_API; try { localStorage.setItem('ocean.api', API); } catch (e) { } fails = 0; if (live.demo) setDemo(false); };
+  $('url').value = API; $('url').onchange = function () { API = (this.value.trim() || DEFAULT_API).replace(/\/+$/, ''); this.value = API; try { localStorage.setItem('ocean.api', API); } catch (e) { } setDemo(false); };
 
   // ── Admin ────────────────────────────────────────────────────────────────
   var ADMIN_HIDDEN = false;
@@ -484,7 +603,7 @@
               adminCall('/role?id=' + encodeURIComponent(fid) + '&species=' + encodeURIComponent(sp)).then(function (r) {
                 $('a-msg').textContent = r.ok ? (r.name + ' → ' + r.species + ' (' + r.role + ')') : ('err: ' + JSON.stringify(r));
                 toast(r.ok ? r.name + ' is now ' + r.species : 'Role change failed');
-                poll();
+                connection.refresh();
               });
             };
           });
@@ -496,7 +615,7 @@
     $('a-start').onclick = function () { adminCall('/start?in=0').then(function (r) { $('a-msg').textContent = r.ok ? 'START! status: ' + r.status + ', agents: ' + r.fish : 'failed: ' + JSON.stringify(r); toast(r.ok ? 'Match started' : 'Start failed'); }); };
     if ($('t-start')) $('t-start').onclick = function () { $('a-start').click(); };
     $('a-start60').onclick = function () { adminCall('/start?in=60').then(function (r) { $('a-msg').textContent = r.ok ? 'starts in 60s' : 'failed: ' + JSON.stringify(r); }); };
-    if ($('a-rand')) $('a-rand').onclick = function () { adminCall('/role?id=all&species=random').then(function (r) { $('a-msg').textContent = r.ok ? 'Randomized all roles!' : 'err: ' + JSON.stringify(r); toast('Randomized all lobby roles'); poll(); }); };
+    if ($('a-rand')) $('a-rand').onclick = function () { adminCall('/role?id=all&species=random').then(function (r) { $('a-msg').textContent = r.ok ? 'Randomized all roles!' : 'err: ' + JSON.stringify(r); toast('Randomized all lobby roles'); connection.refresh(); }); };
     $('a-reset').onclick = function () { if (!confirm('Start a new game? The current game ends and all keys expire.')) return; adminCall('/reset').then(function (r) { $('a-msg').textContent = r.ok ? 'new game #' + r.gen + ' (lobby)' : 'failed: ' + JSON.stringify(r); }); };
     $('a-hide').onclick = function () { $('admin').style.display = 'none'; ADMIN_HIDDEN = true; if ($('b-host')) $('b-host').classList.remove('on'); };
     $('a-log').onclick = function () { $('calls').style.display = 'block'; loadLog(); };
@@ -527,7 +646,7 @@
 
   // ── Minimap (with beaches, coastal hills & abyssal trench) ──────────────
   var mini = $('mini'), mctx = mini.getContext('2d'), MS = 240, miniBg = (function () { var c = document.createElement('canvas'); c.width = 160; c.height = 160; var x = c.getContext('2d'), im = x.createImageData(160, 160); for (var j = 0; j < 160; j++) for (var i = 0; i < 160; i++) { var d = floorAt(i * W / 160 + 2, j * L / 160 + 2), o = (j * 160 + i) * 4; if (d <= 0) { var el = -d; if (el < 2.2) { im.data[o] = 212; im.data[o + 1] = 192; im.data[o + 2] = 138; } else if (el < 24) { im.data[o] = 64; im.data[o + 1] = 112; im.data[o + 2] = 56; } else { var st = OC.clamp((el - 24) / 48, 0, 1); im.data[o] = Math.round(96 + 74 * st); im.data[o + 1] = Math.round(102 + 68 * st); im.data[o + 2] = Math.round(92 + 80 * st); } im.data[o + 3] = 255; } else { var t = OC.clamp((d - 6) / 140, 0, 1); im.data[o] = Math.round(52 + 128 * (1 - t)); im.data[o + 1] = Math.round(105 + 95 * (1 - t)); im.data[o + 2] = Math.round(148 + 64 * (1 - t)); im.data[o + 3] = 255; } } x.putImageData(im, 0, 0); return c; })();
-  mini.addEventListener('click', function (e) { var r = mini.getBoundingClientRect(); var x = (e.clientX - r.left) / r.width * W, z = (e.clientY - r.top) / r.height * L, fl = floorAt(x, z); cam.pos.set(x, fl <= 0 ? -fl + 22 : -Math.min(25, fl - 4), z + 45); cam.yaw = Math.PI; cam.pitch = -0.35; setMode('free'); });
+  mini.addEventListener('click', function (e) { stopTour(); var r = mini.getBoundingClientRect(); var x = (e.clientX - r.left) / r.width * W, z = (e.clientY - r.top) / r.height * L, fl = floorAt(x, z); cam.pos.set(x, fl <= 0 ? -fl + 22 : -Math.min(25, fl - 4), z + 45); cam.yaw = Math.PI; cam.pitch = -0.35; setMode('free'); });
   function circ(x, z, r, fill) { mctx.fillStyle = fill; mctx.beginPath(); mctx.arc(x * MS / W, z * MS / L, r, 0, 6.28); mctx.fill(); }
   function drawMini(s) {
     var k = MS / W; mctx.clearRect(0, 0, MS, MS); mctx.drawImage(miniBg, 0, 0, MS, MS);
@@ -547,15 +666,24 @@
   }
 
   // ── Connection / demo ────────────────────────────────────────────────────
-  var fails = 0, pollTimer = null;
-  function poll() {
-    if (live.demo) return;
-    var ctrl = new AbortController(); var to = setTimeout(function () { ctrl.abort(); }, 8000);
-    fetch(API + '/state' + (ADMIN ? '?admin=' + encodeURIComponent(ADMIN) : ''), { signal: ctrl.signal, cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (s) { clearTimeout(to); if (s.error) throw new Error(s.error); live.ok = true; fails = 0; pushState(s); pollTimer = setTimeout(poll, 500); })
-      .catch(function (e) { clearTimeout(to); live.ok = false; live.lastErr = (e && e.message) || 'error'; fails++; if (fails >= 3 && !B) { setDemo(true); toast('Arena unreachable — demo mode'); return; } updateUI(B); pollTimer = setTimeout(poll, 1200); });
-  }
+  var connection = OceanConnection.create({
+    fetch: function (url, opts) { return fetch(url, opts); },
+    url: function () { return API + '/state' + (ADMIN ? '?admin=' + encodeURIComponent(ADMIN) : ''); },
+    onState: function (s) { live.ok = true; live.lastErr = ''; pushState(s); },
+    onError: function (message, failures) {
+      live.ok = false; live.lastErr = message;
+      $('conn').textContent = 'Disconnected · ' + message + ' · retrying';
+      if (B) updateUI(B);
+      if (failures >= 3 && !B) { setDemo(true); toast('Arena unreachable — showing local demo'); }
+    }
+  });
   var demo = null;
-  function setDemo(on) { live.demo = on; $('b-demo').classList.toggle('on', on); if (pollTimer) clearTimeout(pollTimer); if (on) { demo = makeDemo(); A = B = null; lastGen = null; } else { demo = null; A = B = null; lastGen = null; fails = 0; poll(); } }
+  function setDemo(on) {
+    connection.stop(); clearDynamic(); A = B = null; lastGen = null;
+    live.demo = on; live.ok = false; $('b-demo').classList.toggle('on', on);
+    if (on) demo = makeDemo();
+    else { demo = null; $('conn').textContent = 'Connecting to arena…'; connection.start(); }
+  }
   function makeDemo() {
     var g = OC.newGame(Math.floor(Math.random() * 900) + 100, Date.now() % 100000);
     var demoRoster = [
@@ -614,11 +742,14 @@
   function frame() {
     requestAnimationFrame(frame); var now = performance.now(), dt = Math.min(0.1, (now - last) / 1000); last = now; var ts = now / 1000;
     if (live.demo) demoTick();
+    tickTour(now);
     if (B) {
       var rawAlpha = (now - LAG - tA) / Math.max(1, tB - tA);
       var alpha = rawAlpha <= 0 ? 0 : rawAlpha <= 1 ? rawAlpha : 1 + (1 - Math.exp(-(rawAlpha - 1) * 2.2)) * 0.45;
       var tAlpha = Math.min(1, alpha), s = B, id;
+      var seenFish = {};
       s.fish.forEach(function (f) {
+        seenFish[f.id] = true;
         var o = ensureFish(f), a = prev('fish', f.id) || f;
         var x = OC.lerp(a.x, f.x, alpha), z = OC.lerp(a.z, f.z, alpha), d = Math.max(0.25, OC.lerp(a.d, f.d, alpha)), h = lerpA(a.h, f.h, alpha), p = OC.lerp(a.p, f.p, tAlpha);
         var isClassic = (o.sp === 'fish' || !SP[o.sp]);
@@ -637,16 +768,19 @@
         o.label.visible = showLabels && f.alive; o.label.position.set(x, -d + len * 0.5, z); o.label.scale.set(sc * 3, sc, 1); drawLabel(o.label, f);
         o.bubble.visible = showWhy && f.alive && !!f.why && dc < 110; o.bubble.position.set(x, -d + len * 0.5 + sc, z); o.bubble.scale.set(sc * 2.7, sc, 1); drawBubble(o.bubble, f.why || '');
       });
+      for (id in fishObjs) if (!seenFish[id]) { disposeObject(fishObjs[id].g); disposeObject(fishObjs[id].label); disposeObject(fishObjs[id].bubble); delete fishObjs[id]; }
       var seenN = {}, seenS = {};
       s.npcs.forEach(function (a) {
         var sp = SP[a.sp];
         if (sp.kind === 'school') {
           seenS[a.id] = 1; var o = ensureSchool(a), pa = prev('npcs', a.id) || a; var cx = OC.lerp(pa.x, a.x, alpha), cz = OC.lerp(pa.z, a.z, alpha), cd = Math.max(0.25, OC.lerp(pa.d, a.d, alpha));
-          var ch = lerpA(pa.h, a.h, alpha), spS = SP[a.sp], fleeing = a.spd > spS.speed * 1.4, sq = fleeing ? 0.45 : 1;
+          var ch = lerpA(pa.h, a.h, alpha), spS = SP[a.sp], fleeing = a.st === 'flee', sq = fleeing ? 1.12 : 1;
+          var threat = SCHOOL_VISUAL.nearest(s.schoolThreatGrid, a, SP);
+          if (threat) { var oldThreat = prev(s.idx.npcs[threat.id] ? 'npcs' : 'fish', threat.id) || threat; threat = { x: OC.lerp(oldThreat.x, threat.x, alpha), z: OC.lerp(oldThreat.z, threat.z, alpha), d: OC.lerp(oldThreat.d, threat.d, alpha), size: threat.sz || (SP[threat.sp] && SP[threat.sp].size) || 1 }; }
           var vis = Math.min(o.ph.length, Math.ceil(a.n / o.nmax * o.ph.length)), obj = o.im || o.pts, dcs = camera.position.distanceTo(V.set(cx, -cd, cz)); obj.visible = a.n > 0 && dcs < (o.im ? 240 : 160);
           if (!obj.visible) return;
-          var hr = ch * D2R, sh = Math.sin(hr), chh = Math.cos(hr), yaw = Math.atan2(sh, -chh), spin = fleeing ? ts * 1.5 : 0;
-          if (o.pts) { var pa2 = o.pts.geometry.attributes.position; for (var i = 0; i < o.ph.length; i++) { var q = o.ph[i]; if (i >= vis) { pa2.setXYZ(i, 0, 50, 0); continue; } var ox = q.x * sq + Math.sin(ts * q.w1 + q.ph) * 0.4, oz = q.z * sq + Math.cos(ts * q.w2 + q.ph) * 0.4, oy = q.y * sq + Math.sin(ts * 0.7 + q.ph) * 0.3; pa2.setXYZ(i, cx + ox * chh + oz * sh, -cd + oy, cz - ox * sh + oz * chh); } pa2.needsUpdate = true; return; }
+          var hr = ch * D2R, sh = Math.sin(hr), chh = Math.cos(hr), yaw = Math.atan2(sh, -chh);
+          if (o.pts) { var pa2 = o.pts.geometry.attributes.position; for (var i = 0; i < o.ph.length; i++) { var q = o.ph[i]; if (i >= vis) { pa2.setXYZ(i, 0, 50, 0); continue; } var ox = q.x * sq + Math.sin(ts * q.w1 + q.ph) * 0.4, oz = q.z * sq + Math.cos(ts * q.w2 + q.ph) * 0.4, oy = q.y * sq + Math.sin(ts * 0.7 + q.ph) * 0.3; var wx = cx + ox * chh + oz * sh, wy = -cd + oy, wz = cz - ox * sh + oz * chh; SCHOOL_VISUAL.displace(q, wx, wy, wz, threat, threat ? Math.min(9, 3 + threat.size * 0.8) : 0, dt); pa2.setXYZ(i, wx + q.sx, wy + q.sy, wz + q.sz); } pa2.needsUpdate = true; return; }
           var tgtFreq = 3 + a.spd * 2.2, tgtAmp = 0.05 + Math.min(0.06, a.spd * 0.02);
           o.u.uFreq.value += (tgtFreq - o.u.uFreq.value) * Math.min(1, dt * 6);
           o.u.uAmp.value += (tgtAmp - o.u.uAmp.value) * Math.min(1, dt * 6);
@@ -654,9 +788,12 @@
           o.u.uTime.value = ts;
           for (var i = 0; i < o.ph.length; i++) { var ph = o.ph[i]; if (i >= vis) { M.makeScale(0, 0, 0); o.im.setMatrixAt(i, M); continue; }
             var lx = ph.x * sq + Math.sin(ts * ph.w1 + ph.ph) * 0.5, lz = ph.z * sq + Math.cos(ts * ph.w2 + ph.ph) * 0.6, ly = ph.y * sq + Math.sin(ts * 0.8 + ph.ph) * 0.35;
-            if (spin) { var ca = Math.cos(spin + ph.ph), sa = Math.sin(spin + ph.ph); var rx = lx * ca - lz * sa; lz = lx * sa + lz * ca; lx = rx; }
-            V.set(cx + lx * chh + lz * sh, -cd + ly, cz - lx * sh + lz * chh);
-            var dyaw = yaw + Math.sin(ts * ph.w1 + ph.ph) * 0.25 + (spin ? ph.ph : 0); Q.setFromEuler(new T.Euler(Math.sin(ts * 0.8 + ph.ph) * 0.1, dyaw, 0)); SC.set(ph.s, ph.s, ph.s); M.compose(V, Q, SC); o.im.setMatrixAt(i, M); }
+            var wx = cx + lx * chh + lz * sh, wy = -cd + ly, wz = cz - lx * sh + lz * chh;
+            SCHOOL_VISUAL.displace(ph, wx, wy, wz, threat, threat ? Math.min(9, 3 + threat.size * 0.8) : 0, dt);
+            V.set(wx + ph.sx, wy + ph.sy, wz + ph.sz);
+            var awayWeight = Math.min(1, Math.hypot(ph.sx, ph.sz) / 2);
+            var awayYaw = Math.atan2(ph.sx, ph.sz), dyaw = yaw + Math.sin(ts * ph.w1 + ph.ph) * 0.12;
+            dyaw += Math.atan2(Math.sin(awayYaw - dyaw), Math.cos(awayYaw - dyaw)) * awayWeight; Q.setFromEuler(new T.Euler(Math.sin(ts * 0.8 + ph.ph) * 0.1, dyaw, 0)); SC.set(ph.s, ph.s, ph.s); M.compose(V, Q, SC); o.im.setMatrixAt(i, M); }
           o.im.instanceMatrix.needsUpdate = true; return;
         }
         seenN[a.id] = 1; var n = ensureNpc(a), pb = prev('npcs', a.id) || a;
@@ -694,15 +831,19 @@
         CR.animate(n.g, ts, (ground && !isCrab) ? 0 : a.spd, isCrab ? 0 : n.str, dt);
         if (n.g.userData.mat) n.g.userData.mat.emissive.setHex(a.bl ? 0x401010 : 0x000000);
         var dc = camera.position.distanceTo(n.g.position); n.g.visible = cam.followNpc === a.id || dc < (sp.size > 3 ? 420 : CR.lenOf(a.sp) < 0.3 ? 90 : 200);
-        var wantTag = showLabels && n.g.visible && !(cam.followNpc === a.id && dc < CR.lenOf(a.sp) * 3 + 4) && (sp.kind === 'shark' || sp.kind === 'pack' || sp.kind === 'kraken' || (dc < 35 && sp.kind !== 'school' && CR.lenOf(a.sp) >= 0.3) || cam.followNpc === a.id);
+        var prominent = sp.kind === 'shark' || sp.kind === 'pack' || sp.kind === 'kraken';
+        var wantTag = showLabels && n.g.visible && !(cam.followNpc === a.id && dc < CR.lenOf(a.sp) * 3 + 4) && (cam.followNpc === a.id || (prominent && dc < 75) || (dc < 35 && CR.lenOf(a.sp) >= 0.3));
         if (wantTag) { if (!n.tag) { n.tag = makeSprite(384, 128); scene.add(n.tag); } var sc = OC.clamp(dc * 0.08, 1.2, 14); n.tag.visible = true; n.tag.position.set(x, -d + (n.g.userData.len || 2) * 0.5, z); n.tag.scale.set(sc * 3, sc, 1); drawTag(n.tag, spLabel(a.sp).toUpperCase() + (a.hp !== undefined ? ' · hp ' + a.hp : ''), (sp.kind === 'shark' || sp.kind === 'pack' || sp.kind === 'kraken' || sp.prey ? stateText(a) : 'size ' + sp.size) + (a.n !== undefined ? ' · ' + a.n : ''), a.sp === 'orca' ? '#ff6a6a' : sp.kind === 'kraken' ? '#f080e8' : sp.kind === 'shark' ? '#ffe0a0' : sp.prey ? '#ffc0a0' : '#bfe8ff'); }
         else if (n.tag) n.tag.visible = false;
       });
-      for (id in npcObjs) if (!seenN[id]) { scene.remove(npcObjs[id].g); if (npcObjs[id].tag) scene.remove(npcObjs[id].tag); delete npcObjs[id]; if (cam.followNpc === id) { cam.followNpc = null; setMode('free'); } }
-      for (id in schoolObjs) if (!seenS[id]) { scene.remove(schoolObjs[id].im || schoolObjs[id].pts); delete schoolObjs[id]; }
-      s.plankton.forEach(function (q) { var o = ensurePlank(q); o.pt.visible = q.amt > 1; o.pt.position.set(q.x, -q.d, q.z); o.pt.material.opacity = 0.2 + 0.6 * q.amt / 100; o.pt.rotation.y = ts * 0.05; });
-      s.blooms.forEach(function (j) { var o = ensureBloom(j); o.u.uFreq.value = 1.6; o.u.uAmp.value = 0.1; o.u.uSwim.value += 1.6 * dt; o.u.uTime.value = ts; var vis = Math.ceil(j.n / 40 * o.items.length); o.im.visible = camera.position.distanceTo(V.set(j.x, -j.d, j.z)) < 300; if (!o.im.visible) return; o.items.forEach(function (it, i) { if (i >= vis) { M.makeScale(0, 0, 0); o.im.setMatrixAt(i, M); return; } V.set(j.x + it.ox * j.r, -j.d + it.oy * 14 + Math.sin(ts * 0.4 + it.ph) * 1.5, j.z + it.oz * j.r); Q.setFromEuler(new T.Euler(Math.sin(ts * 0.3 + it.ph) * 0.2, it.ph, Math.cos(ts * 0.25 + it.ph) * 0.2)); SC.set(it.s, it.s, it.s); M.compose(V, Q, SC); o.im.setMatrixAt(i, M); }); o.im.instanceMatrix.needsUpdate = true; });
-      var seenK = {}; s.carrion.forEach(function (k) { var o = ensureCarrion(k); seenK[k.id] = 1; o.g.position.set(k.x, -k.d, k.z); }); for (id in carrionObjs) if (!seenK[id]) { scene.remove(carrionObjs[id].g); delete carrionObjs[id]; }
+      for (id in npcObjs) if (!seenN[id]) { disposeObject(npcObjs[id].g); disposeObject(npcObjs[id].tag); delete npcObjs[id]; if (cam.followNpc === id) { cam.followNpc = null; setMode('free'); } }
+      for (id in schoolObjs) if (!seenS[id]) { disposeObject(schoolObjs[id].im || schoolObjs[id].pts); delete schoolObjs[id]; if (cam.followNpc === id) { cam.followNpc = null; setMode('free'); } }
+      var seenPlank = {}, seenBloom = {};
+      s.plankton.forEach(function (q) { seenPlank[q.id] = true; var o = ensurePlank(q); o.pt.visible = q.amt > 1; o.pt.position.set(q.x, -q.d, q.z); o.pt.material.opacity = 0.2 + 0.6 * q.amt / 100; o.pt.rotation.y = ts * 0.05; });
+      s.blooms.forEach(function (j) { seenBloom[j.id] = true; var o = ensureBloom(j); o.u.uFreq.value = 1.6; o.u.uAmp.value = 0.1; o.u.uSwim.value += 1.6 * dt; o.u.uTime.value = ts; var vis = Math.ceil(j.n / 40 * o.items.length); o.im.visible = camera.position.distanceTo(V.set(j.x, -j.d, j.z)) < 300; if (!o.im.visible) return; o.items.forEach(function (it, i) { if (i >= vis) { M.makeScale(0, 0, 0); o.im.setMatrixAt(i, M); return; } V.set(j.x + it.ox * j.r, -j.d + it.oy * 14 + Math.sin(ts * 0.4 + it.ph) * 1.5, j.z + it.oz * j.r); Q.setFromEuler(new T.Euler(Math.sin(ts * 0.3 + it.ph) * 0.2, it.ph, Math.cos(ts * 0.25 + it.ph) * 0.2)); SC.set(it.s, it.s, it.s); M.compose(V, Q, SC); o.im.setMatrixAt(i, M); }); o.im.instanceMatrix.needsUpdate = true; });
+      for (id in plankObjs) if (!seenPlank[id]) { disposeObject(plankObjs[id].pt); delete plankObjs[id]; }
+      for (id in bloomObjs) if (!seenBloom[id]) { disposeObject(bloomObjs[id].im); delete bloomObjs[id]; }
+      var seenK = {}; s.carrion.forEach(function (k) { var o = ensureCarrion(k); seenK[k.id] = 1; o.g.position.set(k.x, -k.d, k.z); }); for (id in carrionObjs) if (!seenK[id]) { disposeObject(carrionObjs[id].g); delete carrionObjs[id]; }
       updateCamera(dt);
       var smoothLightState = { light: A ? OC.lerp(A.light, s.light, tAlpha) : s.light, t: A ? OC.lerp(A.t, s.t, tAlpha) : s.t, phase: s.phase };
       var LI = OCEAN.lighting(smoothLightState, camera, OC.DAY_SEC, lights, oceanMats);
@@ -722,6 +863,7 @@
       else if (o.glow) { o.glow.material.opacity = 0.55 + 0.35 * Math.sin(ts * 1.7); o.glow.rotation.y = ts * 0.02; }
       else if (o.cur) { var c = o.c, pb = o.cur.geometry.attributes.position; for (var m = 0; m < o.items.length; m++) { var it2 = o.items[m]; if (c.kind === 'seg') { var len = Math.hypot(c.bx - c.ax, c.bz - c.az); it2.t += dt * c.v / len; if (it2.t > 1) it2.t -= 1; var ux = (c.bx - c.ax) / len, uz = (c.bz - c.az) / len; pb.setXYZ(m, c.ax + ux * len * it2.t - uz * it2.off * c.w, -(c.d0 + it2.d * (c.d1 - c.d0)), c.az + uz * len * it2.t + ux * it2.off * c.w); } else { it2.d -= dt * 0.02; if (it2.d < 0) it2.d += 1; pb.setXYZ(m, c.x + Math.cos(it2.off * 3.14) * c.r * it2.t, -(5 + it2.d * 60), c.z + Math.sin(it2.off * 3.14) * c.r * it2.t); } } pb.needsUpdate = true; }
     });
+    REEF.update(ts);
     OCEAN.updateSnow(snow, camera, dt, ts); OCEAN.updateBubbles(bubbles, dt, ts);
     sway.forEach(function (o) { if (o.smoke && Math.random() < 0.15) OCEAN.emitBubbles(bubbles, o.x, o.base - 3, o.z, 1, 1.5, 1.2); });
     renderer.render(scene, camera); fpsN++; fpsT += dt;
@@ -730,6 +872,6 @@
   if (qs.get('cam')) { var cq = qs.get('cam').split(',').map(Number); if (cq.length >= 5) { cam.pos.set(cq[0], cq[1], cq[2]); cam.yaw = cq[3]; cam.pitch = cq[4]; } }
   if (qs.get('shark')) setTimeout(nextShark, 1500);
   if (qs.get('species') === '1') setTimeout(function () { $('b-species').click(); }, 1200);
-  if (qs.get('demo') === '1') setDemo(true); else poll();
+  if (qs.get('demo') === '1') setDemo(true); else connection.start();
   frame();
 })();

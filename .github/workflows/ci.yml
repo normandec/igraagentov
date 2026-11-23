@@ -1,0 +1,37 @@
+name: Ocean Arena checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build standalone viewer and engine
+        run: node tools/build.js
+      - name: Check syntax
+        run: |
+          node --check build/ocean.bundle.js
+          node --check viewer/viewer.js
+          node --check viewer/connection.js
+          node --check viewer/creatures.js
+          node --check viewer/schools.js
+      - name: Run protocol, predator and polling regression tests
+        run: |
+          node tools/test_http.js
+          node tools/test_predators.js
+          node tools/test_connection.js
+          node tools/test_reef.js
+          node tools/test_wildlife.js
+      - name: Simulate a match and the full ecosystem lifecycle
+        run: |
+          node tools/test_engine.js 12 25 42
+          node tools/test_ecosystem.js

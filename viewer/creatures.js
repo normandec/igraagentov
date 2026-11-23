@@ -10,32 +10,58 @@ var CR = (function () {
   //        3 utrip zvona (meduze), 4 utrip plašča + valovanje lovk (glavonožci), 5 statično, 6 rak/jastog (noge + telo)
   var SWIM_PARS = [
     'uniform float uTime, uSwim, uAmp, uFreq, uLen, uMode, uPhase, uBend;',
+    'attribute vec2 aBio; attribute float aSkin; varying vec2 vBio; varying float vSkin;',
     '#ifdef USE_INSTANCING', 'attribute float aPhase;', '#else', 'const float aPhase = 0.0;', '#endif'
   ].join('\n');
   var SWIM_BODY = [
+    'vBio = aBio; vSkin = aSkin;',
     'float t_ = clamp(0.5 - transformed.z / uLen, 0.0, 1.0);',
     'float ph_ = uSwim + uPhase + aPhase;',
-    'if (uMode < 0.5) { float w = t_ * t_; transformed.x += uAmp * uLen * w * sin(ph_ - t_ * 3.2) + uBend * uLen * w; }',
+    'if (uMode < 0.5) { float w = t_ * t_; float wave = sin(ph_ - t_ * 3.2); transformed.x += uAmp * uLen * w * wave + uBend * uLen * w; float tail = max(0.0, -position.z / uLen - 0.42); transformed.x += tail * uAmp * uLen * cos(ph_ - 3.2) * 1.8; }',
     'else if (uMode < 1.5) { float w = t_ * t_; transformed.y += uAmp * uLen * w * sin(ph_ - t_ * 2.6); transformed.x += uBend * uLen * w; }',
     'else if (uMode < 2.5) { float wx = abs(transformed.x) / (uLen * 0.5); transformed.y += uAmp * uLen * wx * wx * sin(ph_ - wx * 1.6); }',
     'else if (uMode < 3.5) { float s = 1.0 + 0.14 * sin(ph_); if (transformed.y > -0.05 * uLen) { transformed.x *= s; transformed.z *= s; transformed.y *= (2.0 - s); } else { float k = -transformed.y / uLen; transformed.x += 0.08 * uLen * k * sin(ph_ * 0.6 + k * 4.0); transformed.z += 0.08 * uLen * k * cos(ph_ * 0.5 + k * 3.0); } }',
     'else if (uMode < 4.5) { if (t_ < 0.52) { float mc = 1.0 - min(0.16, uAmp * 1.4) * sin(ph_ * 1.25); transformed.x *= mc; transformed.y *= mc; } else { float k = (t_ - 0.5) * 2.0; transformed.x += uAmp * uLen * k * k * sin(ph_ + transformed.x * 2.8 - k * 5.0); transformed.y += uAmp * uLen * k * k * cos(ph_ * 0.8 + transformed.y * 2.8 - k * 4.0); } }',
-    'else if (uMode > 5.5) { float mv = clamp(uAmp * 10.0, 0.0, 1.0); float legs = smoothstep(0.12 * uLen, 0.35 * uLen, abs(transformed.x)); transformed.y += mv * legs * 0.055 * uLen * sin(ph_ * 2.4 + transformed.z * 9.0 + sign(transformed.x) * 1.6); transformed.y += mv * 0.015 * uLen * abs(sin(ph_ * 1.2)); }'
+    'else if (uMode > 5.5 && uMode < 6.5) { float mv = clamp(uAmp * 10.0, 0.0, 1.0); float legs = smoothstep(0.12 * uLen, 0.35 * uLen, abs(transformed.x)); transformed.y += mv * legs * 0.055 * uLen * sin(ph_ * 2.4 + transformed.z * 9.0 + sign(transformed.x) * 1.6); transformed.y += mv * 0.015 * uLen * abs(sin(ph_ * 1.2)); }',
+    'else if (uMode > 6.5 && uMode < 7.5) { float wing = max(0.0, abs(position.x) / uLen - 0.28); float rear = 1.0 - smoothstep(-0.32, -0.05, position.z / uLen); transformed.y += uAmp * uLen * wing * sin(ph_ + rear * 1.1); }',
+    'else if (uMode > 7.5) { float fin = smoothstep(0.07, 0.16, -position.z / uLen); transformed.x += uAmp * uLen * fin * sin(ph_ * 3.0); }'
   ].join('\n');
   function attachSwim(m, u) {
     m.userData.u = u;
     m.onBeforeCompile = function (sh) {
       for (var k in u) sh.uniforms[k] = u[k];
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + SWIM_PARS).replace('#include <begin_vertex>', '#include <begin_vertex>\n' + SWIM_BODY);
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uSkin; varying vec2 vBio; varying float vSkin;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', [
+        '#include <color_fragment>',
+        'if (vSkin > 0.5 && uSkin > 0.5) {',
+        '  if (uSkin < 1.5) {',
+        '    vec2 scaleUV = vec2(vBio.x * 72.0, vBio.y * 26.0);',
+        '    scaleUV.x += mod(floor(scaleUV.y), 2.0) * 0.5;',
+        '    vec2 sc = abs(fract(scaleUV) - 0.5);',
+        '    float edge = smoothstep(0.36, 0.49, max(sc.x, sc.y));',
+        '    diffuseColor.rgb *= 1.02 - edge * 0.075;',
+        '  } else if (uSkin > 2.5) {',
+        '    vec2 grid = vec2(vBio.x * 28.0, vBio.y * 22.0);',
+        '    grid.x += mod(floor(grid.y), 2.0) * 0.5;',
+        '    float spot = 1.0 - smoothstep(0.12, 0.23, length(fract(grid) - 0.5));',
+        '    float top = smoothstep(0.11, 0.22, abs(vBio.y - 0.5));',
+        '    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.83, 0.9, 0.94), spot * top * 0.88);',
+        '  } else {',
+        '    float grain = sin(vBio.x * 813.0) * sin(vBio.y * 487.0);',
+        '    diffuseColor.rgb *= 0.98 + grain * 0.025;',
+        '  }',
+        '}'
+      ].join('\n'));
       sh.fragmentShader = sh.fragmentShader.replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\nfloat wetRim_ = pow(1.0 - max(0.0, dot(geometry.normal, geometry.viewDir)), 3.2);\nreflectedLight.indirectSpecular += vec3(0.04, 0.14, 0.22) * wetRim_;');
     };
-    m.customProgramCacheKey = function () { return 'swim-v2'; };
+    m.customProgramCacheKey = function () { return 'swim-v6'; };
     return m;
   }
   function swimMaterial(opts) {
     opts = opts || {};
     var m = new T.MeshPhongMaterial({ vertexColors: true, shininess: opts.shininess !== undefined ? opts.shininess : 48, specular: new T.Color(opts.specular || 0x4b6a82), side: T.DoubleSide, transparent: !!opts.transparent, opacity: opts.opacity !== undefined ? opts.opacity : 1, depthWrite: opts.depthWrite !== false });
-    var u = { uTime: { value: 0 }, uSwim: { value: Math.random() * 6.28 }, uAmp: { value: 0.05 }, uFreq: { value: 4 }, uLen: { value: opts.len || 1 }, uMode: { value: opts.mode || 0 }, uPhase: { value: Math.random() * 6.28 }, uBend: { value: 0 } };
+    var u = { uTime: { value: 0 }, uSwim: { value: Math.random() * 6.28 }, uAmp: { value: 0.05 }, uFreq: { value: 4 }, uLen: { value: opts.len || 1 }, uMode: { value: opts.mode || 0 }, uPhase: { value: Math.random() * 6.28 }, uBend: { value: 0 }, uSkin: { value: opts.skin || 0 } };
     return attachSwim(m, u);
   }
   function cloneSwimMat(src) {
@@ -49,23 +75,43 @@ var CR = (function () {
   // Telo: obroči vzdolž z; prof(t) -> {rx, ry, dy} (polosi preseka in navpični zamik), col(t, ang) -> [r,g,b]  (ang: 0 = hrbet, PI = trebuh)
   function tube(len, n, m, prof, col) {
     if (LOD) { n = Math.max(6, Math.round(n * 0.45)); m = Math.max(5, Math.round(m * 0.5)); }
-    var pos = [], nor = [], colr = [], idx = [], i, j;
+    var pos = [], nor = [], colr = [], bio = [], skin = [], idx = [], i, j;
     for (i = 0; i <= n; i++) {
       var t = i / n, p = prof(t), z = len * (0.5 - t), cl = Math.min(1, Math.sqrt(t / 0.03), Math.sqrt((1 - t) / 0.03)); p = { rx: p.rx * cl, ry: p.ry * cl, dy: p.dy };
       for (j = 0; j <= m; j++) {
         var a = j / m * Math.PI * 2, sx = Math.sin(a), cy = Math.cos(a);
         pos.push(sx * p.rx, cy * p.ry + (p.dy || 0), z); nor.push(sx * (p.ry || 0.01), cy * (p.rx || 0.01), 0);
-        var ang = Math.acos(Math.max(-1, Math.min(1, cy))), c = col(t, ang, sx); colr.push(c[0], c[1], c[2]);
+        var ang = Math.acos(Math.max(-1, Math.min(1, cy))), c = col(t, ang, sx); colr.push(c[0], c[1], c[2]); bio.push(t, j / m); skin.push(1);
       }
     }
     for (i = 0; i < n; i++) for (j = 0; j < m; j++) { var a0 = i * (m + 1) + j, b0 = a0 + m + 1; idx.push(a0, b0, a0 + 1, a0 + 1, b0, b0 + 1); }
     var g = new T.BufferGeometry();
-    g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(nor, 3)); g.setAttribute('color', new T.Float32BufferAttribute(colr, 3)); g.setIndex(idx);
-    g.computeVertexNormals(); return g;
+    g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(nor, 3)); g.setAttribute('color', new T.Float32BufferAttribute(colr, 3)); g.setAttribute('aBio', new T.Float32BufferAttribute(bio, 2)); g.setAttribute('aSkin', new T.Float32BufferAttribute(skin, 1)); g.setIndex(idx);
+    g.computeVertexNormals();
+    // The UV seam duplicates a vertex at each ring; weld its normals for a
+    // continuous highlight without merging UVs or losing the skin pattern.
+    var norm = g.attributes.normal;
+    for (i = 1; i < n; i++) {
+      var a = i * (m + 1), b = a + m;
+      var v = new T.Vector3(norm.getX(a) + norm.getX(b), norm.getY(a) + norm.getY(b), norm.getZ(a) + norm.getZ(b)).normalize();
+      norm.setXYZ(a, v.x, v.y, v.z); norm.setXYZ(b, v.x, v.y, v.z);
+    }
+    return g;
   }
   // Plavut: ploski lik iz 2D točk v ravnini (u,v); plane: 'xz' (vodoravno, npr. prsne), 'yz' (navpično, hrbtna/repna)
   function fin(pts, color, plane, mat) {
-    var sh = new T.Shape(); sh.moveTo(pts[0][0], pts[0][1]); for (var i = 1; i < pts.length; i++) sh.lineTo(pts[i][0], pts[i][1]); sh.closePath();
+    var sh = new T.Shape(), i;
+    if (pts.length > 3 && !LOD) {
+      // Round fin edges subtly while preserving the anatomical silhouette.
+      var last = pts[pts.length - 1], first = pts[0];
+      sh.moveTo(first[0] * .88 + last[0] * .12, first[1] * .88 + last[1] * .12);
+      for (i = 0; i < pts.length; i++) {
+        var p = pts[i], next = pts[(i + 1) % pts.length];
+        sh.quadraticCurveTo(p[0], p[1], p[0] * .88 + next[0] * .12, p[1] * .88 + next[1] * .12);
+        sh.lineTo(next[0] * .88 + p[0] * .12, next[1] * .88 + p[1] * .12);
+      }
+    } else { sh.moveTo(pts[0][0], pts[0][1]); for (i = 1; i < pts.length; i++) sh.lineTo(pts[i][0], pts[i][1]); }
+    sh.closePath();
     var g = new T.ShapeGeometry(sh, 3); // v ravnini xy: x=u, y=v
     if (plane === 'yz') g.rotateY(-Math.PI / 2); // (u,v,0) -> (0,v,u): u = z (naprej), v = y
     if (plane === 'xz') g.rotateX(-Math.PI / 2); // u = x, v -> -z ; želimo v = z
@@ -74,28 +120,53 @@ var CR = (function () {
   }
   function paint(g, color) { var c = new T.Color(color), n = g.attributes.position.count, arr = new Float32Array(n * 3); for (var i = 0; i < n; i++) { arr[i * 3] = c.r; arr[i * 3 + 1] = c.g; arr[i * 3 + 2] = c.b; } g.setAttribute('color', new T.BufferAttribute(arr, 3)); return g; }
   function merge(list) { // vse v ne-indeksirano in zlij (position, normal, color)
-    var P = [], N = [], C = [];
-    list.forEach(function (g) { if (!g) return; var q = g.index ? g.toNonIndexed() : g; if (!q.attributes.normal) q.computeVertexNormals(); if (!q.attributes.color) paint(q, 0x888888); var p = q.attributes.position.array, n = q.attributes.normal.array, c = q.attributes.color.array; for (var i = 0; i < p.length; i++) { P.push(p[i]); N.push(n[i]); C.push(c[i]); } });
-    var g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(N, 3)); g.setAttribute('color', new T.Float32BufferAttribute(C, 3)); return g;
+    var P = [], N = [], C = [], B = [], S = [];
+    list.forEach(function (g) { if (!g) return; var q = g.index ? g.toNonIndexed() : g; if (!q.attributes.normal) q.computeVertexNormals(); if (!q.attributes.color) paint(q, 0x888888); var p = q.attributes.position.array, n = q.attributes.normal.array, c = q.attributes.color.array, b = q.attributes.aBio, sk = q.attributes.aSkin; for (var i = 0; i < p.length; i++) { P.push(p[i]); N.push(n[i]); C.push(c[i]); } for (i = 0; i < p.length / 3; i++) { B.push(b ? b.getX(i) : 0, b ? b.getY(i) : 0); S.push(sk ? sk.getX(i) : 0); } });
+    var g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(N, 3)); g.setAttribute('color', new T.Float32BufferAttribute(C, 3)); g.setAttribute('aBio', new T.Float32BufferAttribute(B, 2)); g.setAttribute('aSkin', new T.Float32BufferAttribute(S, 1)); return g;
   }
   function mat4(x, y, z, rx, ry, rz, s) { var m = new T.Matrix4(); m.compose(new T.Vector3(x || 0, y || 0, z || 0), new T.Quaternion().setFromEuler(new T.Euler(rx || 0, ry || 0, rz || 0)), new T.Vector3(s || 1, s || 1, s || 1)); return m; }
   function sphere(r, color, x, y, z, sx, sy, sz) { var g = new T.SphereGeometry(r, 10, 8); g.scale(sx || 1, sy || 1, sz || 1); g.translate(x || 0, y || 0, z || 0); return paint(g, color); }
   function sphereLo(r, color, x, y, z) { var g = new T.SphereGeometry(r, 7, 5); g.translate(x || 0, y || 0, z || 0); return paint(g, color); }
-  function eye(len, x, y, z, r) { if (LOD) return []; r = r || len * 0.03; var w = sphereLo(r, 0xe8e8e8, x, y, z), p = sphereLo(r * 0.6, 0x050505, x + (x > 0 ? r * 0.55 : -r * 0.55), y, z + r * 0.3); return [w, p]; }
+  function eye(len, x, y, z, r, irisColor) { if (LOD) return []; r = r || len * 0.03; var side = x > 0 ? 1 : -1; var iris = sphereLo(r, irisColor === undefined ? 0x705b3e : irisColor, x, y, z), pupil = sphereLo(r * 0.72, 0x05090d, x + side * r * 0.58, y, z + r * 0.08), glint = sphereLo(r * 0.18, 0xd9eff2, x + side * r * 1.06, y + r * 0.26, z + r * 0.27); return [iris, pupil, glint]; }
   function on(prof, L, t, fx, fy) { var p = prof(t); return { x: p.rx * (fx === undefined ? 0.92 : fx), y: p.ry * (fy === undefined ? 0.3 : fy) + (p.dy || 0), z: L * (0.5 - t) }; }
-  function eyes(prof, L, t, r, fy) { var e = on(prof, L, t, 0.9, fy); return eye(L, e.x, e.y, e.z, r).concat(eye(L, -e.x, e.y, e.z, r)); }
+  function eyes(prof, L, t, r, fy, irisColor) { var e = on(prof, L, t, 0.9, fy); return eye(L, e.x, e.y, e.z, r, irisColor).concat(eye(L, -e.x, e.y, e.z, r, irisColor)); }
+  // Subtle operculum contours give bony fish an anatomical gill cover.
+  function gillCovers(prof, L, baseColor) {
+    if (LOD) return [];
+    var color = new T.Color(baseColor).multiplyScalar(.65), parts = [];
+    [-1, 1].forEach(function (side) {
+      var pts = [];
+      for (var i = 0; i <= 10; i++) {
+        var a = -.95 + i * .19, t = .235 + .025 * Math.cos(a * 1.6), p = prof(t);
+        pts.push(new T.Vector3(side * p.rx * Math.cos(a) * 1.008, p.dy + p.ry * Math.sin(a), L * (.5 - t)));
+      }
+      parts.push(paint(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 14, L * .0015, 4, false), color));
+    });
+    return parts;
+  }
   function mix(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
   function rgb(hex) { var c = new T.Color(hex); return [c.r, c.g, c.b]; }
   // protisenčenje: hrbet temen, bok, trebuh svetel + opcijski vzorec
   function shade(dorsal, ventral, pattern) { var D = rgb(dorsal), Vv = rgb(ventral); return function (t, ang, sx) { var k = Math.pow(ang / Math.PI, 1.6), c = mix(D, Vv, k); if (pattern) c = pattern(c, t, ang, sx) || c; return c; }; }
+  function clownPattern(c, t) {
+    var d = Math.min(Math.abs(t - .15), Math.abs(t - .48), Math.abs(t - .78));
+    if (d < .032) return mix(c, [0.96, 0.97, 0.94], 1);
+    if (d < .05) return mix(c, [0.09, 0.09, 0.08], .9);
+    return c;
+  }
   function stripes(color, n, width, only) { var S = rgb(color); return function (c, t, ang) { if (only === 'top' && ang > 1.9) return c; var v = Math.sin(t * n * Math.PI * 2); return v > 1 - width ? mix(c, S, 0.8) : c; }; }
   function spots(color, dens, seed) { var S = rgb(color); return function (c, t, ang, sx) { var h = Math.sin(t * 73.1 * dens + ang * 41.7 + seed) * Math.cos(t * 19.3 - ang * 23.1); return h > 0.75 ? mix(c, S, 0.85) : c; }; }
 
   // ── Profili teles ────────────────────────────────────────────────────────
   // t: 0 gobec … 1 rep. Vrne rx, ry (polosi), dy (zamik gor/dol)
   function rel(prof, L) { return function (t) { var p = prof(t); return { rx: p.rx * L, ry: p.ry * L, dy: (p.dy || 0) * L }; }; }
-  function fusiform(h, w, bluntNose) { return function (t) { var a = Math.sin(Math.pow(t, bluntNose ? 0.55 : 0.75) * Math.PI); var tail = t > 0.82 ? 0.25 + 0.75 * (1 - (t - 0.82) / 0.18) : 1; var r = Math.max(0.004, a * tail); return { rx: r * w, ry: r * h, dy: 0 }; }; }
-  function sharkProf(t) { var a = Math.sin(Math.pow(t, 0.62) * Math.PI); var tail = t > 0.78 ? 0.22 + 0.78 * (1 - (t - 0.78) / 0.22) : 1; var r = Math.max(0.004, a * tail); if (t < 0.12) r *= 0.75 + 2 * t; return { rx: r * 0.085, ry: r * 0.095, dy: -r * 0.01 }; }
+  function fusiform(h, w, bluntNose) { return function (t) { var a = Math.sin(Math.pow(t, bluntNose ? 0.55 : 0.75) * Math.PI); var r = Math.max(0.004, Math.pow(Math.max(0, a), 0.8)); return { rx: r * w, ry: r * h, dy: 0 }; }; }
+  function sharkProf(t) { var a = Math.sin(Math.pow(t, 0.62) * Math.PI); var r = Math.max(0.004, Math.pow(Math.max(0, a), 0.82)); if (t < 0.12) r *= 0.75 + 2 * t; return { rx: r * 0.085, ry: r * 0.095, dy: -r * 0.01 }; }
+  function whaleSharkProf(t) {
+    var p = sharkProf(t), head = Math.max(0, 1 - t / .38);
+    p.rx *= 1.05 + head * 1.1; p.ry *= 1.0 - head * .42;
+    return p;
+  }
   function whaleProf(t) { var a = Math.sin(Math.pow(t, 0.5) * Math.PI); var tail = t > 0.7 ? 0.2 + 0.8 * (1 - (t - 0.7) / 0.3) : 1; var r = Math.max(0.004, a * tail); if (t < 0.25) r = Math.max(r, 0.55 + 0.4 * t); return { rx: r * 0.11, ry: r * 0.125, dy: t < 0.35 ? -r * 0.02 : r * 0.01 }; }
   function dolphinProf(t) { var a = Math.sin(Math.pow(t, 0.6) * Math.PI); var tail = t > 0.8 ? 0.2 + 0.8 * (1 - (t - 0.8) / 0.2) : 1; var r = Math.max(0.004, a * tail); if (t < 0.08) r *= 0.35 + 7 * t; return { rx: r * 0.085, ry: r * 0.09, dy: 0 }; }
   function eelProf(t) { var r = t < 0.06 ? t / 0.06 : t > 0.75 ? (1 - t) / 0.25 : 1; r = Math.max(0.004, Math.pow(r, 0.5)); return { rx: r * 0.028, ry: r * 0.036, dy: 0 }; }
@@ -107,9 +178,25 @@ var CR = (function () {
   function caudalRound(L, c) { return fin([[-L * 0.48, 0.02 * L], [-L * 0.56, 0.1 * L], [-L * 0.64, 0.06 * L], [-L * 0.66, 0], [-L * 0.64, -0.06 * L], [-L * 0.56, -0.1 * L], [-L * 0.48, -0.02 * L]], c, 'yz'); }
   function caudalShark(L, c) { return fin([[-L * 0.47, 0.01 * L], [-L * 0.56, 0.11 * L], [-L * 0.68, 0.2 * L], [-L * 0.7, 0.17 * L], [-L * 0.6, 0.02 * L], [-L * 0.64, -0.06 * L], [-L * 0.58, -0.07 * L], [-L * 0.5, -0.01 * L]], c, 'yz'); }
   function flukes(L, c, wide) { var w = (wide ? 0.17 : 0.13) * L; return fin([[-w, -L * 0.5 - 0.06 * L], [-w * 0.2, -L * 0.48], [w * 0.2, -L * 0.48], [w, -L * 0.5 - 0.06 * L], [w * 0.6, -L * 0.5 - 0.075 * L], [0, -L * 0.5 - 0.045 * L], [-w * 0.6, -L * 0.5 - 0.075 * L]], c, 'xz'); }
-  function dorsal(L, c, z0, h, w, swept) { return fin([[z0, 0], [z0 - (swept ? L * 0.02 : 0) + w * 0.2, h], [z0 - w * 0.8, h * 0.35], [z0 - w, 0]], c, 'yz', mat4(0, L * 0.07, 0)); }
+  function dorsal(L, c, z0, h, w, swept) { return fin([[z0, 0], [z0 + w * .08, h * .3], [z0 - (swept ? w * .3 : 0), h * .95], [z0 - w * .42, h], [z0 - w * .65, h * .52], [z0 - w, h * .12], [z0 - w, 0]], c, 'yz', mat4(0, L * 0.07, 0)); }
   function pectoral(L, c, z0, len, w, y, up) { var l = fin([[0, 0], [len * 0.55, -len * 0.35], [len, -len * 0.65], [len * 0.8, -len * 0.75], [len * 0.25, -len * 0.35]], c, 'xz', mat4(w, y, z0, up || 0, 0, -0.35)), r = fin([[0, 0], [-len * 0.55, -len * 0.35], [-len, -len * 0.65], [-len * 0.8, -len * 0.75], [-len * 0.25, -len * 0.35]], c, 'xz', mat4(-w, y, z0, up || 0, 0, 0.35)); return [l, r]; }
   function anal(L, c, z0, h, w) { return fin([[z0, 0], [z0 - w * 0.3, -h], [z0 - w, -h * 0.3], [z0 - w, 0]], c, 'yz', mat4(0, -L * 0.05, 0)); }
+
+  function turtlePaddle(L, side, front, color) {
+    var length = L * (front ? .58 : .31), width = L * (front ? .12 : .085);
+    var g = tube(length, 18, 10, function (t) {
+      var r = Math.pow(Math.sin(Math.PI * t), .65) * (0.65 + .35 * t);
+      return { rx: width * r, ry: L * .025 * r, dy: 0 };
+    }, function (t, ang) {
+      var base = rgb(color), grain = .05 * Math.sin(t * 38 + ang * 8);
+      return [Math.max(0,base[0]+grain),Math.max(0,base[1]+grain),Math.max(0,base[2]+grain)];
+    });
+    g.translate(0, 0, length * .5);
+    var dx = side * (front ? .92 : .8), dz = front ? -.38 : -.65;
+    g.rotateY(Math.atan2(dx,dz));
+    g.translate(side * L * (front ? .25 : .24), -L*.01, front ? L*.24 : -L*.27);
+    return g;
+  }
 
   // ── Graditelji ───────────────────────────────────────────────────────────
   function build(name, L, opts) {
@@ -117,7 +204,19 @@ var CR = (function () {
     var pat = opts.pattern || null, col = shade(D, Vt, pat);
     switch (opts.shape) {
       case 'shark': {
-        parts.push(tube(L, 28, 16, rel(sharkProf, L), col));
+        shin = 24; spec = 0x1d2930;
+        var sharkShape = opts.whaleShark ? whaleSharkProf : sharkProf;
+        parts.push(tube(L, 40, 24, rel(sharkShape, L), col));
+        if (opts.whaleShark) {
+          // Broad, flattened terminal mouth and snout, unlike a pointed hunting shark.
+          parts.push(sphere(L * .09, D, 0, -L * .012, L * .41, 1.65, .42, 1.1));
+          parts.push(fin([[-L*.12,0],[0,-L*.008],[L*.12,0],[L*.1,-L*.012],[-L*.1,-L*.012]], 0x18212a, 'xz', mat4(0, -L*.048, L*.48)));
+        }
+        if (opts.goblin) {
+          // Flattened, projecting rostrum characteristic of the goblin shark.
+          var snout = tube(L * .25, 10, 10, function (t) { var r = .025 * (1 - t * .8); return { rx: L*r, ry: L*r*.4, dy: 0 }; }, col);
+          snout.rotateY(Math.PI); snout.translate(0, L * .008, L * .59); parts.push(snout);
+        }
         if (opts.thresher) {
           parts.push(fin([[-L * 0.46, 0.02 * L], [-L * 0.62, 0.16 * L], [-L * 0.98, 0.34 * L], [-L * 1.02, 0.30 * L], [-L * 0.64, 0.03 * L], [-L * 0.64, -0.06 * L], [-L * 0.56, -0.06 * L], [-L * 0.49, -0.01 * L]], F, 'yz'));
         } else {
@@ -126,10 +225,20 @@ var CR = (function () {
         parts.push(dorsal(L, F, L * 0.05, L * 0.16, L * 0.16, true)); parts.push(dorsal(L, F, -L * 0.3, L * 0.05, L * 0.06, true));
         parts.push.apply(parts, pectoral(L, F, L * 0.15, L * 0.22, L * 0.06, -L * 0.02, 0.15)); parts.push(anal(L, F, -L * 0.3, L * 0.04, L * 0.05));
         if (opts.hammer) { var hm = tube(L * 0.08, 4, 10, function (t) { return { rx: L * 0.21 * Math.sin(t * Math.PI) + 0.01, ry: L * 0.022, dy: 0 }; }, col); hm.rotateY(Math.PI / 2); hm.translate(0, 0, L * 0.47); parts.push(hm); parts.push.apply(parts, eye(L, L * 0.2, 0, L * 0.47, L * 0.014)); parts.push.apply(parts, eye(L, -L * 0.2, 0, L * 0.47, L * 0.014)); }
-        else parts.push.apply(parts, eyes(rel(sharkProf, L), L, 0.13, L * 0.012, 0.35));
+        else parts.push.apply(parts, eyes(rel(sharkShape, L), L, 0.13, L * 0.012, 0.35, 0x171e21));
         // škrge
-        for (i = 0; i < 5; i++) { var gp = on(rel(sharkProf, L), L, 0.28 + i * 0.02, 1.01, 0), gl = fin([[0, 0], [0.01 * L, 0.04 * L], [0.012 * L, 0.04 * L], [0.004 * L, 0]], 0x222a33, 'yz', mat4(gp.x, gp.y - L * 0.01, gp.z)); parts.push(gl); var gr = gl.clone(); gr.translate(-2 * gp.x, 0, 0); parts.push(gr); }
-        var mp = on(rel(sharkProf, L), L, 0.1, 0, -0.95), mouth = fin([[-L * 0.03, 0], [0, L * 0.06], [L * 0.03, 0]], 0x1a0f10, 'xz', mat4(0, mp.y, mp.z - L * 0.03)); parts.push(mouth);
+        for (i = 0; i < 5; i++) { var gp = on(rel(sharkShape, L), L, 0.28 + i * 0.02, 1.01, 0), gl = fin([[0, 0], [0.01 * L, 0.04 * L], [0.012 * L, 0.04 * L], [0.004 * L, 0]], 0x222a33, 'yz', mat4(gp.x, gp.y - L * 0.01, gp.z)); parts.push(gl); var gr = gl.clone(); gr.translate(-2 * gp.x, 0, 0); parts.push(gr); }
+        if (!LOD && !opts.whaleShark && !opts.hammer) {
+          [-1, 1].forEach(function (side) {
+            var jaw = [];
+            for (var j = 0; j <= 14; j++) {
+              var t = .045 + j * .012, p = rel(sharkShape, L)(t), v = -.63 + .12 * Math.sin(j / 14 * Math.PI);
+              jaw.push(new T.Vector3(side * p.rx * Math.sqrt(1-v*v) * 1.015, p.dy + p.ry * v, L*(.5-t)));
+            }
+            parts.push(paint(new T.TubeGeometry(new T.CatmullRomCurve3(jaw), 18, L*.0018, 4, false), 0x222528));
+          });
+        }
+        var mp = on(rel(sharkShape, L), L, 0.1, 0, -0.95), mouth = fin([[-L * 0.03, 0], [0, L * 0.06], [L * 0.03, 0]], 0x1a0f10, 'xz', mat4(0, mp.y, mp.z - L * 0.03)); parts.push(mouth);
         break;
       }
       case 'orca': case 'dolphin': case 'seal': {
@@ -139,7 +248,7 @@ var CR = (function () {
         parts.push.apply(parts, pectoral(L, F, L * 0.2, isOrca ? L * 0.16 : L * 0.12, L * 0.06, -L * 0.03, 0.3));
         parts.push.apply(parts, eyes(rel(dolphinProf, L), L, 0.14, L * 0.011, 0.25));
         if (isOrca) { var ep = on(rel(dolphinProf, L), L, 0.17, 0.95, 0.45), sp6 = on(rel(dolphinProf, L), L, 0.62, 0, 0.98); parts.push(sphere(L * 0.03, 0xf4f4f4, ep.x, ep.y, ep.z, 1.6, 0.9, 1.1)); parts.push(sphere(L * 0.03, 0xf4f4f4, -ep.x, ep.y, ep.z, 1.6, 0.9, 1.1)); parts.push(sphere(L * 0.06, 0xd8d8e0, 0, sp6.y, sp6.z, 1.2, 0.3, 1)); }
-        if (opts.shape === 'dolphin') { parts.push(tube(L * 0.1, 4, 8, function (t) { return { rx: L * 0.025 * (1 - t * 0.5), ry: L * 0.02 * (1 - t * 0.5), dy: -L * 0.01 }; }, col).translate(0, 0, L * 0.5)); }
+        if (opts.shape === 'dolphin') { parts.push(sphere(L * .04, D, 0, -L * .015, L * .47, .7, .5, 2.25)); }
         break;
       }
       case 'whale': {
@@ -212,15 +321,33 @@ var CR = (function () {
         break;
       }
       case 'turtle': {
-        mode = 5; shin = 12; var Sh = rgb(c.dorsal || 0x5a6b3a), Sl = rgb(c.ventral || 0xd8c89a), Sk = c.fin || 0x7a8a50;
-        var shell = new T.SphereGeometry(L * 0.42, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.5); shell.scale(0.85, 0.5, 1); var sp2 = shell.attributes.position, scol = new Float32Array(sp2.count * 3); for (i = 0; i < sp2.count; i++) { var hx = sp2.getX(i) / L, hz = sp2.getZ(i) / L; var cell = Math.sin(hx * 26) * Math.sin(hz * 22); var cc = cell > 0.55 ? mix(Sh, [0.2, 0.25, 0.12], 0.6) : mix(Sh, [0.75, 0.7, 0.4], Math.max(0, cell) * 0.3); scol[i * 3] = cc[0]; scol[i * 3 + 1] = cc[1]; scol[i * 3 + 2] = cc[2]; } shell.setAttribute('color', new T.BufferAttribute(scol, 3)); shell.computeVertexNormals(); parts.push(shell);
+        mode = 7; shin = 16; var Sh = rgb(c.dorsal || 0x5a6b3a), Sl = rgb(c.ventral || 0xd8c89a), Sk = c.fin || 0x7a8a50;
+        // A high-resolution carapace with individual scutes, not a single green dome.
+        var shell = new T.SphereGeometry(L * 0.42, LOD ? 18 : 72, LOD ? 12 : 48, 0, Math.PI * 2, 0, Math.PI * 0.5);
+        shell.scale(0.85, 0.5, 1);
+        var sp2 = shell.attributes.position, scol = new Float32Array(sp2.count * 3), centers = [];
+        for (var row = -2; row <= 2; row++) {
+          centers.push([0, row * .15]);
+          centers.push([-.19, row * .15 + .06]); centers.push([.19, row * .15 + .06]);
+        }
+        for (i = 0; i < sp2.count; i++) {
+          var hx = sp2.getX(i) / L, hz = sp2.getZ(i) / L, near = 10, second = 10, cellId = 0;
+          for (var ci = 0; ci < centers.length; ci++) {
+            var dx = (hx - centers[ci][0]) * 1.05, dz = (hz - centers[ci][1]) * 1.25, dd = dx * dx + dz * dz;
+            if (dd < near) { second = near; near = dd; cellId = ci; } else if (dd < second) second = dd;
+          }
+          var seam = Math.max(0, 1 - (second - near) / .006);
+          var variation = .12 + .16 * (.5 + .5 * Math.sin(cellId * 2.7));
+          var cc = mix(Sh, [0.66, 0.53, 0.28], variation + .14 * Math.max(0, 1 - near * 95));
+          cc = mix(cc, [0.11, 0.15, 0.085], seam * .7);
+          scol[i * 3] = cc[0]; scol[i * 3 + 1] = cc[1]; scol[i * 3 + 2] = cc[2];
+        }
+        shell.setAttribute('color', new T.BufferAttribute(scol, 3)); shell.computeVertexNormals(); parts.push(shell);
         var plast = new T.SphereGeometry(L * 0.4, 12, 8, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5); plast.scale(0.8, 0.2, 0.95); paint(plast, c.ventral || 0xd8c89a); parts.push(plast);
         parts.push(tube(L * 0.3, 6, 8, function (t) { var r = Math.sin(Math.pow(t, 0.6) * Math.PI); return { rx: Math.max(0.01, r) * L * 0.07, ry: Math.max(0.01, r) * L * 0.07, dy: 0 }; }, function () { return rgb(Sk); }).translate(0, L * 0.02, L * 0.5));
         parts.push.apply(parts, eye(L, L * 0.045, L * 0.045, L * 0.55, L * 0.012)); parts.push.apply(parts, eye(L, -L * 0.045, L * 0.045, L * 0.55, L * 0.012));
-        parts.push(fin([[0, 0], [L * 0.3, -L * 0.12], [L * 0.5, -L * 0.3], [L * 0.42, -L * 0.34], [L * 0.1, -L * 0.14]], Sk, 'xz', mat4(L * 0.3, 0, L * 0.3, 0, 0.4, 0)));
-        parts.push(fin([[0, 0], [-L * 0.3, -L * 0.12], [-L * 0.5, -L * 0.3], [-L * 0.42, -L * 0.34], [-L * 0.1, -L * 0.14]], Sk, 'xz', mat4(-L * 0.3, 0, L * 0.3, 0, -0.4, 0)));
-        parts.push(fin([[0, 0], [L * 0.2, -L * 0.1], [L * 0.22, -L * 0.2], [L * 0.05, -L * 0.1]], Sk, 'xz', mat4(L * 0.28, 0, -L * 0.3)));
-        parts.push(fin([[0, 0], [-L * 0.2, -L * 0.1], [-L * 0.22, -L * 0.2], [-L * 0.05, -L * 0.1]], Sk, 'xz', mat4(-L * 0.28, 0, -L * 0.3)));
+        parts.push(turtlePaddle(L, 1, true, Sk)); parts.push(turtlePaddle(L, -1, true, Sk));
+        parts.push(turtlePaddle(L, 1, false, Sk)); parts.push(turtlePaddle(L, -1, false, Sk));
         break;
       }
       case 'crab': {
@@ -245,7 +372,25 @@ var CR = (function () {
         break;
       }
       case 'seahorse': {
-        mode = 5; parts.push(tube(L, 20, 8, function (t) { var r = t < 0.2 ? 0.5 + t : t < 0.5 ? 1 : 1 - (t - 0.5) * 1.6; return { rx: Math.max(0.01, r) * L * 0.1, ry: Math.max(0.01, r) * L * 0.12, dy: 0 }; }, col)); parts.push(tube(L * 0.25, 4, 6, function (t) { return { rx: L * 0.03, ry: L * 0.035, dy: 0 }; }, col).translate(0, L * 0.05, L * 0.55)); parts.push(fin([[L * 0.1, 0], [-L * 0.05, L * 0.12], [-L * 0.2, 0]], F, 'yz', mat4(0, L * 0.1, 0))); parts.push.apply(parts, eye(L, L * 0.05, L * 0.06, L * 0.45, L * 0.02)); parts.push.apply(parts, eye(L, -L * 0.05, L * 0.06, L * 0.45, L * 0.02));
+        // Upright trunk, horse-like snout and a curled prehensile tail.
+        mode = 8; shin = 20;
+        var body = tube(L * .62, 24, 12, function (t) {
+          var r = (.055 + .075 * Math.sin(Math.PI * Math.pow(t, .75))) * (1 + .05 * Math.cos(t * Math.PI * 22));
+          return { rx: L*r*.7, ry: L*r, dy: 0 };
+        }, function (t, ang, sx) { var c0 = col(t, ang, sx); return mix(c0, [0.36, 0.27, 0.12], .16 * (.5 + .5 * Math.cos(t * Math.PI * 22))); });
+        body.rotateX(-Math.PI / 2); parts.push(body);
+        parts.push(sphere(L * .105, D, 0, L * .27, L * .045, .72, .85, 1.15));
+        var snout = tube(L * .22, 8, 8, function (t) { return { rx: L*(.025 + .008*t), ry: L*(.025 + .008*t), dy: 0 }; }, col);
+        snout.translate(0, L * .255, L * .18); parts.push(snout);
+        parts.push.apply(parts, eye(L, L * .065, L * .285, L * .09, L * .018));
+        parts.push.apply(parts, eye(L, -L * .065, L * .285, L * .09, L * .018));
+        var tailPts = [new T.Vector3(0,-L*.28,0)];
+        for (i = 0; i <= 22; i++) {
+          var a = i / 22 * Math.PI * 1.6, rad = L * (.105 - i / 22 * .065);
+          tailPts.push(new T.Vector3(0, -L*.35 - rad * Math.sin(a), -L*.095 + rad * Math.cos(a)));
+        }
+        parts.push(paint(new T.TubeGeometry(new T.CatmullRomCurve3(tailPts), 36, L*.018, 7, false), D));
+        parts.push(fin([[0,0],[-L*.09,L*.06],[-L*.13,L*.13],[-L*.08,L*.17],[0,L*.13]], F, 'yz', mat4(0,0,-L*.07)));
         break;
       }
       case 'urchin': { mode = 5; var ub = new T.IcosahedronGeometry(L * 0.4, 1); paint(ub, D); parts.push(ub); for (i = 0; i < 40; i++) { var th = Math.acos(1 - 2 * (i + 0.5) / 40), phh = i * 2.399; var sp3 = new T.ConeGeometry(L * 0.02, L * 0.6, 4); sp3.translate(0, L * 0.5, 0); paint(sp3, c.fin || 0x1a1024); var dir = new T.Vector3(Math.sin(th) * Math.cos(phh), Math.cos(th), Math.sin(th) * Math.sin(phh)); sp3.applyMatrix4(new T.Matrix4().makeRotationFromQuaternion(new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), dir))); parts.push(sp3); } break; }
@@ -260,10 +405,13 @@ var CR = (function () {
       case 'sunfish': { parts.push(tube(L, 20, 14, rel(tallProf, L), col)); parts.push(fin([[L * 0.1, 0], [-L * 0.1, L * 0.55], [-L * 0.25, L * 0.5], [-L * 0.3, 0]], F, 'yz', mat4(0, L * 0.3, 0))); parts.push(fin([[L * 0.1, 0], [-L * 0.1, -L * 0.55], [-L * 0.25, -L * 0.5], [-L * 0.3, 0]], F, 'yz', mat4(0, -L * 0.3, 0))); parts.push(fin([[-L * 0.45, L * 0.3], [-L * 0.55, L * 0.1], [-L * 0.56, -L * 0.1], [-L * 0.45, -L * 0.3]], F, 'yz')); parts.push.apply(parts, eye(L, L * 0.07, L * 0.05, L * 0.38, L * 0.025)); parts.push.apply(parts, eye(L, -L * 0.07, L * 0.05, L * 0.38, L * 0.025)); break; }
       case 'angler': { shin = 5; parts.push(tube(L, 20, 12, function (t) { var a = Math.sin(Math.pow(t, 1.1) * Math.PI); var r = Math.max(0.004, a * (t > 0.85 ? 0.4 : 1)); return { rx: r * L * 0.22, ry: r * L * 0.26, dy: 0 }; }, col)); parts.push(caudalRound(L, F)); parts.push(fin([[L * 0.46, -L * 0.05], [L * 0.3, -L * 0.22], [L * 0.1, -L * 0.1]], 0x100808, 'yz')); for (i = 0; i < 8; i++) { var tooth = new T.ConeGeometry(L * 0.01, L * 0.06, 4); tooth.rotateX(Math.PI); tooth.translate((i - 3.5) * L * 0.04, -L * 0.02, L * 0.42); paint(tooth, 0xfafaf0); parts.push(tooth); } var rod = tube(L * 0.45, 6, 4, function () { return { rx: L * 0.008, ry: L * 0.008, dy: 0 }; }, function () { return rgb(D); }); rod.applyMatrix4(mat4(0, L * 0.22, L * 0.2, -1.1, 0, 0)); parts.push(rod); parts.push.apply(parts, eye(L, L * 0.12, L * 0.1, L * 0.3, L * 0.03)); parts.push.apply(parts, eye(L, -L * 0.12, L * 0.1, L * 0.3, L * 0.03)); break; }
       default: { // generična kostna riba
-        var H = opts.tall ? 0.19 : opts.slim ? 0.065 : 0.12, Wd = opts.slim ? 0.045 : opts.tall ? 0.05 : 0.065, deep = opts.fast;
-        parts.push(tube(L, 24, 14, rel(fusiform(H, Wd, opts.blunt), L), col));
+        var H = opts.clown ? 0.19 : opts.tall ? 0.19 : opts.slim ? 0.065 : 0.12, Wd = opts.clown ? 0.085 : opts.slim ? 0.045 : opts.tall ? 0.05 : 0.065, deep = opts.fast;
+        parts.push(tube(L, opts.clown ? 64 : 32, 18, rel(fusiform(H, Wd, opts.blunt || opts.clown), L), col));
         parts.push(opts.roundTail ? caudalRound(L, F) : caudalForked(L, F, deep));
-        parts.push(dorsal(L, F, L * (opts.tall ? 0.2 : 0.1), L * (opts.tall ? 0.2 : opts.spiky ? 0.18 : 0.08), L * (opts.tall ? 0.45 : opts.spiky ? 0.35 : 0.25), !opts.tall));
+        if (opts.clown) {
+          parts.push(fin([[L*.30,L*.08],[L*.21,L*.22],[L*.04,L*.25],[-L*.18,L*.19],[-L*.30,L*.08]], F, 'yz'));
+          parts.push(fin([[-L*.06,-L*.13],[-L*.15,-L*.23],[-L*.30,-L*.14],[-L*.34,-L*.06]], F, 'yz'));
+        } else { var df = dorsal(L, F, L * (opts.tall ? 0.2 : 0.1), L * (opts.tall ? 0.2 : opts.spiky ? 0.18 : 0.08), L * (opts.tall ? 0.45 : opts.spiky ? 0.35 : 0.25), !opts.tall); if (opts.tall) df.translate(0, L * .06, 0); parts.push(df); }
         parts.push.apply(parts, pectoral(L, F, L * 0.18, L * (opts.wings ? 0.42 : 0.14), L * Wd * 0.8, -L * 0.02, opts.wings ? 0.1 : 0.4));
         parts.push(anal(L, F, -L * 0.12, L * 0.06, L * 0.16));
         if (deep) { parts.push(fin([[-L * 0.1, 0], [-L * 0.2, L * 0.05], [-L * 0.28, 0]], F, 'yz', mat4(0, L * 0.07, 0))); }
@@ -271,12 +419,13 @@ var CR = (function () {
         if (opts.spiky) { for (i = 0; i < 13; i++) { var sp5 = fin([[0, 0], [L * 0.012, L * 0.3 + Math.sin(i) * L * 0.05], [L * 0.024, 0]], 0xf0e0d0, 'yz', mat4(0, L * 0.05, L * 0.2 - i * L * 0.035, 0, 0, 0)); sp5.rotateX(0.2 - i * 0.05); parts.push(sp5); } parts.push.apply(parts, pectoral(L, 0xf0d8c8, L * 0.1, L * 0.32, L * 0.05, 0, 0.6)); }
         if (opts.barbels) { parts.push(tube(L * 0.2, 3, 3, function () { return { rx: L * 0.006, ry: L * 0.006, dy: 0 }; }, function () { return rgb(0xf0e0b0); }).applyMatrix4(mat4(L * 0.02, -L * 0.07, L * 0.4, 1.2, 0, 0))); parts.push(tube(L * 0.2, 3, 3, function () { return { rx: L * 0.006, ry: L * 0.006, dy: 0 }; }, function () { return rgb(0xf0e0b0); }).applyMatrix4(mat4(-L * 0.02, -L * 0.07, L * 0.4, 1.2, 0, 0))); }
         parts.push.apply(parts, eyes(rel(fusiform(H, Wd, opts.blunt), L), L, 0.13, L * (opts.bigEye ? 0.03 : 0.022), 0.35));
+        parts.push.apply(parts, gillCovers(rel(fusiform(H, Wd, opts.blunt), L), L, D));
         shin = opts.shiny ? 90 : 35; spec = opts.shiny ? 0xaabbcc : 0x334455;
         if (opts.mouth) parts.push(fin([[0, 0], [L * 0.06, -L * 0.015], [L * 0.08, 0]], 0x1a0a0a, 'xz', mat4(0, -H * L * 0.4, L * 0.42)));
       }
     }
     var geo = merge(parts); geo.computeBoundingSphere(); LOD = false;
-    var mat = swimMaterial({ len: L, mode: opts.mode !== undefined ? opts.mode : mode, shininess: shin, specular: spec, transparent: opts.transparent, opacity: opts.opacity });
+    var mat = swimMaterial({ len: L, mode: opts.mode !== undefined ? opts.mode : mode, shininess: shin, specular: spec, transparent: opts.transparent, opacity: opts.opacity, skin: opts.whaleShark ? 3 : opts.shape === 'shark' ? 2 : !opts.shape ? 1 : 0 });
     var mesh = new T.Mesh(geo, mat); mesh.frustumCulled = true;
     var grp = new T.Group(); grp.add(mesh);
     var hit = new T.Mesh(new T.SphereGeometry(Math.max(0.6, L * 0.55), 6, 4), new T.MeshBasicMaterial({ visible: false })); grp.add(hit);
@@ -287,6 +436,14 @@ var CR = (function () {
   // ── Vizualne specifikacije vrst ──────────────────────────────────────────
   // L = dolžina v metrih (realistična), shape + barve + vzorci
   var SPEC = {
+    'lanternfish': { L: 0.16, colors: { dorsal: 0x28476b, ventral: 0xb7c7cc, fin: 0x648398 }, slim: true, shiny: true, bigEye: true },
+    'clownfish': { L: 0.14, colors: { dorsal: 0xe76418, ventral: 0xf08d33, fin: 0x743817 }, pattern: clownPattern, clown: true, roundTail: true },
+    'titan triggerfish': { L: 0.75, colors: { dorsal: 0x606745, ventral: 0xd3c992, fin: 0x292b24 }, tall: true, pattern: spots(0xc9bd79, 2, 3) },
+    'stonefish': { L: 0.4, colors: { dorsal: 0x645849, ventral: 0x9c917a, fin: 0x594a40 }, blunt: true, roundTail: true, spiky: true, pattern: spots(0x332c26, 2, 8) },
+    'giant trevally': { L: 1.7, colors: { dorsal: 0x73818b, ventral: 0xd7dce0, fin: 0x505962 }, fast: true, shiny: true, blunt: true },
+    'ribbonfish': { L: 2.4, shape: 'eel', colors: { dorsal: 0x9fb3bd, ventral: 0xe4eef1, fin: 0xb65c60 }, shiny: true },
+    'lemon shark': { L: 2.8, shape: 'shark', colors: { dorsal: 0x9c8961, ventral: 0xddd2b5, fin: 0x81714f } },
+    'goblin shark': { L: 3.5, shape: 'shark', goblin: true, colors: { dorsal: 0x987f80, ventral: 0xd9c6bd, fin: 0x8d6e70 } },
     'sardine': { L: 0.22, colors: { dorsal: 0x3a6a8a, ventral: 0xe8f0f4, fin: 0xa8c0d0 }, slim: true, shiny: true, bigEye: true },
     'anchovy': { L: 0.16, colors: { dorsal: 0x4a7a90, ventral: 0xf0f4f6, fin: 0xb8c8d0 }, slim: true, shiny: true, bigEye: true },
     'herring': { L: 0.28, colors: { dorsal: 0x2d5878, ventral: 0xe6eff5, fin: 0x9ab4c6 }, slim: true, shiny: true, bigEye: true },
@@ -359,7 +516,7 @@ var CR = (function () {
     'hammerhead': { L: 4.0, shape: 'shark', hammer: true, colors: { dorsal: 0x6a7060, ventral: 0xe8ece8, fin: 0x5a6050 } },
     'bull shark': { L: 3.2, shape: 'shark', colors: { dorsal: 0x6a7a80, ventral: 0xe0e8ea, fin: 0x5a6a70 } },
     'nurse shark': { L: 2.8, shape: 'shark', colors: { dorsal: 0x8a7454, ventral: 0xd8ccb4, fin: 0x725e42 } },
-    'whale shark': { L: 11.0, shape: 'shark', colors: { dorsal: 0x2a3b4c, ventral: 0xe4eaee, fin: 0x22303e }, pattern: spots(0xeef6ff, 3.2, 7) },
+    'whale shark': { L: 11.0, shape: 'shark', whaleShark: true, colors: { dorsal: 0x2a3b4c, ventral: 0xd3e0e5, fin: 0x22303e } },
     'reef shark': { L: 1.8, shape: 'shark', colors: { dorsal: 0x7a8a90, ventral: 0xe8eef0, fin: 0x3a3a3a } },
     'orca': { L: 8.0, shape: 'orca', colors: { dorsal: 0x0a0c10, ventral: 0xf4f4f6, fin: 0x0a0c10 } },
     'jellyfish bloom': { L: 0.5, shape: 'jelly', colors: { dorsal: 0xffb6d6, fin: 0xff8fc0 }, transparent: true, opacity: 0.5 }
@@ -385,6 +542,8 @@ var CR = (function () {
     else if (m === 4) { freq = 1.4 + Math.min(5, spd * 1.1); amp = 0.06 + Math.min(0.08, spd * 0.025); }
     else if (m === 5) { freq = 0; amp = 0; }
     else if (m === 6) { freq = 2.0 + Math.min(6, spd * 3.5); amp = spd > 0.04 ? Math.min(0.12, 0.04 + spd * 0.08) : 0.0; }
+    else if (m === 7) { freq = 1.0 + Math.min(2, spd * .6); amp = 0.12 + Math.min(0.16, spd * .035); }
+    else if (m === 8) { freq = 3.0 + Math.min(3, spd); amp = .025; }
     var sm = Math.min(1, dtStep * 7.0);
     u.uFreq.value += (freq - u.uFreq.value) * sm;
     u.uAmp.value += (amp - u.uAmp.value) * sm;
