@@ -9,7 +9,7 @@ fs.mkdirSync(path.join(root, 'build'), { recursive: true });
 fs.writeFileSync(path.join(root, 'build/ocean.bundle.js'), bundle);
 var tpl = fs.existsSync(path.join(root, 'viewer/viewer.html')) ? rd('viewer/viewer.html') : null;
 if (tpl) {
-  var three = rd('lib/three.min.js'), cjs = rd('viewer/creatures.js'), ojs = rd('viewer/ocean.js'), vjs = rd('viewer/viewer.js');
+  var three = rd('lib/three.min.js'), cjs = rd('viewer/creatures.js'), ojs = rd('viewer/ocean.js'), vjs = rd('viewer/connection.js') + '\n' + rd('viewer/reef.js') + '\n' + rd('viewer/schools.js') + '\n' + rd('viewer/viewer.js');
   var built = new Date().toISOString().slice(0, 16).replace('T', ' ');
   var html = tpl
     .replace('/*__THREE__*/', function () { return three; })

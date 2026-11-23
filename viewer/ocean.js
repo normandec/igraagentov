@@ -313,7 +313,10 @@ var OCEAN = (function () {
     var fog = new T.Color().setRGB(0.01 + 0.08 * Lc * att.r, 0.07 + 0.32 * Lc * (0.6 + 0.4 * att.g), 0.16 + 0.42 * Lc);
     if (above) fog.setRGB(0.52 * light + 0.08, 0.70 * light + 0.12, 0.92 * light + 0.06);
     lights.sun.color.copy(above ? sunCol : sunUnder); lights.sun.intensity = above ? 0.95 + 0.65 * light : 0.18 + 0.78 * light * Math.exp(-camD / 60);
-    lights.sun.position.set(sunDir.x * 400, sunDir.y * 400, sunDir.z * 400).add(new T.Vector3(cam.position.x, 0, cam.position.z));
+    // Keep the light target under the camera as well: otherwise a camera move
+    // silently changes the direction of every Phong-lit creature and plant.
+    lights.sun.target.position.set(cam.position.x, 0, cam.position.z);
+    lights.sun.position.set(cam.position.x + sunDir.x * 400, sunDir.y * 400, cam.position.z + sunDir.z * 400);
     lights.hemi.color.copy(fog).multiplyScalar(1.6); lights.hemi.groundColor.setRGB(0.02, 0.05, 0.08); lights.hemi.intensity = 0.22 + 0.56 * light * Math.exp(-camD / 120);
     lights.amb.color.setRGB(0.1 + 0.1 * att.r, 0.18, 0.3); lights.amb.intensity = 0.2 + 0.35 * Lc + (above ? 0.3 : 0);
     var dens = above ? 0.0012 : 0.0052 + 0.019 * (1 - Lc);

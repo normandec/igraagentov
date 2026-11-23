@@ -1,4 +1,4 @@
-// OCEAN ARENA v5 bundle — built 2026-11-22T11:58:35.678Z from engine/world.js + species.js + engine.js + http.js. DO NOT EDIT BY HAND.
+// OCEAN ARENA v5 bundle — built 2026-11-22T17:45:16.418Z from engine/world.js + species.js + engine.js + http.js. DO NOT EDIT BY HAND.
 // OCEAN ARENA v5 — world geometry, beaches, coastal mountains, seafloor, landmarks, currents, tides & 10x flora/rocks
 var OC = globalThis.OC || (globalThis.OC = {});
 (function (OC) {
@@ -1497,6 +1497,9 @@ var OC = globalThis.OC || (globalThis.OC = {});
   function moveNpc(g, a, sp, wantH, spd, wantD, opts) {
     opts = opts || {};
     var prevD = a.d, baseTurn = opts.turn || 90;
+    if (a.avoidT > 0 && opts.moveH === undefined && opts.faceH === undefined) {
+      wantH = a.avoidH; a.avoidT--;
+    }
     if (opts.chase && opts.faceH === undefined) {
       var err = Math.abs(relAngle(wantH, a.h));
       baseTurn = baseTurn * (1 + clamp(err / 85, 0, 1.05));
@@ -1516,10 +1519,24 @@ var OC = globalThis.OC || (globalThis.OC = {});
     var badShore = fl < minFl;
     var badShark = sp.kind === 'shark' && ((fl < (sp.shallowOK || 14) && fl < floorAt(a.x, a.z) + 0.05) || (OC.kelpAt(nx, nz, a.d) && !OC.kelpAt(a.x, a.z, a.d)) || (sp.size > 3 && OC.reefAt(nx, nz, a.d) && fl < 14 && !OC.reefAt(a.x, a.z, a.d)));
     if (badShore || badShark) {
-      var toCenter = bearing(a.x, a.z, 320, 320);
-      a.h = turnToward(a.h, norm360(toCenter + (rnd(g) - 0.5) * 70), Math.max(turnAmt * 2, 45));
-      a.tm = Math.max(a.tm || 0, 8);
-      if (badShore) { a.spd = spd * 0.2; return; }
+      // Keep a chosen escape heading for several ticks: repeatedly steering back
+      // toward an unreachable waypoint otherwise pins animals to the shore.
+      var currentFloor = floorAt(a.x, a.z), heading = opts.moveH !== undefined ? opts.moveH : a.h;
+      var offsets = [45, -45, 90, -90, 135, -135, 180], found = false;
+      for (var ci = 0; ci < offsets.length; ci++) {
+        var alt = norm360(heading + offsets[ci]), ar = alt * D2R;
+        var tx = clamp(a.x + Math.sin(ar) * spd * DT, 2, OC.W - 2);
+        var tz = clamp(a.z - Math.cos(ar) * spd * DT, 2, OC.L - 2);
+        var tf = floorAt(tx, tz);
+        var improving = currentFloor < minFl && tf > currentFloor + 0.01;
+        if (tf < minFl && !improving) continue;
+        if (sp.kind === 'shark' && OC.kelpAt(tx, tz, a.d) && !OC.kelpAt(a.x, a.z, a.d)) continue;
+        if (sp.kind === 'shark' && sp.size > 3 && OC.reefAt(tx, tz, a.d) && tf < 14 && !OC.reefAt(a.x, a.z, a.d)) continue;
+        a.x = tx; a.z = tz; a.avoidH = alt; a.avoidT = 12;
+        if (opts.moveH === undefined && opts.faceH === undefined) a.h = alt;
+        found = true; break;
+      }
+      if (!found) { a.h = turnToward(a.h, bearing(a.x, a.z, 320, 320), Math.max(turnAmt, 45)); a.spd = 0; return; }
     } else {
       a.x = nx; a.z = nz;
     }
@@ -1538,7 +1555,11 @@ var OC = globalThis.OC || (globalThis.OC = {});
     var act = twilight ? 1.25 : pr.active === 'any' ? 1 : (pr.active === 'night' ? (isNight(g) ? 1 : 0.45) : (isDay(g) ? 1 : 0.45));
     var isApexShark = (sp.kind === 'shark' && a.sp !== 'orca');
     for (i = 0; i < candidates.length; i++) {
-      var f = candidates[i], fsz = f.sz || SP[f.sp].size; if (!f.alive) continue;
+      var f = candidates[i];
+      // Wild predators are also in the shared prey cache. Never target oneself
+      // or attack a same-species peer as ordinary foraging prey.
+      if (!f.alive || f === a || (f.sp && f.sp === a.sp)) continue;
+      var fsz = f.sz || SP[f.sp].size;
       if (f.sp) {
         var fsp = SP[f.sp];
         if (fsp.kind === 'school' && f.n <= 0) continue;
@@ -1633,26 +1654,29 @@ var OC = globalThis.OC || (globalThis.OC = {});
   function stepSchool(g, a, sp) {
     if (a.n <= 0) { if (!g.famine && rnd(g) < 0.0025) a.n = Math.round(sp.n * 0.35); return; }
     var threat = null, td = 1e9, i, f;
-    for (i = 0; i < g.fish.length; i++) {
-      f = g.fish[i]; if (!f.alive || f.spd < 0.3) continue;
-      if (Math.abs(a.x - f.x) > 18 || Math.abs(a.z - f.z) > 18) continue;
-      var dd = dist3(a, f); if (dd < 18 && dd < td) { td = dd; threat = f; }
-    }
-    if (!threat && g._preds && ((g.tick + a.ph) & 1) === 0) {
-      for (i = 0; i < g._preds.length; i++) {
-        var prd = g._preds[i];
-        if (Math.abs(a.x - prd.x) > 24 || Math.abs(a.z - prd.z) > 24) continue;
-        var dp = dist3(a, prd); if (dp < 24 && dp < td) { td = dp; threat = prd; }
+    // A school reacts to any sufficiently large moving animal, not just predators.
+    // The grid bounds the work per school and is rebuilt once per tick.
+    var gx = Math.floor(a.x / 32), gz = Math.floor(a.z / 32);
+    for (var dx = -1; dx <= 1; dx++) for (var dz = -1; dz <= 1; dz++) {
+      var nearby = g._schoolThreats[(gx + dx) + ',' + (gz + dz)] || [];
+      for (i = 0; i < nearby.length; i++) {
+        f = nearby[i]; if (f === a || !f.alive) continue;
+        var fs = f.sp ? SP[f.sp] : null, size = fs ? fs.size : f.sz;
+        if (size < Math.max(0.4, sp.size * 1.8)) continue;
+        var sense = fs && (fs.kind === 'shark' || fs.kind === 'hunter' || fs.kind === 'pack' || fs.kind === 'kraken') ? 24 : 13;
+        if ((f.spd || 0) < 0.3 && !(fs && fs.prey)) continue;
+        if (Math.abs(a.x - f.x) > sense || Math.abs(a.z - f.z) > sense || Math.abs(a.d - f.d) > sense) continue;
+        var dd = dist3(a, f); if (dd < sense && dd < td) { td = dd; threat = f; }
       }
     }
     var spd = sp.speed, want = a.h;
     if (threat) {
       want = norm360(bearing(a.x, a.z, threat.x, threat.z) + 180 + (rnd(g) - 0.5) * 60);
-      spd = sp.flee; a.tm = 24; a.st = 'flee';
+      spd = sp.flee; a.tm = 24; a.st = 'flee'; a.tg = threat.id;
     } else if (a.tm > 0) {
       a.tm--; want = a.h + Math.sin(g.tick * 0.4 + a.ph) * 20; spd = sp.flee * 0.78; a.st = 'flee';
     } else {
-      a.st = 'school';
+      a.st = 'school'; a.tg = null;
       var homeD = distH(a, { x: a.hx, z: a.hz });
       want = homeD > 55 ? bearing(a.x, a.z, a.hx, a.hz) : norm360(a.h + Math.sin(g.tick * 0.08 + a.ph) * 14 + (rnd(g) - 0.5) * 18);
     }
@@ -1903,6 +1927,13 @@ var OC = globalThis.OC || (globalThis.OC = {});
   function stepWander(g, a, sp) {
     var i, threat = null, td = 1e9;
     if (sp.flee) for (i = 0; i < g.fish.length; i++) { var f = g.fish[i]; if (!f.alive || f.sz < sp.size * 0.8 || f.spd < 0.3) continue; var dd = dist3(a, f); if (dd < 11 && dd < td) { td = dd; threat = f; } }
+    // Free-swimming reef fish also perceive wild predators, not only agents.
+    if (sp.flee && g._preds) for (i = 0; i < g._preds.length; i++) {
+      var predator = g._preds[i], predSp = SP[predator.sp];
+      if (predator === a || !predator.alive || predSp.size < sp.size * 1.4) continue;
+      if (Math.abs(a.x - predator.x) > 14 || Math.abs(a.z - predator.z) > 14 || Math.abs(a.d - predator.d) > 14) continue;
+      var pd = dist3(a, predator); if (pd < 14 && pd < td) { td = pd; threat = predator; }
+    }
     var night = isNight(g), asleep = (sp.sleepsNight && night) || (sp.nocturnal && !night);
     if (sp.breathes) {
       if (a.breath === undefined) a.breath = Math.floor(rnd(g) * 450);
@@ -1914,19 +1945,28 @@ var OC = globalThis.OC || (globalThis.OC = {});
         return;
       }
     }
+    // Escape takes priority over feeding or resting.
+    if (threat && (!asleep || td < 7)) { a.st = 'flee'; a.tm = 20; moveNpc(g, a, sp, norm360(bearing(a.x, a.z, threat.x, threat.z) + 180), sp.flee, a.d, { turn: 165 }); return; }
+    if (a.st === 'flee' && a.tm > 0) { a.tm--; moveNpc(g, a, sp, a.h, sp.flee * 0.8, a.d); return; }
     if (sp.eatsJellies && g.blooms.length) {
       var bl = g.blooms[0], bdd = 1e9;
-      g.blooms.forEach(function (b) { var q = dist3(a, b); if (q < bdd) { bdd = q; bl = b; } });
-      if (bdd > 10) { moveNpc(g, a, sp, bearing(a.x, a.z, bl.x, bl.z), sp.speed, bl.d, { turn: 75 }); return; }
-      if (bl.n > 5 && rnd(g) < 0.01) bl.n--;
-      a.st = 'forage'; a.spd = 0.25; return;
+      g.blooms.forEach(function (b) { var q = dist3(a, b); if (b.n > 5 && q < bdd) { bdd = q; bl = b; } });
+      if (bdd < 1e9) {
+        a.st = 'forage';
+        if (bdd > 10) moveNpc(g, a, sp, bearing(a.x, a.z, bl.x, bl.z), sp.speed, bl.d, { turn: 75 });
+        else {
+          if (rnd(g) < 0.01) bl.n--;
+          // Continue a slow feeding pass instead of hovering indefinitely.
+          moveNpc(g, a, sp, a.h + 7, sp.speed * .45, bl.d, { turn: 55 });
+        }
+        return;
+      }
     }
-    if (threat && !asleep) { a.st = 'flee'; a.tm = 20; moveNpc(g, a, sp, norm360(bearing(a.x, a.z, threat.x, threat.z) + 180), sp.flee, a.d, { turn: 165 }); return; }
-    if (a.st === 'flee' && a.tm > 0) { a.tm--; moveNpc(g, a, sp, a.h, sp.flee * 0.8, a.d); return; }
-    a.st = 'idle';
-    if (asleep || (sp.buried && Math.sin(g.tick * 0.05 + a.ph) < 0.7)) { a.spd = 0; return; }
+    if (asleep) { a.st = 'sleep'; a.spd = 0; return; }
+    if (sp.buried && Math.sin(g.tick * 0.05 + a.ph) < 0.7) { a.st = 'camo'; a.spd = 0; return; }
+    a.st = 'roam';
     var far = distH(a, { x: a.hx, z: a.hz }) > 32, want = far ? bearing(a.x, a.z, a.hx, a.hz) : norm360(a.h + Math.sin(g.tick * 0.07 + a.ph) * 20 + (rnd(g) - 0.5) * 35);
-    var onB = sp.habitat.zone === 'bottom' || sp.habitat.zone === 'reef' || sp.habitat.zone === 'seagrass' || sp.buried;
+    var onB = sp.habitat.zone === 'bottom' || sp.buried || a.sp === 'seahorse' || a.sp === 'starfish' || a.sp === 'nudibranch';
     moveNpc(g, a, sp, want, sp.speed * (0.55 + rnd(g) * 0.45), onB ? floorAt(a.x, a.z) - 0.4 : a.hd + Math.sin(g.tick * 0.04 + a.ph) * 2.5, { onBottom: onB, turn: 85 });
   }
 
@@ -1959,7 +1999,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
     var prey = a.sat > 0 ? null : detectPrey(g, a, sp, g.fish);
     if (!prey && a.sat <= 0 && a.tg) {
       var stT = findTarget(g, a.tg);
-      if (stT && stT.o.alive && (!stT.o.n || stT.o.n > 0) && dist3(a, stT.o) < sp.prey.range * 1.6) prey = stT.o;
+      if (stT && stT.o !== a && stT.o.sp !== a.sp && stT.o.alive && (stT.o.n === undefined || stT.o.n > 0) && dist3(a, stT.o) < sp.prey.range * 1.6) prey = stT.o;
     }
     if (!prey && a.sat <= 0 && g._prey && ((g.tick + a.ph) & 3) === 0) {
       prey = detectPrey(g, a, sp, g._prey, true);
@@ -2092,9 +2132,9 @@ var OC = globalThis.OC || (globalThis.OC = {});
     if (a.sprint > 0) { a.sprint--; if (a.sprint === 0) a.tired = sp.tiredT; } else if (a.tired > 0) a.tired--;
     if (a.sat > 0) {
       a.sat--; a.st = 'rest'; a.tg = null;
-      var rp = sp.rest;
-      if (distH(a, { x: rp[0], z: rp[1] }) > 12) moveNpc(g, a, sp, bearing(a.x, a.z, rp[0], rp[1]), sp.speed * 0.65, rp[2]);
-      else moveNpc(g, a, sp, a.h + 6, 0.7, rp[2], { turn: 40 });
+      var restWaypoints = sp.waypoints, restWp = restWaypoints[a.wp % restWaypoints.length];
+      if (distH(a, { x: restWp[0], z: restWp[1] }) < 18) { a.wp = (a.wp + 1) % restWaypoints.length; restWp = restWaypoints[a.wp]; }
+      moveNpc(g, a, sp, bearing(a.x, a.z, restWp[0], restWp[1]), sp.speed * 0.65, restWp[2], { turn: 55 });
       return;
     }
     var prey;
@@ -2105,7 +2145,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
       prey = detectPrey(g, a, sp, g.fish, false);
       if (!prey && a.tg) {
         var stS = findTarget(g, a.tg);
-        if (stS && stS.o.alive && (!stS.o.n || stS.o.n > 0) && dist3(a, stS.o) < pr.range * 1.6) {
+        if (stS && stS.o !== a && stS.o.sp !== a.sp && stS.o.alive && (stS.o.n === undefined || stS.o.n > 0) && dist3(a, stS.o) < pr.range * 1.6) {
           var sSp = stS.o.sp ? SP[stS.o.sp] : null;
           if (!sSp || (sSp.kind !== 'shark' && sSp.kind !== 'kraken')) prey = stS.o;
         }
@@ -2194,10 +2234,27 @@ var OC = globalThis.OC || (globalThis.OC = {});
   // ── Filter-feeders & Massive Humpback Whale + Calf ───────────────────────
   function stepPasser(g, a, sp) {
     if (a.sp === 'whale' || a.sp === 'whale calf') return stepWhale(g, a, sp);
+    // Alternate feeding passes and longer travel between patches. This prevents
+    // filter feeders from endlessly orbiting a single regenerating cloud.
+    if (a.feedRest > 0) {
+      a.feedRest--; a.st = 'cruise';
+      if (!a.feedWaypoint || distH(a, a.feedWaypoint) < 12) {
+        var dest = spawnPos(g, sp, Math.floor(rnd(g) * 6));
+        a.feedWaypoint = { x: dest.x, z: dest.z, d: dest.d };
+      }
+      moveNpc(g, a, sp, bearing(a.x, a.z, a.feedWaypoint.x, a.feedWaypoint.z), sp.speed, a.feedWaypoint.d, { turn: 35 });
+      return;
+    }
     var bp = null, bd = 1e9;
     g.plankton.forEach(function (p) { var q = dist3(a, p); if (p.amt > 20 && q < bd) { bd = q; bp = p; } });
-    if (bp && bd > 7) moveNpc(g, a, sp, bearing(a.x, a.z, bp.x, bp.z), sp.speed, bp.d, { turn: 35 });
-    else { if (bp) bp.amt = Math.max(0, bp.amt - 0.06); moveNpc(g, a, sp, a.h + 5, sp.speed * 0.78, a.d + Math.sin(g.tick * 0.04 + a.ph) * 1.5, { turn: 35 }); }
+    if (bp && a.feedTarget !== bp.id) { a.feedTarget = bp.id; a.feedT = 0; }
+    if (bp && bd > 7) { a.st = 'forage'; moveNpc(g, a, sp, bearing(a.x, a.z, bp.x, bp.z), sp.speed, bp.d, { turn: 35 }); }
+    else {
+      if (bp) { bp.amt = Math.max(0, bp.amt - 0.06); a.st = 'feeding'; a.feedT = (a.feedT || 0) + 1; }
+      else { a.st = 'cruise'; a.feedT = 0; }
+      moveNpc(g, a, sp, a.h + 5, sp.speed * 0.78, a.d + Math.sin(g.tick * 0.04 + a.ph) * 1.5, { turn: 35 });
+      if (a.feedT >= 100) { a.feedT = 0; a.feedTarget = null; a.feedRest = 120; a.feedWaypoint = null; }
+    }
   }
   function whaleEvent(g, a, txt, key, range) { for (var i = 0; i < g.fish.length; i++) { var f = g.fish[i]; if (f.alive && dist3(f, a) < range) ev(f, key, txt); } }
   function stepWhale(g, a, sp) {
@@ -2250,6 +2307,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
   }
 
   function stepDrift(g, a, sp) {
+    a.st = 'drift';
     var cur = OC.currentAt(a.x, a.z, a.d);
     var nx = clamp(a.x + cur.x * DT * 0.6 + (rnd(g) - 0.5) * 0.05, 48, OC.W - 48);
     var nz = clamp(a.z + cur.z * DT * 0.6 + (rnd(g) - 0.5) * 0.05, 48, OC.L - 48);
@@ -2261,10 +2319,16 @@ var OC = globalThis.OC || (globalThis.OC = {});
   function stepNpcs(g) {
     var i, j;
     // Fast per-tick caches for hunters & packs
-    g._schools = []; g._preds = []; g._prey = [];
+    g._schools = []; g._preds = []; g._prey = []; g._schoolThreats = {};
+    function indexThreat(q) {
+      var key = Math.floor(q.x / 32) + ',' + Math.floor(q.z / 32);
+      (g._schoolThreats[key] || (g._schoolThreats[key] = [])).push(q);
+    }
+    for (i = 0; i < g.fish.length; i++) if (g.fish[i].alive) indexThreat(g.fish[i]);
     for (i = 0; i < g.npcs.length; i++) {
       var q = g.npcs[i]; if (!q.alive) continue;
       var qsp = SP[q.sp];
+      if (qsp.size >= 0.4 && qsp.kind !== 'static' && qsp.kind !== 'drift') indexThreat(q);
       if (qsp.kind === 'school') { g._schools.push(q); if (q.n > 0 && qsp.size >= 0.12) g._prey.push(q); }
       else if (qsp.kind === 'shark' || qsp.kind === 'hunter' || qsp.kind === 'pack' || qsp.kind === 'kraken') {
         g._preds.push(q);
@@ -2347,7 +2411,7 @@ var OC = globalThis.OC || (globalThis.OC = {});
       g.npcs.forEach(function (o) { if (o.sp === 'orca') { o.alive = false; o.rt = 0; } });
       addFeed(g, 'the orcas have moved on');
     }
-    delete g._schools; delete g._preds; delete g._prey;
+    delete g._schools; delete g._preds; delete g._prey; delete g._schoolThreats;
   }
 
   OC.stepOnce = function (g) {
